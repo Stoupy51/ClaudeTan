@@ -10,7 +10,7 @@ Personnage tiré de la vidéo https://www.youtube.com/watch?v=_m38WbRlzv0 (Brigh
 | Sujet | Choix |
 | :- | :- |
 | Mot d'activation | Whisper transcrit chaque phrase et une regex repère "Hey Claude" (FR et EN). Un vrai modèle de mot d'activation viendra plus tard. Le GPU travaille dès que quelqu'un parle près du micro, vidéos comprises. |
-| Réponse | Bulle de texte et voix (TTS), la voix se coupe dans la config. |
+| Réponse | Bulle de texte et voix (TTS). La voix parle japonais par défaut, sous-titrée par la bulle. Sa langue se règle dans la config, où elle se coupe aussi. Voir [Voix japonaise](#voix-japonaise). |
 | Permissions | Session en `--permission-mode auto`. Ce que le classifieur bloque passe par Claude-tan ou par le Remote Control. |
 | Conversation | Persistante (`claude --continue`), compactée (`/compact`) à l'arrêt de l'app et après 55 min sans activité. |
 | Modèles | Tâches compliquées confiées à Opus 5.5 par défaut. Session principale sur un modèle rapide, Sonnet 5.5 proposé. Les deux se règlent dans la config, voir [Modèle](#modèle). |
@@ -33,17 +33,22 @@ Un registre d'actions Python, chacune avec un nom, une description, ses paramèt
 
 - capture de l'écran 1 ou 2 (mss), analysée par un modèle de vision local ou par Claude selon la config ;
 - raccourci clavier, par exemple Alt+F10 pour l'enregistrement instantané ShadowPlay (à tester : NVIDIA accepte-t-il une touche simulée par SendInput) ;
-- lancer une app, météo du jour (Open-Meteo, sans clé), volume et lecture média, minuteur.
+- lancer une app, météo du jour (Open-Meteo, sans clé), volume et lecture média, minuteur ;
+- pouvoir savoir l'usage actuel (session, weekly, et détails des tokens : /usage et /recap).
 
 Un routeur choisit qui répond, du moins cher au plus cher : des règles exactes pour les phrases connues, puis un petit modèle local avec appel de fonctions via Ollama (déjà installé ; Qwen3 4B ou équivalent tient en 3 Go de VRAM environ à côté de Whisper), puis Claude pour tout le reste. Claude appelle les mêmes actions par un serveur MCP local, donc chaque outil ajouté sert aux deux.
 
 ### Auto-amélioration
 
-La session cachée travaille dans le repo ClaudeTan. "Crée-toi un outil pour X" devient une nouvelle action que Claude écrit dans le registre, avec sa description et un test, validée par ruff, pyright et stouputils check. Un `CLAUDE.md` explique à la session comment faire. L'app recharge le registre à chaud et ne se relance, en reprenant la session, que si son cœur a changé. À décider : changements laissés à relire, ou commités sur une branche dédiée pour pouvoir les annuler.
+La session cachée travaille dans le repo ClaudeTan. "Crée-toi un outil pour X" devient une nouvelle action que Claude écrit dans le registre, avec sa description et un test, validée par ruff, pyright et stouputils check. Un `CLAUDE.md` explique à la session comment faire. L'app recharge le registre à chaud et ne se relance, en reprenant la session, que si son cœur a changé. Le mode se règle dans la config : changements laissés à relire, commités sur une branche dédiée, ou "auto-suffisant", commités directement sur main sans relecture. `~/.claude/CLAUDE.md` interdit de commiter sans demande : l'app donne donc le mode à la session cachée par `--append-system-prompt`, et non dans le CLAUDE.md du repo, que lisent aussi les sessions de développement.
 
 ### Depuis l'iPhone
 
 Possible dès le MVP, sans serveur. Grâce au Remote Control, l'app Claude iOS parle déjà à la session cachée (texte ou dictée), avec tous ses outils locaux. Claude Code envoie aussi des notifications push au téléphone à la fin d'une tâche longue ou quand il faut décider (`/config` : "Push when Claude decides" et "Push when actions required"). Pour avoir la voix et l'avatar sur le téléphone, piste à creuser : une page web servie par l'app et joignable via Tailscale (réseau privé, rien d'ouvert sur Internet) plutôt qu'un serveur public.
+
+### Voix japonaise
+
+Pour l'immersion, Claude-tan parle japonais par défaut, même quand la bulle est dans une autre langue : la bulle sert alors de sous-titres. Quand la langue de la voix diffère de celle de la bulle, un modèle local traduit le texte, sans quota Claude : TranslateGemma 4B (Ollama, 3,3 Go), spécialisé dans la traduction, ou le modèle du routeur pour ne garder qu'un modèle en VRAM. En japonais, la voix vient de VOICEVOX, un moteur local aux voix d'anime piloté par une API HTTP. Il donne aussi la durée de chaque voyelle, donc la bouche peut suivre les voyelles plutôt que l'amplitude. AivisSpeech offre la même API avec des voix plus naturelles, mais sans ces durées. Les autres langues passent par les voix Edge.
 
 ## Architecture
 
@@ -96,7 +101,7 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 2. Voix et contrôle
 
-- [ ] TTS Edge (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), désactivable, bouche synchronisée sur l'amplitude.
+- [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX, bouche sur les voyelles. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
 - [ ] Commandes vocales "stop", "annule", "passe en Opus" (`/model opus`).
 - [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
 
@@ -111,7 +116,7 @@ Ce que montre Claude-tan à chaque étape :
 
 - [ ] `CLAUDE.md` du repo qui explique à la session comment ajouter une action, avec son test et les contrôles.
 - [ ] Rechargement à chaud du registre, et relance de l'app avec reprise de la session quand son cœur change.
-- [ ] Choisir entre changements à relire et commits sur une branche dédiée.
+- [ ] Mode dans la config : à relire, branche dédiée ou auto-suffisant (commits directs sur main), transmis à la session par `--append-system-prompt`.
 
 ### 5. Avatar
 
