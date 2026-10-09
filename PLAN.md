@@ -68,7 +68,7 @@ Les hooks donnent l'état de la session, l'état choisit l'expression :
 
 - [ ] Expressions manquantes : travaille, réfléchit de face, triste ou erreur. Piste spéculative : éditer `idle` avec un modèle d'édition d'image (FLUX Kontext, Qwen-Image-Edit), puis passer le résultat dans le pipeline.
 - [ ] Clignement et bouche sur toutes les poses, pas seulement `idle` et `hello`.
-- [ ] Ranger le pipeline de sprites dans `tools/sprites/` pour pouvoir ajouter des expressions.
+- [x] Pipeline de sprites dans `tools/sprites/`, pour pouvoir ajouter des expressions.
 
 ### 4. Plus tard
 
@@ -77,7 +77,7 @@ Les hooks donnent l'état de la session, l'état choisit l'expression :
 
 ## Sprites
 
-`assets/claude/` contient 16 PNG de 850x608 px. Dans toutes les images de face, les iris tombent sur les mêmes pixels à 0,3 px près : gauche (382,4 ; 288,9), droit (467,6 ; 271,1). `point` regarde de côté, ce sont donc ses yeux et non ses iris qui sont alignés.
+`assets/claude/` contient 16 PNG de 850x608 px. Dans toutes les images de face, les iris tombent sur les mêmes pixels à 0,4 px près : gauche (382,4 ; 288,9), droit (467,6 ; 271,1). `point` regarde de côté, ce sont donc ses yeux et non ses iris qui sont alignés.
 
 | Sprite | Image source (vidéo à 30 images/s) | Usage |
 | :- | :- | :- |
@@ -103,7 +103,7 @@ Le pipeline, dans l'ordre :
 5. Reflets violets des néons repeints couleur cheveux, puis couleurs ramenées sur celles d'`idle`, peau, cheveux et reste séparément.
 6. Bouches et yeux greffés sur la pose de base après un alignement local.
 
-Les scripts (`kit.py`, `build.py`, `color.py`, `rig.py`, `verify.py`) sont dans le dossier temporaire de Claude Code, `%TEMP%\claude\d--advanced-desktop-ClaudeTan\2d8c2515-c16e-4d3d-9d4d-c4461e549943\scratchpad\tools`. La vidéo 4K, son environnement Python (torch) et le modèle de visage anime sont dans `%TEMP%\claude\d--advanced-desktop-ClaudeAssist\0b8c00f0-0796-4834-b828-b23e6e3d1148\scratchpad`. Windows peut vider ces dossiers : l'étape 3 les rapatrie.
+Le pipeline est dans `tools/sprites/`, un projet uv à part qui garde torch hors de l'app. `uv run build.py` dans ce dossier régénère `assets/claude/` en 3 min (ffmpeg et node sur le PATH, GPU CUDA) et affiche l'écart de chaque iris à sa cible. La vidéo, les images décodées, les poids des modèles et les détourages sont gardés dans `tools/sprites/.work/`, ignoré par git. Ajouter une expression revient à ajouter une ligne à `POSES` ou à `RIGS` dans `build.py`.
 
 ## Modèle
 

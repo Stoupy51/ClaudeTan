@@ -1,0 +1,33 @@
+[project]
+name = "claudetan-sprites"
+version = "0.0.0"
+description = "Extracts the Claude-tan sprites from the source video"
+requires-python = ">=3.14"
+dependencies = [
+	"einops",
+	"huggingface-hub",
+	"kornia",
+	"numpy",
+	"opencv-python<5",
+	"spandrel",
+	"timm",
+	"torch",
+	"torchvision",
+	"transformers",
+	"yt-dlp",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.pyright]
+typeCheckingMode = "strict"
