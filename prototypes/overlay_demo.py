@@ -1,10 +1,11 @@
 """ Overlay spike: the avatar pops up in the bottom-right corner, plays through her expressions, blinks and moves her mouth.
 
 A click opens the Remote Control session, a long press lets you drag her somewhere else.
-Run with `uv run prototypes/overlay_demo.py`, close with a right click.
+Run with `uv run prototypes/overlay_demo.py`, close with a right click or Ctrl+C.
 """
 # Imports
 import random
+import signal
 import sys
 import webbrowser
 from dataclasses import dataclass
@@ -18,7 +19,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 # Constants
 ASSETS: Path = Path(__file__).resolve().parent.parent / "assets" / "claude"
 SPRITE_HEIGHT: int = 400
-""" Display height of the idle pose; every sprite gets the same scale so her face never jumps. """
+""" Display height of the sprites, which all share one canvas with her eyes on the same pixels. """
 BUBBLE_WIDTH: int = 250
 SPRITE_TOP: int = 24
 FACE_Y: float = 0.49
@@ -29,8 +30,8 @@ CLICK_SLOP: int = 6
 REMOTE_URL: str = "https://claude.ai/code"
 """ The real app opens the URL of the session it hosts, read from the hidden Claude Code terminal. """
 TALK_FRAMES: dict[str, tuple[str, ...]] = {
-	"idle": ("idle", "idle_talk_wide", "idle_talk_o"),
-	"hello": ("hello", "hello_o"),
+	"idle": ("idle", "idle_talk_open", "idle_talk_o", "idle_talk_wide"),
+	"hello": ("hello", "hello_talk_open", "hello_talk_o", "hello_talk_wide"),
 }
 """ Mouth frames of the poses that can talk. """
 
@@ -51,12 +52,9 @@ class Avatar(QWidget):
 		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 		self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 		ratio = QGuiApplication.primaryScreen().devicePixelRatio()
-		scale = SPRITE_HEIGHT * ratio / QPixmap(str(ASSETS / "idle.png")).height()
 		self.sprites: dict[str, QPixmap] = {}
 		for path in ASSETS.glob("*.png"):
-			source = QPixmap(str(path))
-			size = (round(source.width() * scale), round(source.height() * scale))
-			pixmap = source.scaled(*size, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
+			pixmap = QPixmap(str(path)).scaledToHeight(round(SPRITE_HEIGHT * ratio), Qt.TransformationMode.SmoothTransformation)
 			pixmap.setDevicePixelRatio(ratio)
 			self.sprites[path.stem] = pixmap
 		self.sprite_width = round(self.sprites["idle"].width() / ratio)
@@ -193,16 +191,16 @@ class Avatar(QWidget):
 
 class Demo:
 	BEATS: ClassVar[list[Beat]] = [
-		Beat(expression="hello",           bubble="Coucou ! Tu m'as appelée ?",                duration_ms=2600, talking=True),
-		Beat(expression="idle",            bubble="",                                          duration_ms=3000),
-		Beat(expression="idle",            bubble="Je regarde ça tout de suite...",            duration_ms=3200, talking=True),
-		Beat(expression="closeup_curious", bubble="Hmm, laisse-moi réfléchir.",                duration_ms=2400),
-		Beat(expression="present",         bubble="Voilà, c'est fait !",                       duration_ms=2200),
-		Beat(expression="please",          bubble="J'ai besoin de ton accord pour continuer.", duration_ms=3000),
-		Beat(expression="thanks",          bubble="Merci !",                                   duration_ms=1800),
-		Beat(expression="surprised",       bubble="Oh !",                                      duration_ms=1500),
-		Beat(expression="happy",           bubble="",                                          duration_ms=1800),
-		Beat(expression="point",           bubble="Clique sur moi pour ouvrir la session.",    duration_ms=3000),
+		Beat(expression="hello",     bubble="Coucou ! Tu m'as appelée ?",                duration_ms=2600, talking=True),
+		Beat(expression="idle",      bubble="",                                          duration_ms=3000),
+		Beat(expression="idle",      bubble="Je regarde ça tout de suite...",            duration_ms=3200, talking=True),
+		Beat(expression="point",     bubble="Hmm, laisse-moi réfléchir.",                duration_ms=2400),
+		Beat(expression="present",   bubble="Voilà, c'est fait !",                       duration_ms=2200),
+		Beat(expression="please",    bubble="J'ai besoin de ton accord pour continuer.", duration_ms=3000),
+		Beat(expression="thanks",    bubble="Merci !",                                   duration_ms=1800),
+		Beat(expression="surprised", bubble="Oh !",                                      duration_ms=1500),
+		Beat(expression="happy",     bubble="",                                          duration_ms=1800),
+		Beat(expression="stand",     bubble="Clique sur moi pour ouvrir la session.",    duration_ms=3000),
 	]
 
 	def __init__(self, avatar: Avatar) -> None:
@@ -227,6 +225,8 @@ class Demo:
 
 # Functions
 def main() -> None:
+	# Qt's event loop never hands control back to Python's KeyboardInterrupt, so let Ctrl+C end the process directly
+	signal.signal(signal.SIGINT, signal.SIG_DFL)
 	app = QApplication(sys.argv)
 	demo = Demo(Avatar())
 	demo.restart()
