@@ -21,7 +21,7 @@ type Audio = np.ndarray[tuple[int], np.dtype[np.float32]]
 RATE: int = 16000
 FRAME: int = 512
 """ Samples per VAD step, the window Silero expects at 16 kHz (32 ms). """
-WAKE: re.Pattern[str] = re.compile(r"^\W*(?:hey|hé|he|eh|et|dis|ok|okay)\W+(?:claude|clode|clod)\b[\s,.!?]*(.*)", re.IGNORECASE)
+WAKE: re.Pattern[str] = re.compile(r"^\W*(?:hey|hé|he|eh|et|dis|ok|okay)\W+(?:claude|clode|clod|clodo|clown)\b[\s,.!?]*(.*)", re.IGNORECASE)
 """ Wake phrase at the start of an utterance as Whisper spells it, "Hé Claude" often coming out as "Et Claude".
 
 Group 1 is the command said in the same breath.
