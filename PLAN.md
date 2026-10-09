@@ -34,13 +34,15 @@ Un registre d'actions Python, chacune avec un nom, une description, ses paramèt
 - capture de l'écran 1 ou 2 (mss), analysée par un modèle de vision local ou par Claude selon la config ;
 - raccourci clavier, par exemple Alt+F10 pour l'enregistrement instantané ShadowPlay (à tester : NVIDIA accepte-t-il une touche simulée par SendInput) ;
 - lancer une app, météo du jour (Open-Meteo, sans clé), volume et lecture média, minuteur ;
-- pouvoir savoir l'usage actuel (session, weekly, et détails des tokens : /usage et /recap).
+- usage du forfait (fenêtre de 5 h, semaine) et tokens de la session, lus dans les données de la statusline (voir [Notes techniques](#notes-techniques)).
 
 Un routeur choisit qui répond, du moins cher au plus cher : des règles exactes pour les phrases connues, puis un petit modèle local avec appel de fonctions via Ollama (déjà installé ; Qwen3 4B ou équivalent tient en 3 Go de VRAM environ à côté de Whisper), puis Claude pour tout le reste. Claude appelle les mêmes actions par un serveur MCP local, donc chaque outil ajouté sert aux deux.
 
 ### Auto-amélioration
 
-La session cachée travaille dans le repo ClaudeTan. "Crée-toi un outil pour X" devient une nouvelle action que Claude écrit dans le registre, avec sa description et un test, validée par ruff, pyright et stouputils check. Un `CLAUDE.md` explique à la session comment faire. L'app recharge le registre à chaud et ne se relance, en reprenant la session, que si son cœur a changé. Le mode se règle dans la config : changements laissés à relire, commités sur une branche dédiée, ou "auto-suffisant", commités directement sur main sans relecture. `~/.claude/CLAUDE.md` interdit de commiter sans demande : l'app donne donc le mode à la session cachée par `--append-system-prompt`, et non dans le CLAUDE.md du repo, que lisent aussi les sessions de développement.
+La session cachée travaille dans le repo ClaudeTan. "Crée-toi un outil pour X" devient une nouvelle action que Claude écrit dans le registre, avec sa description et un test, validée par ruff, pyright et stouputils check. Un `CLAUDE.md` explique à la session comment faire. L'app recharge le registre à chaud et ne se relance, en reprenant la session, que si son cœur a changé. Un lanceur minimal surveille cette relance : si l'app plante juste après un changement, il annule ce changement (`git stash` ou `git revert`), relance l'app et prévient, sans quoi l'assistant cassé ne pourrait plus se réparer lui-même.
+
+Le mode se règle dans la config : changements laissés à relire, commités sur une branche dédiée, ou "auto-suffisant", commités directement sur main sans relecture. "À relire" reste le défaut tant que le lanceur n'existe pas. `~/.claude/CLAUDE.md` interdit de commiter sans demande : l'app donne donc le mode à la session cachée par `--append-system-prompt`, et non dans le CLAUDE.md du repo, que lisent aussi les sessions de développement.
 
 ### Depuis l'iPhone
 
@@ -48,7 +50,9 @@ Possible dès le MVP, sans serveur. Grâce au Remote Control, l'app Claude iOS p
 
 ### Voix japonaise
 
-Pour l'immersion, Claude-tan parle japonais par défaut, même quand la bulle est dans une autre langue : la bulle sert alors de sous-titres. Quand la langue de la voix diffère de celle de la bulle, un modèle local traduit le texte, sans quota Claude : TranslateGemma 4B (Ollama, 3,3 Go), spécialisé dans la traduction, ou le modèle du routeur pour ne garder qu'un modèle en VRAM. En japonais, la voix vient de VOICEVOX, un moteur local aux voix d'anime piloté par une API HTTP. Il donne aussi la durée de chaque voyelle, donc la bouche peut suivre les voyelles plutôt que l'amplitude. AivisSpeech offre la même API avec des voix plus naturelles, mais sans ces durées. Les autres langues passent par les voix Edge.
+Pour l'immersion, Claude-tan parle japonais par défaut, même quand la bulle est dans une autre langue : la bulle sert alors de sous-titres. Quand la langue de la voix diffère de celle de la bulle, un modèle local traduit le texte, sans quota Claude : TranslateGemma 4B (Ollama, 3,3 Go), spécialisé dans la traduction, ou le modèle du routeur si la VRAM manque, puisque les 12 Go de la RTX 3060 servent aussi à Whisper, au routeur et aux jeux. Sur une longue réponse, la voix ne dit que les premières phrases et jamais le code : traduire tout le texte avec un modèle de 4B serait lent et approximatif.
+
+En japonais, la voix vient de VOICEVOX, un moteur local aux voix d'anime piloté par une API HTTP. Il donne aussi la durée de chaque voyelle, donc la bouche peut suivre les voyelles plutôt que l'amplitude. AivisSpeech offre la même API avec des voix plus naturelles, mais sans ces durées. Edge n'a que deux voix japonaises (Nanami et Keita), sans style anime, et sert aux autres langues.
 
 ## Architecture
 
@@ -101,13 +105,13 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 2. Voix et contrôle
 
-- [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX, bouche sur les voyelles. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
+- [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX, bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
 - [ ] Commandes vocales "stop", "annule", "passe en Opus" (`/model opus`).
 - [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
 
 ### 3. Actions locales
 
-- [ ] Registre d'actions et premières actions : capture de l'écran 1 ou 2, raccourcis clavier (Alt+F10 pour ShadowPlay), lancer une app, météo, volume et média, minuteur.
+- [ ] Registre d'actions et premières actions : capture de l'écran 1 ou 2, raccourcis clavier (Alt+F10 pour ShadowPlay), lancer une app, météo, volume et média, minuteur, usage du forfait.
 - [ ] Routeur : règles exactes, puis petit modèle local via Ollama, puis Claude.
 - [ ] Analyse d'une capture par un modèle de vision local ou par Claude, au choix dans la config.
 - [ ] Serveur MCP local pour que Claude appelle les mêmes actions.
@@ -116,7 +120,8 @@ Ce que montre Claude-tan à chaque étape :
 
 - [ ] `CLAUDE.md` du repo qui explique à la session comment ajouter une action, avec son test et les contrôles.
 - [ ] Rechargement à chaud du registre, et relance de l'app avec reprise de la session quand son cœur change.
-- [ ] Mode dans la config : à relire, branche dédiée ou auto-suffisant (commits directs sur main), transmis à la session par `--append-system-prompt`.
+- [ ] Lanceur qui annule le dernier changement et relance l'app quand elle plante juste après.
+- [ ] Mode dans la config : à relire (défaut tant que le lanceur manque), branche dédiée ou auto-suffisant (commits directs sur main), transmis à la session par `--append-system-prompt`.
 
 ### 5. Avatar
 
@@ -184,6 +189,7 @@ Les quatre acceptent le mode `auto`. Les demandes simples ne consomment rien : l
 - Retirer les variables d'une session imbriquée (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_PID`) avant de lancer `claude`.
 - Répondre `\r` au dialogue de confiance du dossier. Pour envoyer un prompt : le taper, attendre 0,4 s, puis `\r`.
 - Hooks `type: "http"` déclarés dans un fichier passé par `--settings`. `SessionStart` ne s'est pas déclenché en HTTP pendant les tests.
+- Statusline : sa commande, déclarée dans le même fichier `--settings` que les hooks, reçoit en JSON `rate_limits.five_hour` et `rate_limits.seven_day` (`used_percentage`, `resets_at`), `cost.total_cost_usd` et `context_window`, et les transmet à l'app. `rate_limits` n'apparaît qu'après la première réponse de la session et ne change qu'à ses réponses, alors que la limite est partagée avec claude.ai et les autres sessions : `/usage` (alias `/cost` et `/stats`) donne le chiffre frais.
 - Channels exige `--dangerously-load-development-channels`, qui pose une question interactive : inutilisable en session cachée pour l'instant.
 - Whisper : `large-v3-turbo` (0,5 s) ou `small` (0,2 s) en `int8_float16` sur CUDA, `beam_size=1`, `condition_on_previous_text=False`, audio passé en numpy (le décodage par PyAV plante).
 - Silero VAD : trames de 512 échantillons à 16 kHz, sortie 1-D.
