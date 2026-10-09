@@ -13,30 +13,63 @@ Personnage tiré de la vidéo https://www.youtube.com/watch?v=_m38WbRlzv0 (Brigh
 | Réponse | Bulle de texte et voix (TTS), la voix se coupe dans la config. |
 | Permissions | Session en `--permission-mode auto`. Ce que le classifieur bloque passe par Claude-tan ou par le Remote Control. |
 | Conversation | Persistante (`claude --continue`), compactée (`/compact`) à l'arrêt de l'app et après 55 min sans activité. |
-| Modèle | A décider, voir [Modèle](#modèle). Proposition : Sonnet 5.5 par défaut, Opus 5.5 à la demande. |
+| Modèles | Tâches compliquées confiées à Opus 5.5 par défaut. Session principale sur un modèle rapide, Sonnet 5.5 proposé. Les deux se règlent dans la config, voir [Modèle](#modèle). |
 
 Les 55 min viennent du cache de prompt, qui dure 1 h sur abonnement. `/compact` relit toute la conversation : tant que le cache est chaud, cette lecture coûte le tarif réduit du cache.
 
+## Fonctionnalités
+
+### Retour immédiat
+
+Chaque demande doit être visiblement prise en compte tout de suite, puis suivie jusqu'au bout, même quand Claude part sur un gros chantier : son et apparition dès le mot d'activation, phrase comprise dans la bulle, action en cours, pastille discrète pendant une tâche longue, notification à la fin. Le détail par événement est dans [Architecture](#architecture).
+
+### Opus pour les tâches compliquées
+
+La session principale délègue les tâches compliquées (code, recherche, plusieurs étapes) à un sous-agent défini dans `.claude/agents/` avec `model: opus`. C'est la description du sous-agent qui dit à la session quand déléguer. Le sous-agent tourne en arrière-plan, la session reste libre pour les petites demandes, et `SubagentStart` / `SubagentStop` alimentent le retour immédiat.
+
+### Actions simples sans quota Claude
+
+Un registre d'actions Python, chacune avec un nom, une description, ses paramètres et des exemples de phrases :
+
+- capture de l'écran 1 ou 2 (mss), analysée par un modèle de vision local ou par Claude selon la config ;
+- raccourci clavier, par exemple Alt+F10 pour l'enregistrement instantané ShadowPlay (à tester : NVIDIA accepte-t-il une touche simulée par SendInput) ;
+- lancer une app, météo du jour (Open-Meteo, sans clé), volume et lecture média, minuteur.
+
+Un routeur choisit qui répond, du moins cher au plus cher : des règles exactes pour les phrases connues, puis un petit modèle local avec appel de fonctions via Ollama (déjà installé ; Qwen3 4B ou équivalent tient en 3 Go de VRAM environ à côté de Whisper), puis Claude pour tout le reste. Claude appelle les mêmes actions par un serveur MCP local, donc chaque outil ajouté sert aux deux.
+
+### Auto-amélioration
+
+La session cachée travaille dans le repo ClaudeTan. "Crée-toi un outil pour X" devient une nouvelle action que Claude écrit dans le registre, avec sa description et un test, validée par ruff, pyright et stouputils check. Un `CLAUDE.md` explique à la session comment faire. L'app recharge le registre à chaud et ne se relance, en reprenant la session, que si son cœur a changé. À décider : changements laissés à relire, ou commités sur une branche dédiée pour pouvoir les annuler.
+
+### Depuis l'iPhone
+
+Possible dès le MVP, sans serveur. Grâce au Remote Control, l'app Claude iOS parle déjà à la session cachée (texte ou dictée), avec tous ses outils locaux. Claude Code envoie aussi des notifications push au téléphone à la fin d'une tâche longue ou quand il faut décider (`/config` : "Push when Claude decides" et "Push when actions required"). Pour avoir la voix et l'avatar sur le téléphone, piste à creuser : une page web servie par l'app et joignable via Tailscale (réseau privé, rien d'ouvert sur Internet) plutôt qu'un serveur public.
+
 ## Architecture
 
-Une seule app Python (PySide6) en quatre parties :
+Une seule app Python (PySide6) en six parties :
 
 - **voice** : micro, Silero VAD, faster-whisper sur le GPU, regex du mot d'activation. Produit une commande texte.
+- **router** : décide si la commande est une action locale ou part dans la session (règles exactes, puis petit modèle local).
+- **actions** : le registre d'actions, utilisé par le routeur et, via MCP, par Claude.
 - **session** : Claude Code dans un pseudo-terminal caché (pywinpty) avec `--remote-control` et des hooks HTTP vers l'app. Les commandes y sont tapées comme au clavier.
-- **avatar** : l'overlay, qui traduit l'état de la session en expression, bulle et voix.
+- **avatar** : l'overlay, qui montre où en est la demande par l'expression, la bulle et la voix.
 - **tray** : icône de notification, config TOML, démarrage avec Windows.
 
-Les hooks donnent l'état de la session, l'état choisit l'expression :
+Ce que montre Claude-tan à chaque étape :
 
-| Événement | État | Expression |
-| :- | :- | :- |
-| commande reconnue | écoute | `hello`, puis `idle` |
-| `UserPromptSubmit` | réfléchit | `point` |
-| `PreToolUse`, `PostToolUse` | travaille | `idle` (une expression `working` reste à créer) |
-| `PermissionRequest`, `Notification` de type `permission_prompt` | demande | `please`, puis `thanks` si accepté |
-| `MessageDisplay` | parle | `idle` et bouche animée |
-| `Stop` | terminé | `present` ou `happy` |
-| `StopFailure` | erreur | `surprised` |
+| Événement | Retour |
+| :- | :- |
+| mot d'activation détecté | petit son et apparition en écoute, avant même la transcription |
+| phrase transcrite | la phrase comprise dans la bulle |
+| action locale exécutée | `present` et le résultat |
+| `UserPromptSubmit` | `point` : elle réfléchit |
+| `PreToolUse` | l'action en cours dans la bulle ("écrit main.py"), sans répéter la même |
+| `SubagentStart`, ou tâche de plus de 20 s | elle se réduit en pastille animée dans un coin |
+| `PermissionRequest`, `Notification` de type `permission_prompt` | `please`, puis `thanks` si accepté |
+| `MessageDisplay` | elle parle : `idle`, bouche animée et voix |
+| `Stop`, `SubagentStop` | son, `present` ou `happy`, notification Windows |
+| `StopFailure` | `surprised` et le message d'erreur |
 
 ## Étapes
 
@@ -50,12 +83,15 @@ Les hooks donnent l'état de la session, l'état choisit l'expression :
 ### 1. MVP
 
 - [ ] Une app qui relie voix, session et avatar par une machine à états.
+- [ ] Retour immédiat : son au mot d'activation, phrase dans la bulle, suivi des hooks, pastille pour les tâches longues, notification Windows à la fin.
+- [ ] Sous-agent Opus pour les tâches compliquées, avec les modèles de la session et du sous-agent dans la config.
 - [ ] N'envoyer une commande que si la session est au repos (`Stop` reçu), sinon la mettre en file : taper pendant qu'un dialogue est ouvert casse la session.
 - [ ] Lancer `claude --continue` depuis un dossier dédié, puisque `--continue` reprend la dernière conversation du dossier courant.
 - [ ] Gérer au démarrage le dialogue "reprendre depuis un résumé" que Claude Code affiche sur Pro quand une grosse session reprend après une longue pause.
 - [ ] `/compact` à l'arrêt et après 55 min d'inactivité, seulement quand le contexte est gros (estimé via le `transcript_path` des hooks), car la compaction est elle-même une grosse requête.
 - [ ] Clic sur Claude-tan : ouvrir l'URL de session lue dans le terminal caché.
-- [ ] Config TOML : langue, regex d'activation, modèle, voix on/off, position.
+- [ ] Notifications push du Remote Control activées, pour suivre depuis l'iPhone.
+- [ ] Config TOML : langue, regex d'activation, modèles, voix on/off, position.
 - [ ] Icône de notification et démarrage avec Windows.
 
 ### 2. Voix et contrôle
@@ -64,14 +100,28 @@ Les hooks donnent l'état de la session, l'état choisit l'expression :
 - [ ] Commandes vocales "stop", "annule", "passe en Opus" (`/model opus`).
 - [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
 
-### 3. Avatar
+### 3. Actions locales
+
+- [ ] Registre d'actions et premières actions : capture de l'écran 1 ou 2, raccourcis clavier (Alt+F10 pour ShadowPlay), lancer une app, météo, volume et média, minuteur.
+- [ ] Routeur : règles exactes, puis petit modèle local via Ollama, puis Claude.
+- [ ] Analyse d'une capture par un modèle de vision local ou par Claude, au choix dans la config.
+- [ ] Serveur MCP local pour que Claude appelle les mêmes actions.
+
+### 4. Auto-amélioration
+
+- [ ] `CLAUDE.md` du repo qui explique à la session comment ajouter une action, avec son test et les contrôles.
+- [ ] Rechargement à chaud du registre, et relance de l'app avec reprise de la session quand son cœur change.
+- [ ] Choisir entre changements à relire et commits sur une branche dédiée.
+
+### 5. Avatar
 
 - [ ] Expressions manquantes : travaille, réfléchit de face, triste ou erreur. Piste spéculative : éditer `idle` avec un modèle d'édition d'image (FLUX Kontext, Qwen-Image-Edit), puis passer le résultat dans le pipeline.
 - [ ] Clignement et bouche sur toutes les poses, pas seulement `idle` et `hello`.
 - [x] Pipeline de sprites dans `tools/sprites/`, pour pouvoir ajouter des expressions.
 
-### 4. Plus tard
+### 6. Plus tard
 
+- [ ] Page web pour parler à Claude-tan depuis l'iPhone (voix et avatar), joignable via Tailscale.
 - [ ] Channels (serveur MCP) quand la fonction sortira de la research preview, pour ne plus taper dans le terminal.
 - [ ] Modèle de mot d'activation dédié en FR (livekit-wakeword), pour ne plus réveiller Whisper à chaque phrase.
 
@@ -111,12 +161,12 @@ Sur Pro, la fenêtre de 5 h et la limite hebdomadaire sont communes à claude.ai
 
 | Modèle | Prix API, entrée / sortie ($ par million de tokens) | Pour l'assistant |
 | :- | :- | :- |
-| Haiku 5.5 | à partir de 0,10 / 0,50 | Le plus rapide, fait pour trier et router. Bien pour "ouvre Spotify", trop léger pour du vrai code. |
-| Sonnet 5.5 | 2 / 10 | Rapide et capable : le bon défaut pour un assistant vocal. |
-| Opus 5.5 | 4 / 20 | Défaut de Claude Code sur Pro. Pour les vraies tâches de code, à la demande. |
+| Haiku 5.5 | à partir de 0,10 / 0,50 | Le plus rapide, fait pour trier et router. Option économe pour la session principale, trop léger pour du vrai code. |
+| Sonnet 5.5 | 2 / 10 | Rapide et capable : proposé pour la session principale. |
+| Opus 5.5 | 4 / 20 | Défaut de Claude Code sur Pro. Le sous-agent des tâches compliquées. |
 | Fable 5.1 | 10 / 50 | Longues tâches autonomes, lent, et facturable en crédits d'usage hors abonnement. Pas pour l'assistant. |
 
-Les quatre acceptent le mode `auto`.
+Les quatre acceptent le mode `auto`. Les demandes simples ne consomment rien : le routeur les traite en local avant Claude.
 
 ## Points d'attention
 
