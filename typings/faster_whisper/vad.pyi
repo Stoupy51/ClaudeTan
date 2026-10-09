@@ -1,0 +1,6 @@
+import numpy as np
+
+class SileroVADModel:
+	def __call__(self, audio: np.ndarray[tuple[int], np.dtype[np.float32]]) -> np.ndarray[tuple[int], np.dtype[np.float32]]: ...
+
+def get_vad_model() -> SileroVADModel: ...

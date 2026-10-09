@@ -1,0 +1,16 @@
+from collections.abc import Mapping, Sequence
+
+class PtyProcess:
+	@classmethod
+	def spawn(
+		cls,
+		argv: str | Sequence[str],
+		cwd: str | None = None,
+		env: Mapping[str, str] | None = None,
+		dimensions: tuple[int, int] = (24, 80),
+		backend: int | None = None,
+	) -> PtyProcess: ...
+	def read(self, size: int = 1024) -> str: ...
+	def write(self, s: str) -> int: ...
+	def isalive(self) -> bool: ...
+	def terminate(self, force: bool = False) -> bool: ...
