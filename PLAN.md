@@ -3,7 +3,7 @@
 
 Assistant vocal personnel branché sur l'abonnement Claude (pas l'API). On dit "Hey Claude", une session Claude Code cachée exécute la demande, et Claude-tan apparaît à l'écran pour réagir. Un clic sur elle ouvre le Remote Control, un appui long la déplace.
 
-Personnage tiré de la vidéo https://www.youtube.com/watch?v=_m38WbRlzv0 (Bright Mirror), usage personnel uniquement.
+Personnage tiré de la vidéo https://www.youtube.com/watch?v=_m38WbRlzv0 (Bright Mirror).
 
 ## Décisions
 
@@ -120,9 +120,6 @@ Les quatre acceptent le mode `auto`.
 
 ## Points d'attention
 
-- Le repo est public alors que `assets/claude/` contient l'art de Bright Mirror : passer le repo en privé, ou retirer les PNG du suivi et de l'historique.
-- `prototypes/__pycache__/` est suivi par git et change à chaque lancement : le retirer et ajouter un `.gitignore`.
-- Noms à aligner sur ClaudeTan : `claude-assist` (pyproject), `ClaudeAssist` (QSettings), "Claude Assist" (nom de session), `claude_assist_hooks.json`.
 - Sessions Remote Control de test à archiver sur claude.ai : "ClaudeAssist (test)" et "Claude Assist".
 
 ## Notes techniques

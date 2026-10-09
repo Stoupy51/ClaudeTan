@@ -91,7 +91,7 @@ class Avatar(QWidget):
 		self.update()
 
 	def pop_in(self) -> None:
-		saved = QSettings("ClaudeAssist", "overlay").value("pos")
+		saved = QSettings("ClaudeTan", "overlay").value("pos")
 		area = QGuiApplication.primaryScreen().availableGeometry()
 		target = saved if isinstance(saved, QPoint) else QPoint(area.right() - self.width(), area.bottom() - self.height())
 		self.setWindowOpacity(0)
@@ -181,7 +181,7 @@ class Avatar(QWidget):
 		elif self.dragging:
 			self.dragging = False
 			self.unsetCursor()
-			QSettings("ClaudeAssist", "overlay").setValue("pos", self.pos())
+			QSettings("ClaudeTan", "overlay").setValue("pos", self.pos())
 		self.press_offset = None
 
 	def start_drag(self) -> None:

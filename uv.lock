@@ -101,7 +101,7 @@ wheels = [
 ]
 
 [[package]]
-name = "claude-assist"
+name = "claudetan"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [

@@ -1,5 +1,5 @@
 [project]
-name = "claude-assist"
+name = "claudetan"
 version = "0.0.0"
 description = "Voice-driven Claude Code assistant with an anime avatar overlay"
 requires-python = ">=3.14"
