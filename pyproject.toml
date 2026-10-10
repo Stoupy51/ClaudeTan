@@ -7,7 +7,7 @@ module-root = ""
 
 [project]
 name = "claudetan"
-version = "0.0.0"
+version = "1.0.0"
 description = "Voice-driven Claude Code assistant with an anime avatar overlay"
 keywords = ["claude", "claude-code", "voice-assistant", "avatar", "overlay", "whisper", "pyside6"]
 requires-python = ">=3.14"
