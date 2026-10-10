@@ -72,14 +72,14 @@ Ce que montre Claude-tan à chaque étape :
 | mot d'activation détecté | petit son et apparition en écoute, avant la fin de la phrase : son début est transcrit dès 1,3 s |
 | phrase transcrite | la phrase comprise dans la bulle |
 | action locale exécutée | `present` et le résultat |
-| `UserPromptSubmit` | `point` : elle réfléchit |
-| `PreToolUse` | l'action en cours dans la bulle ("écrit main.py"), sans répéter la même |
+| `UserPromptSubmit` | `thinking` : elle réfléchit |
+| `PreToolUse` | `working` et l'action en cours dans la bulle ("écrit main.py"), sans répéter la même |
 | `SubagentStart`, ou tâche de plus de 20 s | elle se réduit en pastille animée dans un coin |
 | `PermissionRequest`, `Notification` de type `permission_prompt` | `please`, puis `thanks` si accepté |
 | `MessageDisplay` | elle parle : `idle`, bouche animée et voix |
 | `Stop` | son, `present` si des outils ont servi, sinon `happy`. Si un sous-agent tourne encore, elle redevient pastille. |
 | `SubagentStop` | rien : la session annonce le résultat dans le tour qu'elle lance ensuite |
-| `StopFailure` | `surprised` et le type d'erreur |
+| `StopFailure` | `sad` et le type d'erreur |
 
 ## Étapes
 
@@ -109,9 +109,9 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 2. Avatar
 
-- [ ] Expressions manquantes : travaille, réfléchit de face, triste ou erreur. La vidéo n'en a pas d'utilisable : réfléchit (1220) est flou, la main dans les cheveux (3040) et la joie yeux fermés (3080) ont le buste caché par des bulles de chat. Piste : éditer `idle` avec un modèle d'édition d'image (FLUX Kontext, Qwen-Image-Edit), puis passer le résultat dans le pipeline.
-- [x] Clignement sur toutes les poses, avec les yeux fermés de la même image. La bouche ne bouge que sur `idle` et `hello`, les seules poses qui parlent.
-- [x] Bords coupés par le cadre ou le décor fondus sur 90 px, comme le bas : `please` et `thanks` restent plus étroites, leur illustration étant coupée dans la vidéo elle-même.
+- [x] Expressions travaille, réfléchit et triste, et poses `hello`, `present`, `please` et `thanks` redessinées depuis `idle` par Qwen-Image-Edit-2511, pour un style uniforme.
+- [x] Clignement sur toutes les poses, yeux fermés redessinés sur la pose elle-même. La bouche ne bouge que sur `idle` et `hello`, les seules poses qui parlent.
+- [x] Bords coupés par le cadre fondus sur 90 px, comme le bas.
 - [x] Rendu : halo chaud qui respire, apparition avec rebond et gerbe d'étincelles, fondu entre expressions, étincelles quand elle est contente ou présente un résultat, bulle à étiquette dont le texte s'écrit lettre par lettre, pastille en comète.
 - [x] Pipeline de sprites dans `tools/sprites/`, pour pouvoir ajouter des expressions.
 
@@ -143,33 +143,36 @@ Ce que montre Claude-tan à chaque étape :
 
 ## Sprites
 
-`assets/claude/` contient 24 PNG de 850x608 px. Dans toutes les images de face, les iris tombent sur les mêmes pixels à 0,4 px près : gauche (382,4 ; 288,9), droit (467,6 ; 271,1). `point` regarde de côté, ce sont donc ses yeux et non ses iris qui sont alignés.
+`assets/claude/` contient 24 PNG de 850x608 px. Dans toutes les images, les iris tombent sur les mêmes pixels à 0,5 px près : gauche (382,4 ; 288,9), droit (467,6 ; 271,1).
 
-| Sprite | Image source (vidéo à 30 images/s) | Usage |
+| Sprite | Source | Usage |
 | :- | :- | :- |
-| `idle` | 3771 | repos, main sur le coeur |
-| `idle_talk_open`, `idle_talk_o`, `idle_talk_wide` | bouches de 3785, 3789, 3757 | `idle` qui parle |
-| `<pose>_blink`, pour chaque pose | yeux de 1998 | clignement |
-| `happy` | 3764 | grand sourire |
-| `surprised` | 3760 | surprise |
-| `hello` | 72 | salut de la main |
-| `hello_talk_open`, `hello_talk_o`, `hello_talk_wide` | bouches de 93, 82, 67 | `hello` qui parle |
-| `present` | 134, super-résolution x4 | "voilà" |
-| `please` | 5987 | demande, mains jointes |
-| `thanks` | 5979 | merci, mains jointes |
-| `point` | 3512, super-résolution x4 | doigt levé, regard de côté |
-| `stand` | 3489, super-résolution x4 | sourire bouche ouverte |
+| `idle` | image 3771 de la vidéo (30 images/s) | repos, main sur le coeur |
+| `idle_talk_open`, `idle_talk_o`, `idle_talk_wide` | bouches des images 3785, 3789, 3757 | `idle` qui parle |
+| `happy` | image 3764 | grand sourire |
+| `hello` | dessiné depuis `idle` | salut de la main |
+| `hello_talk_open`, `hello_talk_o`, `hello_talk_wide` | bouches dessinées sur `hello` | `hello` qui parle |
+| `present` | dessiné depuis `idle` | "voilà", paume ouverte |
+| `please` | dessiné depuis `idle` | demande, mains jointes |
+| `thanks` | dessiné depuis `idle` | merci, mains sur les joues |
+| `thinking` | dessiné depuis `idle` | réfléchit, doigt sur le menton |
+| `working` | dessiné depuis `idle` | travaille, tape sur un clavier |
+| `sad` | dessiné depuis `idle` | erreur, main sur la tête |
+| `<pose>_blink`, pour chaque pose | yeux fermés dessinés sur la pose | clignement |
 
 Le pipeline, dans l'ordre :
 
 1. Détourage ToonOut (BiRefNet affiné sur l'anime) en deux passes.
 2. Iris trouvés par corrélation avec ceux d'`idle`, puis une similitude pose les deux yeux sur les pixels cibles.
-3. Couleurs du personnage séparées du fond sur les bords (blur fusion), super-résolution Real-ESRGAN anime pour les plans larges.
-4. Fondu de 90 px partout où le cadre ou le décor la coupe, et fondu commun en bas (lignes 430 à 604).
-5. Reflets violets des néons repeints couleur cheveux, puis couleurs ramenées sur celles d'`idle`, peau, cheveux et reste séparément.
-6. Bouches et yeux greffés sur la pose de base après un alignement local.
+3. Couleurs du personnage séparées du fond sur les bords (blur fusion).
+4. Fondu de 90 px partout où le cadre la coupe, et fondu commun en bas (lignes 430 à 604).
+5. Reflets violets des néons repeints couleur cheveux, puis couleurs des images de la vidéo ramenées sur celles d'`idle`, peau, cheveux et reste séparément.
+6. Les autres poses dessinées depuis `idle` par Qwen-Image-Edit-2511, agrandies 4 fois par Real-ESRGAN anime, puis détourées et alignées comme une image de la vidéo.
+7. Bouches et yeux greffés sur la pose de base après un alignement local.
 
-Le pipeline est dans `tools/sprites/`, un projet uv à part qui garde torch hors de l'app. `uv run build.py` dans ce dossier régénère `assets/claude/` en 3 min (ffmpeg et node sur le PATH, GPU CUDA) et affiche l'écart de chaque iris à sa cible. La vidéo, les images décodées, les poids des modèles et les détourages sont gardés dans `tools/sprites/.work/`, ignoré par git. Ajouter une expression revient à ajouter une ligne à `POSES` ou à `RIGS` dans `build.py`.
+Le pipeline est dans `tools/sprites/`, un projet uv à part en Python 3.13 qui garde torch hors de l'app. `uv run build.py` dans ce dossier régénère `assets/claude/` (ffmpeg et node sur le PATH, GPU CUDA de 12 Go) et affiche l'écart de chaque iris à sa cible. Le premier lancement télécharge environ 20 Go de modèles et dessine 19 images en 20 min, les suivants réutilisent les dessins en cache. La vidéo, les images décodées, les poids des modèles, les détourages et les dessins sont gardés dans `tools/sprites/.work/`, ignoré par git. Un dessin est refait quand son prompt ou l'image dont il part change. Ajouter une expression revient à ajouter une ligne à `POSES`, `DRAWINGS` ou `RIGS` dans `build.py`.
+
+Les dessins tournent sur Nunchaku en int4 avec le LoRA Lightning 4 étapes fusionné, 20 blocs sur 60 gardés sur le GPU et les autres chargés depuis la RAM : 30 s par image et 10,3 Gio au plus. `edit.py` corrige Nunchaku 1.3, plus ancien que 2511 et que diffusers 0.41 : rang SVD propre à chaque couche du checkpoint, et modulation au pas de temps 0 des jetons de l'image de référence (`zero_cond_t`).
 
 ## Modèle
 

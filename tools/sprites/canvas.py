@@ -22,7 +22,7 @@ TILT: float = np.radians(11.8)
 LEFT: Point = (MID[0] - IOD / 2 * np.cos(TILT), MID[1] + IOD / 2 * np.sin(TILT))
 RIGHT: Point = (MID[0] + IOD / 2 * np.cos(TILT), MID[1] - IOD / 2 * np.sin(TILT))
 EDGE_FADE: float = 90.0
-""" Width of the fade where the frame or a clip box cuts her, in canvas pixels. """
+""" Width of the fade where the frame cuts her, in canvas pixels. """
 FADE_ROWS: tuple[int, int] = (430, 604)
 """ Rows where the shared bottom fade starts and reaches zero. """
 UPSCALER_URL: str = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth"
@@ -30,13 +30,8 @@ TILE, TILE_OVERLAP = 384, 16
 
 
 # Functions
-def render(frame: MatLike, alpha: MatLike, eyes: Eyes, clip: Box, *, upscale: bool) -> MatLike:
-	""" RGBA canvas of her, values in [0, 1].
-
-	Args:
-		clip:    Frame region she was cut from; the canvas fades out where its edges cross her.
-		upscale: Rebuild the detail of a distant shot with an anime upscaler instead of enlarging it.
-	"""
+def render(frame: MatLike, alpha: MatLike, eyes: Eyes) -> MatLike:
+	""" RGBA canvas of her, values in [0, 1], fading out where the edges of the frame cross her. """
 	transform = similarity(eyes)
 	scale = float(np.hypot(transform[0, 0], transform[1, 0]))
 	ys, xs = np.nonzero(alpha > 0.002)
@@ -47,10 +42,7 @@ def render(frame: MatLike, alpha: MatLike, eyes: Eyes, clip: Box, *, upscale: bo
 
 	# Work at twice the canvas resolution, then downsample, for clean edges
 	h, w = crop_alpha.shape
-	if upscale:
-		big = upscale4(cv2.resize(colors, (max(1, round(w * scale / 2)), max(1, round(h * scale / 2))), interpolation=cv2.INTER_AREA))
-	else:
-		big = cv2.resize(colors, (round(w * scale * 2), round(h * scale * 2)), interpolation=cv2.INTER_AREA)
+	big = cv2.resize(colors, (round(w * scale * 2), round(h * scale * 2)), interpolation=cv2.INTER_AREA)
 	bh, bw = big.shape[:2]
 	big_alpha = cv2.resize(crop_alpha, (bw, bh), interpolation=cv2.INTER_AREA)
 	linear = transform[:, :2] @ np.diag([w / bw, h / bh])
@@ -60,7 +52,7 @@ def render(frame: MatLike, alpha: MatLike, eyes: Eyes, clip: Box, *, upscale: bo
 	rgb = cv2.warpAffine(big, to_canvas, size, flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
 	opacity = cv2.warpAffine(big_alpha, to_canvas, size, flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
 
-	opacity = opacity.clip(0, 1) * edge_fade(transform, clip)
+	opacity = opacity.clip(0, 1) * edge_fade(transform, (0, 0, frame.shape[1], frame.shape[0]))
 	return np.dstack([
 		cv2.resize(rgb, (WIDTH, HEIGHT), interpolation=cv2.INTER_AREA).clip(0, 1),
 		cv2.resize(opacity, (WIDTH, HEIGHT), interpolation=cv2.INTER_AREA).clip(0, 1),

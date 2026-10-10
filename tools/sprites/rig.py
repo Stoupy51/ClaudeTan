@@ -1,4 +1,4 @@
-""" Face parts of other frames transplanted onto a pose: mouth shapes for talking, closed eyes for blinking. """
+""" Face parts of other frames or of edits of a pose, transplanted onto it: mouth shapes for talking, closed eyes for blinking. """
 # Imports
 from dataclasses import dataclass
 
@@ -7,7 +7,6 @@ import numpy as np
 from cv2.typing import MatLike
 
 from colors import to_lab
-from eyes import Point
 from matting import Box
 
 
@@ -18,18 +17,17 @@ class Part:
 	box: Box
 	""" Where it sits on the canvas. """
 	pieces: int
-	""" How many separate areas it holds: one mouth, two eyes. """
+	""" How many separate areas it holds: one mouth, two eyes with their eyebrows. """
 
 
 @dataclass(frozen=True)
 class Rig:
-	""" A pose with one face part taken from another frame. """
+	""" A pose with one face part taken from another frame or redrawn. """
 	name: str
 	base: str
-	frame: int
+	donor: int | str
+	""" Video frame the part is taken from, or the prompt that redraws the base sprite with it. """
 	part: Part
-	eyes: tuple[Point, Point] | None = None
-	""" Eye centers of the donor frame, for closed eyes the iris templates cannot find. """
 
 
 # Functions

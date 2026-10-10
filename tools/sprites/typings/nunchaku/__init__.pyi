@@ -1,0 +1,1 @@
+from nunchaku.models.transformers.transformer_qwenimage import NunchakuQwenImageTransformer2DModel as NunchakuQwenImageTransformer2DModel

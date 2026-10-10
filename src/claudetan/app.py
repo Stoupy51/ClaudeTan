@@ -132,7 +132,7 @@ class Assistant(QObject):
 		self.dismiss.stop()
 		self.long_task.start()
 		if not self.pill.isVisible():
-			self.appear("point", bubble=prompt)
+			self.appear("thinking", bubble=prompt)
 
 	def on_tool(self, activity: str) -> None:
 		LOG.info("Action: %s", activity)
@@ -140,7 +140,7 @@ class Assistant(QObject):
 		self.settle_permission()
 		if activity != self.activity and not self.pill.isVisible():
 			self.activity = activity
-			self.appear("point", bubble=activity)
+			self.appear("working", bubble=activity)
 
 	def on_permission(self, request: str) -> None:
 		if self.asking:
@@ -174,7 +174,7 @@ class Assistant(QObject):
 	def on_failure(self, error: str) -> None:
 		LOG.warning("Request failed: %s", error)
 		self.end_turn()
-		self.appear("surprised", bubble=f"Oups, la requête a échoué ({error}).")
+		self.appear("sad", bubble=f"Oups, la requête a échoué ({error}).")
 		self.dismiss.start(reading_ms(error))
 		self.flush()
 

@@ -21,18 +21,15 @@ STD: MatLike = np.array([0.229, 0.224, 0.225], np.float32)
 
 
 # Functions
-def matte(frame: MatLike, clip: Box) -> MatLike:
-	""" Her alpha over the whole frame, zero outside `clip`.
+def matte(frame: MatLike) -> MatLike:
+	""" Her alpha over the frame.
 
 	A first pass finds her, a second pass on a crop around her gives the model more pixels for the edges.
 	"""
-	x0, y0, x1, y1 = clip
-	coarse = np.zeros(frame.shape[:2], np.float32)
-	coarse[y0:y1, x0:x1] = largest_components(predict(frame[y0:y1, x0:x1]))
-	ys, xs = np.nonzero(coarse > 0.5)
+	ys, xs = np.nonzero(largest_components(predict(frame)) > 0.5)
 	pad = round(0.08 * max(xs.max() - xs.min(), ys.max() - ys.min()))
-	bx0, by0 = max(x0, xs.min() - pad), max(y0, ys.min() - pad)
-	bx1, by1 = min(x1, xs.max() + pad), min(y1, ys.max() + pad)
+	bx0, by0 = max(0, xs.min() - pad), max(0, ys.min() - pad)
+	bx1, by1 = min(frame.shape[1], xs.max() + pad), min(frame.shape[0], ys.max() + pad)
 
 	alpha = np.zeros(frame.shape[:2], np.float32)
 	alpha[by0:by1, bx0:bx1] = largest_components(predict(frame[by0:by1, bx0:bx1]))

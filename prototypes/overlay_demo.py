@@ -31,13 +31,13 @@ class Demo:
 		Beat(expression="hello",     bubble="Coucou ! Tu m'as appelée ?",                duration_ms=2600, talking=True),
 		Beat(expression="idle",      bubble="",                                          duration_ms=3000),
 		Beat(expression="idle",      bubble="Je regarde ça tout de suite...",            duration_ms=3200, talking=True),
-		Beat(expression="point",     bubble="Hmm, laisse-moi réfléchir.",                duration_ms=2400),
+		Beat(expression="thinking",  bubble="Hmm, laisse-moi réfléchir.",                duration_ms=2400),
+		Beat(expression="working",   bubble="Écrit main.py",                             duration_ms=2400),
 		Beat(expression="present",   bubble="Voilà, c'est fait !",                       duration_ms=2200),
 		Beat(expression="please",    bubble="J'ai besoin de ton accord pour continuer.", duration_ms=3000),
 		Beat(expression="thanks",    bubble="Merci !",                                   duration_ms=1800),
-		Beat(expression="surprised", bubble="Oh !",                                      duration_ms=1500),
-		Beat(expression="happy",     bubble="",                                          duration_ms=1800),
-		Beat(expression="stand",     bubble="Clique sur moi pour ouvrir la session.",    duration_ms=3000),
+		Beat(expression="sad",       bubble="Oups, la requête a échoué.",                duration_ms=2000),
+		Beat(expression="happy",     bubble="Clique sur moi pour ouvrir la session.",    duration_ms=3000),
 	]
 
 	def __init__(self, avatar: Avatar) -> None:

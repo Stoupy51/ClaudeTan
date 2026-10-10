@@ -298,7 +298,7 @@ class Avatar(QWidget):
 				f'<span style="color: rgba(0, 0, 0, 0)">{html.escape(self.bubble[shown:])}</span>',
 			)
 		height = self.document.size().height()
-		# Growing upward from just above her hands keeps the finger of `point` and the wave of `hello` in sight
+		# Growing upward from just above her hands keeps the finger of `thinking` and the wave of `hello` in sight
 		bottom = SPRITE_TOP + FACE_Y * SPRITE_HEIGHT - 26
 		box = QRectF(8, max(18.0, bottom - height - 26), BUBBLE_WIDTH - 20, height + 26)
 		shape = QPainterPath()
