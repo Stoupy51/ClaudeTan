@@ -25,6 +25,10 @@ class Config:
 	wake: re.Pattern[str]
 	prompt: str
 	""" The user's additions to the system prompt of the hidden session. """
+	model: str
+	""" Model of the hidden session, as `claude --model` takes it. """
+	agent_model: str
+	""" Model of the agent the session hands complicated requests to. """
 
 	@classmethod
 	def load(cls) -> Self:
@@ -37,5 +41,7 @@ class Config:
 			language=None if values["language"] == "auto" else values["language"],
 			wake=re.compile(values["wake"], re.IGNORECASE),
 			prompt=values["prompt"],
+			model=values["model"],
+			agent_model=values["agent_model"],
 		)
 

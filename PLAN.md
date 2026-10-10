@@ -96,12 +96,12 @@ Ce que montre Claude-tan à chaque étape :
 - [x] Retour immédiat : son au mot d'activation, phrase dans la bulle, suivi des hooks, pastille pour les tâches longues, retour de Claude-tan avec un son à la fin.
 - [x] N'envoyer une commande qu'entre deux tours (de `UserPromptSubmit` à `Stop`), sinon la mettre en file : taper pendant qu'un dialogue est ouvert casse la session.
 - [x] Session cachée lancée par l'app dans le repo : `--session-id` au premier lancement, puis `--resume` avec l'id gardé par l'app, puisque `--continue` reprendrait la dernière conversation du dossier, souvent une session de développement.
-- [ ] Sous-agent des tâches compliquées passé par `--agents`, avec les modèles de la session et du sous-agent dans la config.
+- [x] Sous-agent des tâches compliquées passé par `--agents`, avec les modèles de la session et du sous-agent dans la config.
 - [x] Mini system prompt passé par `--append-system-prompt-file` : où l'app est installée et comment elle a lancé la session, puis les ajouts de l'utilisateur (clé `prompt` de la config, par exemple où sont ses dossiers).
-- [ ] Dialogue "Resume from summary" que Claude Code affiche sur Pro quand une grosse session reprend après une longue pause : Entrée choisit le résumé, l'option par défaut.
-- [ ] `/compact` à l'arrêt et après 55 min d'inactivité, seulement quand le contexte est gros (estimé via le `transcript_path` des hooks), car la compaction est elle-même une grosse requête. Le hook `PostCompact` dit quand elle est finie.
+- [x] Dialogue "Resume from summary" que Claude Code affiche sur Pro quand une grosse session reprend après une longue pause : Entrée choisit le résumé, l'option par défaut.
+- [x] `/compact` à l'arrêt et après 55 min d'inactivité, seulement au-delà de 100k tokens de contexte (lus dans le `transcript_path` des hooks), car la compaction est elle-même une grosse requête et une session neuve pèse déjà 50k. Le hook `PostCompact` dit quand elle est finie.
 - [x] Clic sur Claude-tan : ouvrir l'URL de session lue dans le terminal caché, au lieu de la liste des sessions de claude.ai/code.
-- [ ] Notifications push : `inputNeededNotifEnabled` ("Push when actions required") dans le `--settings` de la session. `agentPushNotifEnabled` ("Push when Claude decides") est déjà actif dans les réglages utilisateur.
+- [x] Notifications push : `inputNeededNotifEnabled` ("Push when actions required") dans le `--settings` de la session. `agentPushNotifEnabled` ("Push when Claude decides") est déjà actif dans les réglages utilisateur.
 - [x] Config TOML dans `%APPDATA%\ClaudeTan\config.toml`, copiée au premier lancement : langue et regex d'activation. Les modèles y entrent avec la session, la voix avec le TTS.
 - [x] Claude-tan revient où on l'a déposée. Si cet écran est débranché, elle apparaît sur l'écran principal sans oublier sa place, et y retourne quand il est rebranché.
 - [x] Icône de notification, avec le même menu au clic gauche et au clic droit, et démarrage avec Windows.
@@ -198,6 +198,8 @@ Les quatre acceptent le mode `auto`. Les demandes simples ne consomment rien : l
 - Hooks `type: "http"` déclarés dans un fichier passé par `--settings`. `SessionStart` n'accepte que les hooks `command` et `mcp_tool`.
 - `--append-system-prompt` est enregistré à la première requête de la conversation, puis réutilisé tel quel jusqu'à la prochaine compaction, même si un lancement suivant passe un autre texte (`--system-prompt-snapshot`, actif par défaut). Un changement de mode d'auto-amélioration ne vaut donc qu'après un `/compact`, ou avec `--system-prompt-snapshot off`.
 - Statusline : sa commande, déclarée dans le même fichier `--settings` que les hooks, reçoit en JSON `rate_limits.five_hour` et `rate_limits.seven_day` (`used_percentage`, `resets_at`), `cost.total_cost_usd` et `context_window`, et les transmet à l'app. `rate_limits` n'apparaît qu'après la première réponse de la session et ne change qu'à ses réponses, alors que la limite est partagée avec claude.ai et les autres sessions : `/usage` (alias `/cost` et `/stats`) donne le chiffre frais.
+- `--agents` passe par `cmd.exe` avec le reste de la commande : le texte de l'agent ne doit contenir aucun de `& | < > ^ % ( )`.
+- Un `/compact` tapé ne déclenche pas `UserPromptSubmit` : seulement `PreCompact` et `PostCompact` (`trigger: manual`), avec un `SubagentStop` sans `SubagentStart` pour l'agent qui résume. Claude Code compacte aussi seul pendant un tour (`trigger: auto`).
 - Channels exige `--dangerously-load-development-channels`, qui pose une question interactive : inutilisable en session cachée pour l'instant.
 - Whisper : `large-v3-turbo` (0,5 s) ou `small` (0,2 s) en `int8_float16` sur CUDA, `beam_size=1`, `condition_on_previous_text=False`, audio passé en numpy (le décodage par PyAV plante). cuDNN vient de la roue de ctranslate2, cuBLAS du CUDA Toolkit 12 sur le PATH.
 - Silero VAD : trames de 512 échantillons à 16 kHz, sortie 1-D.

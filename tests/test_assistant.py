@@ -36,6 +36,27 @@ def test_commands_wait_for_the_running_turn(assistant: Assistant) -> None:
 	assert sent == ["ouvre Spotify", "mets de la musique"]
 
 
+def test_commands_wait_for_a_compaction_between_turns(assistant: Assistant) -> None:
+	sent: list[str] = []
+	assistant.send.connect(sent.append)
+	assistant.on_hook(hook("PreCompact", trigger="manual", custom_instructions=None))
+	assistant.on_command("ouvre Spotify")
+	assert sent == []
+
+	assistant.on_hook(hook("PostCompact", trigger="manual", compact_summary="Résumé"))
+	assert sent == ["ouvre Spotify"]
+
+
+def test_an_automatic_compaction_keeps_the_turn_running(assistant: Assistant) -> None:
+	sent: list[str] = []
+	assistant.send.connect(sent.append)
+	assistant.on_hook(hook("UserPromptSubmit", prompt="range le projet"))
+	assistant.on_hook(hook("PreCompact", trigger="auto", custom_instructions=None))
+	assistant.on_hook(hook("PostCompact", trigger="auto", compact_summary="Résumé"))
+	assistant.on_command("ouvre Spotify")
+	assert sent == []
+
+
 def test_background_work_keeps_the_pill_until_its_result(assistant: Assistant) -> None:
 	assistant.on_hook(hook("UserPromptSubmit", prompt="range le projet"))
 	assistant.on_hook(hook("SubagentStart", agent_id="a1", agent_type="expert"))

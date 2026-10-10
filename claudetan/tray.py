@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QCursor, QIcon
-from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 from claudetan.avatar import face
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG
@@ -22,6 +22,7 @@ LAUNCHER: Path = Path(sys.prefix) / "Scripts" / "claudetan.exe"
 # Classes
 class Tray(QSystemTrayIcon):
 	open_session = Signal()
+	quit_requested = Signal()
 
 	def __init__(self) -> None:
 		super().__init__(QIcon(face(64)))
@@ -36,7 +37,7 @@ class Tray(QSystemTrayIcon):
 		startup.setChecked(starts_with_windows())
 		startup.toggled.connect(start_with_windows)
 		self.menu.addSeparator()
-		self.menu.addAction("Quitter", QApplication.quit)
+		self.menu.addAction("Quitter", self.quit_requested.emit)
 		self.setContextMenu(self.menu)
 		self.activated.connect(self.on_activated)
 

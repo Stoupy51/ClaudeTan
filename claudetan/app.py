@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 from collections import deque
+from functools import partial
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -32,6 +33,10 @@ HEARD_MS: int = 4000
 """ How long the sentence she understood stays up when the session does not start on it right away. """
 STARTUP_S: float = 60.0
 """ How long the session and Whisper may take to start before the app reports them as failed. """
+COMPACT_IDLE_MS: int = 55 * 60_000
+""" Quiet time after which a large session is compacted, while its prompt cache (1 h on a subscription) still makes that cheap. """
+COMPACT_TIMEOUT_MS: int = 180_000
+""" How long quitting waits for the session's compaction. """
 INSTANCE_NAME: str = "ClaudeTan"
 """ Local server of the running app: a new one connects to it to have it quit. """
 READY: str = "ready\n"
@@ -43,6 +48,8 @@ class Assistant(QObject):
 	""" What Claude-tan shows at each step of a request, and when the next command may be typed into the session. """
 	send = Signal(str)
 	""" A command to type, emitted only between turns: keys typed while a dialog is open would answer it. """
+	idle = Signal()
+	""" No hook for `COMPACT_IDLE_MS` and no turn running. """
 
 	def __init__(self, avatar: Avatar, pill: Pill) -> None:
 		super().__init__()
@@ -65,6 +72,10 @@ class Assistant(QObject):
 		self.dismiss = QTimer(self)
 		self.dismiss.setSingleShot(True)
 		self.dismiss.timeout.connect(self.leave)
+		self.idle_timer = QTimer(self)
+		self.idle_timer.setSingleShot(True)
+		self.idle_timer.setInterval(COMPACT_IDLE_MS)
+		self.idle_timer.timeout.connect(self.on_idle)
 
 	def on_wake(self) -> None:
 		chime(*WAKE_NOTES)
@@ -79,6 +90,7 @@ class Assistant(QObject):
 		self.flush()
 
 	def on_hook(self, event: JsonDict) -> None:
+		self.idle_timer.start()
 		match event["hook_event_name"]:
 			case "UserPromptSubmit":
 				self.on_prompt(event["prompt"])
@@ -102,6 +114,12 @@ class Assistant(QObject):
 				self.on_stop(event["last_assistant_message"])
 			case "StopFailure":
 				self.on_failure(event["error"])
+			# Claude Code compacts on its own during a turn, which stays busy
+			case "PreCompact" if event["trigger"] != "auto":
+				self.busy = True
+			case "PostCompact" if event["trigger"] != "auto":
+				self.busy = False
+				self.flush()
 			case _:
 				pass
 
@@ -186,6 +204,10 @@ class Assistant(QObject):
 		self.pill.hide()
 		self.avatar.pop_out()
 
+	def on_idle(self) -> None:
+		if not self.busy:
+			self.idle.emit()
+
 
 # Functions
 def describe_tool(name: str, tool_input: JsonDict) -> str:
@@ -258,12 +280,24 @@ def report_ready(session: Session, listener: Listener) -> None:
 	stp.info(f"Log: {stp.CYAN}{LOG_FILE}")
 	print(READY, end="", flush=True)
 
+
+def shut_down(app: QApplication, tray: Tray, assistant: Assistant, session: Session) -> None:
+	""" Quits, after compacting a large session so that the next start does not reread it all once the prompt cache has expired. """
+	tray.hide()
+	if assistant.busy or not session.compact():
+		app.quit()
+		return
+	session.compacted.connect(app.quit)
+	QTimer.singleShot(COMPACT_TIMEOUT_MS, app.quit)
+
+
 def replace_running_app() -> None:
 	""" Has the app already running quit, and waits until it has, so that starting the app again applies new code and settings. """
 	running = QLocalSocket()
 	running.connectToServer(INSTANCE_NAME)
 	if running.waitForConnected(1000):
-		running.waitForDisconnected(30_000)
+		stp.progress("Waiting for the running app to quit, after it compacts its session when that is large...")
+		running.waitForDisconnected(COMPACT_TIMEOUT_MS + 10_000)
 
 
 def run() -> None:
@@ -283,19 +317,22 @@ def run() -> None:
 	replace_running_app()
 	instance = QLocalServer()
 	instance.listen(INSTANCE_NAME)
-	instance.newConnection.connect(app.quit)
 	config = Config.load()
 	avatar, pill = Avatar(), Pill()
 	assistant = Assistant(avatar, pill)
 	tray = Tray()
 	tray.show()
 	hooks = HookServer()
-	session = Session(hooks.url, config.prompt)
+	session = Session(hooks.url, config)
+	quit_app = partial(shut_down, app, tray, assistant, session)
+	tray.quit_requested.connect(quit_app)
+	instance.newConnection.connect(quit_app)
 	for clicked in (avatar.clicked, pill.clicked, tray.open_session):
 		clicked.connect(session.open)
 	hooks.posted.connect(session.on_hook)
 	hooks.posted.connect(assistant.on_hook)
 	assistant.send.connect(session.send)
+	assistant.idle.connect(session.compact)
 	app.aboutToQuit.connect(session.close)
 	listener = Listener(config.language, config.wake)
 	listener.woke.connect(assistant.on_wake)

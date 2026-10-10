@@ -1,4 +1,4 @@
-# ClaudeTan settings. Quit the app from its tray icon and start it again to apply a change.
+# ClaudeTan settings. Start the app again to apply a change: it replaces the one running.
 
 # Language of the speech recognition: "fr", "en", or "auto" to detect it on each sentence
 language = "auto"
@@ -7,8 +7,14 @@ language = "auto"
 # Its first group is the command said in the same breath.
 wake = '^\W*(?:hey|hé|he|eh|et|dis|ok|okay)\W+(?:claude|clode|clod|clodo|clown)\b[\s,.!?]*(.*)'
 
+# Model of the hidden Claude session, which answers quick requests: "sonnet", "opus", "haiku", or a full model name
+model = "sonnet"
+
+# Model of the agent the session hands complicated requests to, such as code, research or several steps, in the background
+agent_model = "opus"
+
 # Your additions to the system prompt of the hidden Claude session, after what the app writes there itself:
 # where ClaudeTan is installed and how it started the session. Write them between the two ''' lines, for example:
-# Mes projets sont dans D:\advanced_desktop, mes captures d'écran dans D:\Captures.
+# "My projects are located in D:\advanced_desktop, my screenshots in D:\Captures."
 prompt = '''
 '''

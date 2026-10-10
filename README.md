@@ -53,7 +53,8 @@ Say *"Hey Claude, ..."* or *"Hé Claude, ..."*: she shows up as soon as she hear
 ## ⚙️ Configuration
 
 *Ouvrir la config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
-the speech recognition language, the wake phrase, and your additions to the hidden session's system prompt, such as where your folders are.
+the speech recognition language, the wake phrase, the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus),
+and your additions to the session's system prompt, such as where your folders are.
 Start the app again to apply a change: it replaces the one running.
 
 ## 🧑‍💻 Development
