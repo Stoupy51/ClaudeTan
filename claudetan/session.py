@@ -3,7 +3,9 @@
 import json
 import os
 import re
+import subprocess
 import threading
+import time
 import uuid
 import webbrowser
 from functools import partial
@@ -11,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, override
 
+import pyte
 from PySide6.QtCore import QObject, QTimer, Signal
 from winpty import PtyProcess
 
@@ -34,6 +37,12 @@ HOOK_EVENTS: tuple[str, ...] = (
 SESSION_ID: Path = APP_DATA / "session_id"
 """ The conversation the app resumes, saved once a hook reports it, so a session that never got a prompt is not resumed. """
 SESSION_URL: re.Pattern[str] = re.compile(r"https://claude\.ai/code/session_\w+")
+PLAN_USAGE: re.Pattern[str] = re.compile(
+	r"Current session\W+(?P<window>\d+)% used\s+Resets (?P<window_reset>[^)]*\)).*?"
+	r"Current week \(all models\)\W+(?P<week>\d+)% used\s+Resets (?P<week_reset>[^)]*\))",
+	re.DOTALL,
+)
+""" The two limits of the `/usage` panel, each followed by when it resets, such as "Resets Oct 12, 12am (Europe/Paris)". """
 NESTED_SESSION_VARS: tuple[str, ...] = (
 	"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_CHILD_SESSION",
 	"CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN", "CLAUDE_PID",
@@ -87,19 +96,47 @@ class Session:
 		argv = ["cmd.exe", "/c", "chcp", "65001", ">nul", "&&", *claude]
 		env = {name: value for name, value in os.environ.items() if name not in NESTED_SESSION_VARS}
 		self.pty = PtyProcess.spawn(argv, cwd=str(ROOT), env=env, dimensions=(50, 200))
+		self.screen = pyte.Screen(200, 50)
+		""" What the terminal shows, rebuilt from its output: Claude Code only redraws the characters that change. """
+		self.screen_lock = threading.Lock()
 		self.url = "https://claude.ai/code"
-		threading.Thread(target=self.find_url, daemon=True).start()
+		self.started = threading.Event()
+		""" Set once Remote Control prints the session's URL, when the session is ready for prompts. """
+		threading.Thread(target=self.read_output, daemon=True).start()
 
-	def find_url(self) -> None:
-		""" Reads the terminal until Remote Control prints the session's URL, then keeps draining it so the session never blocks. """
-		output = ""
+	def read_output(self) -> None:
+		""" Renders the terminal's output, read continuously so the session never blocks on a full pipe. """
+		stream = pyte.Stream(self.screen)
 		while self.pty.isalive():
 			try:
-				output = (output + self.pty.read(4096))[-10_000:]
+				output = self.pty.read(4096)
 			except EOFError:
 				return
-			if match := SESSION_URL.search(output):
+			with self.screen_lock:
+				stream.feed(output)
+			if not self.started.is_set() and (match := SESSION_URL.search(self.text())):
 				self.url = match.group()
+				self.started.set()
+
+	def plan_usage(self) -> str:
+		""" The plan's limits as `/usage` shows them, read before any prompt since keys typed while its panel is open land in it. """
+		self.pty.write("/usage")
+		time.sleep(PASTE_DELAY_MS / 1000)
+		self.pty.write("\r")
+		deadline = time.monotonic() + 15
+		while not (match := PLAN_USAGE.search(self.text())) and time.monotonic() < deadline:
+			time.sleep(0.2)
+		self.pty.write("\x1b")
+		if not match:
+			return "unknown, /usage did not show it"
+		return (
+			f"{match['window']}% of the 5-hour window, resets {match['window_reset']}; "
+			f"{match['week']}% of the week, resets {match['week_reset']}"
+		)
+
+	def text(self) -> str:
+		with self.screen_lock:
+			return "\n".join(self.screen.display)
 
 	def on_hook(self, event: JsonDict) -> None:
 		if event["session_id"] != self.id:
@@ -114,7 +151,9 @@ class Session:
 		webbrowser.open(self.url)
 
 	def close(self) -> None:
-		self.pty.terminate(force=True)
+		""" Kills Claude Code outright: on a clean exit, Remote Control archives the session, which drops it from claude.ai's list. """
+		kill = ["taskkill", "/F", "/T", "/PID", str(self.pty.pid)]
+		subprocess.run(kill, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
 
 
 # Functions

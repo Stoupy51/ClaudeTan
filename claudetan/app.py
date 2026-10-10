@@ -13,7 +13,7 @@ from PySide6.QtCore import QObject, QPoint, QTimer, Signal
 from PySide6.QtWidgets import QApplication
 
 from claudetan.avatar import Avatar, Pill, chime, shorten
-from claudetan.config import APP_DATA, Config
+from claudetan.config import APP_DATA, LOG_FILE, Config
 from claudetan.session import HookServer, JsonDict, Session
 from claudetan.tray import Tray
 from claudetan.voice import FOLLOW_UP_S, Listener, microphone
@@ -27,6 +27,10 @@ LONG_TASK_MS: int = 20_000
 """ How long a turn runs before she shrinks to the pill. """
 HEARD_MS: int = 4000
 """ How long the sentence she understood stays up when the session does not start on it right away. """
+STARTUP_S: float = 60.0
+""" How long the session and Whisper may take to start before the app reports them as failed. """
+READY: str = "ready\n"
+""" Last line the background app writes to `main`, which returns on it: the venv's launcher keeps the pipe open after it. """
 
 
 # Classes
@@ -70,7 +74,6 @@ class Assistant(QObject):
 		self.flush()
 
 	def on_hook(self, event: JsonDict) -> None:
-		LOG.info("Hook: %s", event["hook_event_name"])
 		match event["hook_event_name"]:
 			case "UserPromptSubmit":
 				self.on_prompt(event["prompt"])
@@ -99,6 +102,7 @@ class Assistant(QObject):
 
 	def on_prompt(self, prompt: str) -> None:
 		""" A turn starts, typed by the app, sent from the Remote Control, or started by Claude Code itself. """
+		LOG.info("Prompt: %s", prompt)
 		self.busy = True
 		self.worked = False
 		self.activity = ""
@@ -108,6 +112,7 @@ class Assistant(QObject):
 			self.appear("point", bubble=prompt)
 
 	def on_tool(self, activity: str) -> None:
+		LOG.info("Action: %s", activity)
 		self.worked = True
 		self.settle_permission()
 		if activity != self.activity and not self.pill.isVisible():
@@ -117,6 +122,7 @@ class Assistant(QObject):
 	def on_permission(self, request: str) -> None:
 		if self.asking:
 			return
+		LOG.info("Permission asked: %s", request)
 		self.asking = True
 		self.long_task.stop()
 		self.appear("please", bubble=f"J'ai besoin de ton accord : {request}. Clique sur moi pour répondre.")
@@ -134,6 +140,7 @@ class Assistant(QObject):
 			self.appear("idle", bubble=self.message, talking=streaming)
 
 	def on_stop(self, reply: str) -> None:
+		LOG.info("Reply: %s", reply)
 		self.end_turn()
 		if not self.agents:
 			chime(*DONE_NOTES)
@@ -142,6 +149,7 @@ class Assistant(QObject):
 		self.flush()
 
 	def on_failure(self, error: str) -> None:
+		LOG.warning("Request failed: %s", error)
 		self.end_turn()
 		self.appear("surprised", bubble=f"Oups, la requête a échoué ({error}).")
 		self.dismiss.start(reading_ms(error))
@@ -214,15 +222,36 @@ def reading_ms(text: str) -> int:
 
 
 def main() -> None:
-	""" Starts the app in the background and returns, so the terminal stays free and no console window opens. """
+	""" Starts the app in the background and returns once it reports it is ready, so no console window stays open. """
+	print("Starting ClaudeTan, which takes about 15 s...", flush=True)
 	# A gui-script would not do: uv makes the venv's pythonw.exe a copy of the console python.exe, which opens a window
-	subprocess.Popen([sys.executable, "-m", "claudetan.app"], creationflags=subprocess.CREATE_NO_WINDOW)
+	app = subprocess.Popen(
+		[sys.executable, "-m", "claudetan.app"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+		text=True, creationflags=subprocess.CREATE_NO_WINDOW,
+	)
+	assert app.stdout
+	for line in app.stdout:
+		if line == READY:
+			print('Say "Hey Claude, ..." to ask her something, and quit her from her tray icon.')
+			return
+		print(line, end="", flush=True)
+	print(f"[error] ClaudeTan stopped while starting, see {LOG_FILE}")
 
+
+def report_ready(session: Session, listener: Listener) -> None:
+	""" Tells `main`, through stdout, how the session and Whisper started. """
+	if session.started.wait(STARTUP_S):
+		print(f"[ok]   Claude Code session {'resumed' if session.id else 'started'}: {session.url}", flush=True)
+		print(f"       Plan usage: {session.plan_usage()}", flush=True)
+	else:
+		print("[todo] Claude Code did not start Remote Control: run uv run claudetan-setup, then start ClaudeTan again", flush=True)
+	whisper = "[ok]   Whisper runs on the GPU" if listener.loaded.wait(STARTUP_S) else "[todo] Whisper did not load"
+	print(f"{whisper}\n       Log: {LOG_FILE}\n{READY}", end="", flush=True)
 
 def run() -> None:
 	APP_DATA.mkdir(parents=True, exist_ok=True)
 	logging.basicConfig(
-		filename=APP_DATA / "claudetan.log", encoding="utf-8", level=logging.WARNING, format="%(asctime)s %(levelname)s %(message)s",
+		filename=LOG_FILE, encoding="utf-8", level=logging.WARNING, format="%(asctime)s %(levelname)s %(message)s",
 	)
 	LOG.setLevel(logging.INFO)
 	# Without a console the default hooks print tracebacks nowhere
@@ -250,6 +279,7 @@ def run() -> None:
 	listener.woke.connect(assistant.on_wake)
 	listener.heard.connect(assistant.on_command)
 	threading.Thread(target=listener.run, args=(microphone(),), daemon=True).start()
+	report_ready(session, listener)
 	sys.exit(app.exec())
 
 

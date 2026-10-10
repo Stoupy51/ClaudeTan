@@ -191,6 +191,8 @@ Les quatre acceptent le mode `auto`. Les demandes simples ne consomment rien : l
 - L'abonnement ne fonctionne que dans Claude Code et claude.ai. L'app pilote donc le vrai CLI dans un pseudo-terminal, ce qui reste conforme.
 - pywinpty : passer argv en liste (une chaîne garde ses guillemets) et lancer via `cmd.exe /c chcp 65001 >nul && claude ...`, sinon les accents arrivent en cp850.
 - Retirer les variables d'une session imbriquée (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_PID`) avant de lancer `claude`.
+- Remote Control archive la session sur claude.ai quand Claude Code se ferme proprement : l'app le tue (`taskkill /F /T`) pour qu'elle reste dans la liste, et `--resume` la rattache.
+- Claude Code ne redessine que les caractères qui changent : l'app lit son terminal à travers un écran `pyte`, par exemple `/usage` au démarrage.
 - uv 0.12 avec Python 3.14 fait du `pythonw.exe` d'un venv une copie du `python.exe` console : un gui-script ouvre donc une console. `claudetan` est un script console qui relance l'app avec `CREATE_NO_WINDOW` et rend la main.
 - Le dialogue de confiance du dossier propose "No, exit" par défaut. L'app n'y répond pas : la session tourne dans le repo, déjà approuvé, et s'il s'affiche, il faut lancer `claude` une fois dans le repo pour l'accepter. Pour envoyer un prompt : le taper, attendre 0,4 s, puis `\r`.
 - Hooks `type: "http"` déclarés dans un fichier passé par `--settings`. `SessionStart` n'accepte que les hooks `command` et `mcp_tool`.

@@ -2,6 +2,7 @@
 # Imports
 import queue
 import re
+import threading
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -41,9 +42,11 @@ class Listener(QObject):
 		super().__init__()
 		self.language = language
 		self.wake = wake
+		self.loaded = threading.Event()
 
 	def run(self, frames: Iterator[Audio]) -> None:
 		whisper = load_whisper()
+		self.loaded.set()
 		awake_until = 0.0
 		for speech in utterances(frames):
 			segments, _ = whisper.transcribe(speech.audio, language=self.language, beam_size=1, condition_on_previous_text=False)

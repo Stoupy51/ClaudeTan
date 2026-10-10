@@ -42,18 +42,19 @@ Optional, once:
 uv run claudetan
 ```
 
-The app starts in the background with a hidden Claude Code session in this folder, and keeps running until you quit it from her tray icon.
+The app starts in the background with a hidden Claude Code session in this folder, prints the session's link and your plan usage once ready, and keeps running until you quit it from her tray icon.
+The session stays in claude.ai's list after you quit, and the app resumes it on its next start.
 Say *"Hey Claude, ..."* or *"Hé Claude, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
 
 - A click on her opens Claude Code's Remote Control on claude.ai, a long press lets you drag her.
 - Dropped on a second screen, she comes back there, and shows up on the main screen while it is unplugged.
-- Her tray icon, with a left or a right click, opens the session or the config, toggles the start with Windows, and quits.
+- Her tray icon, with a left or a right click, opens the session, the config or the log of what she heard and did, toggles the start with Windows, and quits.
 
 ## ⚙️ Configuration
 
 *Ouvrir la config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
 the speech recognition language, the wake phrase, and your additions to the hidden session's system prompt, such as where your folders are.
-Quit and restart the app to apply a change. Its log is next to it, in `claudetan.log`.
+Quit and restart the app to apply a change.
 
 ## 🧑‍💻 Development
 

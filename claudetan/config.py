@@ -14,6 +14,7 @@ ROOT: Path = Path(__file__).resolve().parent.parent
 APP_DATA: Path = Path(os.environ["APPDATA"]) / "ClaudeTan"
 DEFAULTS: Path = Path(__file__).with_name("config.toml")
 USER_CONFIG: Path = APP_DATA / "config.toml"
+LOG_FILE: Path = APP_DATA / "claudetan.log"
 
 
 # Classes

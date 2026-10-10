@@ -1,6 +1,7 @@
 from collections.abc import Mapping, Sequence
 
 class PtyProcess:
+	pid: int
 	@classmethod
 	def spawn(
 		cls,

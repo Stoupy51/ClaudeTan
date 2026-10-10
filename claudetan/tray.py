@@ -10,7 +10,7 @@ from PySide6.QtGui import QCursor, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from claudetan.avatar import face
-from claudetan.config import USER_CONFIG
+from claudetan.config import LOG_FILE, USER_CONFIG
 
 # Constants
 RUN_KEY: str = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -29,6 +29,7 @@ class Tray(QSystemTrayIcon):
 		self.menu = QMenu()
 		self.menu.addAction("Ouvrir la session", self.open_session.emit)
 		self.menu.addAction("Ouvrir la config", lambda: os.startfile(USER_CONFIG))
+		self.menu.addAction("Voir le journal", lambda: os.startfile(LOG_FILE))
 		startup = self.menu.addAction("Démarrer avec Windows")
 		startup.setCheckable(True)
 		startup.setChecked(starts_with_windows())

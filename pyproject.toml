@@ -22,6 +22,7 @@ dependencies = [
 	"faster-whisper>=1.2",
 	"numpy",
 	"pyside6>=6.9",
+	"pyte>=0.8.2",
 	"pywinpty>=2.0",
 	"sounddevice",
 	"soundfile",
