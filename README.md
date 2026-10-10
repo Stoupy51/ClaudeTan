@@ -10,8 +10,7 @@
 </div>
 
 > [!NOTE]
-> Work in progress: the voice and the avatar work, the hidden Claude Code session they drive is being written.
-> The roadmap is in [PLAN.md](PLAN.md), in French.
+> Work in progress: the roadmap is in [PLAN.md](PLAN.md), in French.
 
 ## 📋 Requirements
 
@@ -43,7 +42,8 @@ Optional, once:
 uv run claudetan
 ```
 
-Say *"Hey Claude, ..."* or *"Hé Claude, ..."*: she shows up as soon as she hears it, then shows the sentence she understood.
+The app starts in the background with a hidden Claude Code session in this folder, and keeps running until you quit it from her tray icon.
+Say *"Hey Claude, ..."* or *"Hé Claude, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
 
 - A click on her opens Claude Code's Remote Control on claude.ai, a long press lets you drag her.
 - Dropped on a second screen, she comes back there, and shows up on the main screen while it is unplugged.

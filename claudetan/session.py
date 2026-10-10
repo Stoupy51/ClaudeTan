@@ -1,13 +1,20 @@
-""" The hidden Claude Code session: what it is told about itself, and the hook events it posts to the app. """
+""" The hidden Claude Code session: `claude --remote-control` in a pseudo terminal, and the hook events it posts to the app. """
 # Imports
 import json
+import os
+import re
 import threading
+import uuid
+import webbrowser
+from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, override
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QTimer, Signal
+from winpty import PtyProcess
 
-from claudetan.config import ROOT, USER_CONFIG
+from claudetan.config import APP_DATA, ROOT, USER_CONFIG
 
 # Constants
 type JsonDict = dict[str, Any]
@@ -20,6 +27,20 @@ SYSTEM_PROMPT: str = (
 	"Your replies appear in a speech bubble next to your avatar, which only shows the start of long ones.\n"
 )
 """ What the app tells the session about itself, before the user's additions from the config. """
+HOOK_EVENTS: tuple[str, ...] = (
+	"UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Notification", "MessageDisplay",
+	"SubagentStart", "SubagentStop", "Stop", "StopFailure",
+)
+SESSION_ID: Path = APP_DATA / "session_id"
+""" The conversation the app resumes, saved once a hook reports it, so a session that never got a prompt is not resumed. """
+SESSION_URL: re.Pattern[str] = re.compile(r"https://claude\.ai/code/session_\w+")
+NESTED_SESSION_VARS: tuple[str, ...] = (
+	"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_CHILD_SESSION",
+	"CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN", "CLAUDE_PID",
+)
+""" Set when the app runs inside another Claude Code session; the hosted `claude` refuses to start nested while they are present. """
+PASTE_DELAY_MS: int = 400
+""" Pause between the text and Enter, so the TUI takes the text as one paste before submitting it. """
 
 
 # Classes
@@ -46,9 +67,59 @@ class HookServer(QObject):
 		threading.Thread(target=server.serve_forever, daemon=True).start()
 
 
+class Session:
+	""" Claude Code started in the repo, resuming the saved conversation, with its hooks posting to `hooks_url`. """
+
+	def __init__(self, hooks_url: str, additions: str) -> None:
+		settings = APP_DATA / "session_settings.json"
+		hooks = {name: [{"hooks": [{"type": "http", "url": hooks_url, "timeout": 5}]}] for name in HOOK_EVENTS}
+		settings.write_text(json.dumps({"hooks": hooks}), encoding="utf-8")
+		prompt = APP_DATA / "session_prompt.md"
+		prompt.write_text(system_prompt(additions), encoding="utf-8")
+
+		self.id = SESSION_ID.read_text() if SESSION_ID.exists() else ""
+		resume = ["--resume", self.id] if self.id else ["--session-id", str(uuid.uuid4())]
+		claude = [
+			"claude", "--remote-control", "ClaudeTan", "--permission-mode", "auto",
+			"--settings", str(settings), "--append-system-prompt-file", str(prompt), *resume,
+		]
+		# chcp 65001: without it the pseudo console feeds Claude Code accented letters in cp850
+		argv = ["cmd.exe", "/c", "chcp", "65001", ">nul", "&&", *claude]
+		env = {name: value for name, value in os.environ.items() if name not in NESTED_SESSION_VARS}
+		self.pty = PtyProcess.spawn(argv, cwd=str(ROOT), env=env, dimensions=(50, 200))
+		self.url = "https://claude.ai/code"
+		threading.Thread(target=self.find_url, daemon=True).start()
+
+	def find_url(self) -> None:
+		""" Reads the terminal until Remote Control prints the session's URL, then keeps draining it so the session never blocks. """
+		output = ""
+		while self.pty.isalive():
+			try:
+				output = (output + self.pty.read(4096))[-10_000:]
+			except EOFError:
+				return
+			if match := SESSION_URL.search(output):
+				self.url = match.group()
+
+	def on_hook(self, event: JsonDict) -> None:
+		if event["session_id"] != self.id:
+			self.id = event["session_id"]
+			SESSION_ID.write_text(self.id)
+
+	def send(self, prompt: str) -> None:
+		self.pty.write(prompt)
+		QTimer.singleShot(PASTE_DELAY_MS, partial(self.pty.write, "\r"))
+
+	def open(self) -> None:
+		webbrowser.open(self.url)
+
+	def close(self) -> None:
+		self.pty.terminate(force=True)
+
+
 # Functions
 def system_prompt(additions: str) -> str:
-	""" Text for `--append-system-prompt`: `SYSTEM_PROMPT`, then the user's additions when there are any.
+	""" Text for `--append-system-prompt-file`: `SYSTEM_PROMPT`, then the user's additions when there are any.
 
 	>>> system_prompt("\\n") == SYSTEM_PROMPT
 	True

@@ -31,10 +31,8 @@ authors = [
 ]
 
 [project.scripts]
-claudetan-setup = "claudetan.setup:main"
-
-[project.gui-scripts]
 claudetan = "claudetan.app:main"
+claudetan-setup = "claudetan.setup:main"
 
 [project.urls]
 Issues = "https://github.com/Stoupy51/ClaudeTan/issues"

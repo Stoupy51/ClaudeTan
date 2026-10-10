@@ -2,9 +2,9 @@
 # Imports
 import logging
 import signal
+import subprocess
 import sys
 import threading
-import webbrowser
 from collections import deque
 from pathlib import Path
 from urllib.parse import urlparse
@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QApplication
 
 from claudetan.avatar import Avatar, Pill, chime, shorten
 from claudetan.config import APP_DATA, Config
-from claudetan.session import HookServer, JsonDict
+from claudetan.session import HookServer, JsonDict, Session
 from claudetan.tray import Tray
 from claudetan.voice import FOLLOW_UP_S, Listener, microphone
 
@@ -39,7 +39,6 @@ class Assistant(QObject):
 		super().__init__()
 		self.avatar = avatar
 		self.pill = pill
-		self.url = "https://claude.ai/code"
 		self.commands: deque[str] = deque()
 		self.busy = False
 		self.agents: set[str] = set()
@@ -57,8 +56,6 @@ class Assistant(QObject):
 		self.dismiss = QTimer(self)
 		self.dismiss.setSingleShot(True)
 		self.dismiss.timeout.connect(self.leave)
-		avatar.clicked.connect(self.open_session)
-		pill.clicked.connect(self.open_session)
 
 	def on_wake(self) -> None:
 		chime(*WAKE_NOTES)
@@ -176,9 +173,6 @@ class Assistant(QObject):
 		self.pill.hide()
 		self.avatar.pop_out()
 
-	def open_session(self) -> None:
-		webbrowser.open(self.url)
-
 
 # Functions
 def describe_tool(name: str, tool_input: JsonDict) -> str:
@@ -220,6 +214,12 @@ def reading_ms(text: str) -> int:
 
 
 def main() -> None:
+	""" Starts the app in the background and returns, so the terminal stays free and no console window opens. """
+	# A gui-script would not do: uv makes the venv's pythonw.exe a copy of the console python.exe, which opens a window
+	subprocess.Popen([sys.executable, "-m", "claudetan.app"], creationflags=subprocess.CREATE_NO_WINDOW)
+
+
+def run() -> None:
 	APP_DATA.mkdir(parents=True, exist_ok=True)
 	logging.basicConfig(
 		filename=APP_DATA / "claudetan.log", encoding="utf-8", level=logging.WARNING, format="%(asctime)s %(levelname)s %(message)s",
@@ -234,15 +234,25 @@ def main() -> None:
 	app = QApplication(sys.argv)
 	app.setQuitOnLastWindowClosed(False)
 	config = Config.load()
-	assistant = Assistant(Avatar(), Pill())
+	avatar, pill = Avatar(), Pill()
+	assistant = Assistant(avatar, pill)
 	tray = Tray()
-	tray.open_session.connect(assistant.open_session)
 	tray.show()
 	hooks = HookServer()
+	session = Session(hooks.url, config.prompt)
+	for clicked in (avatar.clicked, pill.clicked, tray.open_session):
+		clicked.connect(session.open)
+	hooks.posted.connect(session.on_hook)
 	hooks.posted.connect(assistant.on_hook)
+	assistant.send.connect(session.send)
+	app.aboutToQuit.connect(session.close)
 	listener = Listener(config.language, config.wake)
 	listener.woke.connect(assistant.on_wake)
 	listener.heard.connect(assistant.on_command)
 	threading.Thread(target=listener.run, args=(microphone(),), daemon=True).start()
 	sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+	run()
 

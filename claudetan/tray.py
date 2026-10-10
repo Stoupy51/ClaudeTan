@@ -16,7 +16,7 @@ from claudetan.config import USER_CONFIG
 RUN_KEY: str = r"Software\Microsoft\Windows\CurrentVersion\Run"
 """ Registry key, under HKEY_CURRENT_USER, of the programs Windows starts at logon. """
 LAUNCHER: Path = Path(sys.prefix) / "Scripts" / "claudetan.exe"
-""" Console-less entry point that `uv sync` installs in the project environment. """
+""" Entry point that `uv sync` installs in the project environment, which starts the app in the background. """
 
 
 # Classes
