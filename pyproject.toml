@@ -26,6 +26,7 @@ dependencies = [
 	"pywinpty>=2.0",
 	"sounddevice",
 	"soundfile",
+	"stouputils>=26.10.1",
 ]
 authors = [
 	{ name = "Stoupy51", email = "stoupy51@gmail.com" },

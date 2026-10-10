@@ -9,11 +9,14 @@ from collections import deque
 from pathlib import Path
 from urllib.parse import urlparse
 
+import stouputils as stp
 from PySide6.QtCore import QObject, QPoint, QTimer, Signal
+from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
 from claudetan.avatar import Avatar, Pill, chime, shorten
 from claudetan.config import APP_DATA, LOG_FILE, Config
+from claudetan.console import enable_colors
 from claudetan.session import HookServer, JsonDict, Session
 from claudetan.tray import Tray
 from claudetan.voice import FOLLOW_UP_S, Listener, microphone
@@ -29,6 +32,8 @@ HEARD_MS: int = 4000
 """ How long the sentence she understood stays up when the session does not start on it right away. """
 STARTUP_S: float = 60.0
 """ How long the session and Whisper may take to start before the app reports them as failed. """
+INSTANCE_NAME: str = "ClaudeTan"
+""" Local server of the running app: a new one connects to it to have it quit. """
 READY: str = "ready\n"
 """ Last line the background app writes to `main`, which returns on it: the venv's launcher keeps the pipe open after it. """
 
@@ -223,7 +228,8 @@ def reading_ms(text: str) -> int:
 
 def main() -> None:
 	""" Starts the app in the background and returns once it reports it is ready, so no console window stays open. """
-	print("Starting ClaudeTan, which takes about 15 s...", flush=True)
+	enable_colors()
+	stp.progress("Starting ClaudeTan, which takes about 15 s...")
 	# A gui-script would not do: uv makes the venv's pythonw.exe a copy of the console python.exe, which opens a window
 	app = subprocess.Popen(
 		[sys.executable, "-m", "claudetan.app"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -232,21 +238,33 @@ def main() -> None:
 	assert app.stdout
 	for line in app.stdout:
 		if line == READY:
-			print('Say "Hey Claude, ..." to ask her something, and quit her from her tray icon.')
+			stp.info('Say "Hey Claude, ..." to ask her something, and quit her from her tray icon.')
 			return
 		print(line, end="", flush=True)
-	print(f"[error] ClaudeTan stopped while starting, see {LOG_FILE}")
+	stp.error(f"ClaudeTan stopped while starting, see {stp.CYAN}{LOG_FILE}")
 
 
 def report_ready(session: Session, listener: Listener) -> None:
 	""" Tells `main`, through stdout, how the session and Whisper started. """
 	if session.started.wait(STARTUP_S):
-		print(f"[ok]   Claude Code session {'resumed' if session.id else 'started'}: {session.url}", flush=True)
-		print(f"       Plan usage: {session.plan_usage()}", flush=True)
+		stp.info(f"Claude Code session {'resumed' if session.id else 'started'}: {stp.CYAN}{session.url}")
+		stp.info(f"Plan usage: {session.plan_usage()}")
 	else:
-		print("[todo] Claude Code did not start Remote Control: run uv run claudetan-setup, then start ClaudeTan again", flush=True)
-	whisper = "[ok]   Whisper runs on the GPU" if listener.loaded.wait(STARTUP_S) else "[todo] Whisper did not load"
-	print(f"{whisper}\n       Log: {LOG_FILE}\n{READY}", end="", flush=True)
+		stp.warning("Claude Code did not start Remote Control: run uv run claudetan-setup, then start the app again", file=sys.stdout)
+	if listener.loaded.wait(STARTUP_S):
+		stp.info("Whisper runs on the GPU")
+	else:
+		stp.warning("Whisper did not load", file=sys.stdout)
+	stp.info(f"Log: {stp.CYAN}{LOG_FILE}")
+	print(READY, end="", flush=True)
+
+def replace_running_app() -> None:
+	""" Has the app already running quit, and waits until it has, so that starting the app again applies new code and settings. """
+	running = QLocalSocket()
+	running.connectToServer(INSTANCE_NAME)
+	if running.waitForConnected(1000):
+		running.waitForDisconnected(30_000)
+
 
 def run() -> None:
 	APP_DATA.mkdir(parents=True, exist_ok=True)
@@ -255,13 +273,17 @@ def run() -> None:
 	)
 	LOG.setLevel(logging.INFO)
 	# Without a console the default hooks print tracebacks nowhere
-	sys.excepthook = lambda _kind, error, _trace: logging.critical("Uncaught error", exc_info=error)
+	sys.excepthook = lambda _kind, exception, _trace: logging.critical("Uncaught error", exc_info=exception)
 	threading.excepthook = lambda hook: logging.critical("Uncaught error in %s", hook.thread, exc_info=hook.exc_value)
 	# Qt's event loop never hands control back to Python's KeyboardInterrupt, so let Ctrl+C end the process directly
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 	app = QApplication(sys.argv)
 	app.setQuitOnLastWindowClosed(False)
+	replace_running_app()
+	instance = QLocalServer()
+	instance.listen(INSTANCE_NAME)
+	instance.newConnection.connect(app.quit)
 	config = Config.load()
 	avatar, pill = Avatar(), Pill()
 	assistant = Assistant(avatar, pill)

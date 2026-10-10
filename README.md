@@ -54,7 +54,7 @@ Say *"Hey Claude, ..."* or *"Hé Claude, ..."*: she shows up as soon as she hear
 
 *Ouvrir la config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
 the speech recognition language, the wake phrase, and your additions to the hidden session's system prompt, such as where your folders are.
-Quit and restart the app to apply a change.
+Start the app again to apply a change: it replaces the one running.
 
 ## 🧑‍💻 Development
 
