@@ -12,7 +12,7 @@ Personnage tiré de la vidéo https://www.youtube.com/watch?v=_m38WbRlzv0 (Brigh
 | Mot d'activation | Whisper transcrit chaque phrase et une regex repère "Hey Claude" (FR et EN). Un vrai modèle de mot d'activation viendra plus tard. Le GPU travaille dès que quelqu'un parle près du micro, vidéos comprises. |
 | Réponse | Bulle de texte et voix (TTS). La voix parle japonais par défaut, sous-titrée par la bulle. Sa langue se règle dans la config, où elle se coupe aussi. Voir [Voix japonaise](#voix-japonaise). |
 | Permissions | Session en `--permission-mode auto`. Ce que le classifieur bloque passe par Claude-tan ou par le Remote Control. |
-| Conversation | Persistante (`claude --continue`), compactée (`/compact`) à l'arrêt de l'app et après 55 min sans activité. |
+| Conversation | Persistante (`--resume` de la conversation dont l'app garde l'id), compactée (`/compact`) à l'arrêt de l'app et après 55 min sans activité. |
 | Modèles | Tâches compliquées confiées à Opus 5.5 par défaut. Session principale sur un modèle rapide, Sonnet 5.5 proposé. Les deux se règlent dans la config, voir [Modèle](#modèle). |
 
 Les 55 min viennent du cache de prompt, qui dure 1 h sur abonnement. `/compact` relit toute la conversation : tant que le cache est chaud, cette lecture coûte le tarif réduit du cache.
@@ -21,11 +21,11 @@ Les 55 min viennent du cache de prompt, qui dure 1 h sur abonnement. `/compact` 
 
 ### Retour immédiat
 
-Chaque demande doit être visiblement prise en compte tout de suite, puis suivie jusqu'au bout, même quand Claude part sur un gros chantier : son et apparition dès le mot d'activation, phrase comprise dans la bulle, action en cours, pastille discrète pendant une tâche longue, notification à la fin. Le détail par événement est dans [Architecture](#architecture).
+Chaque demande doit être visiblement prise en compte tout de suite, puis suivie jusqu'au bout, même quand Claude part sur un gros chantier : son et apparition dès le mot d'activation, phrase comprise dans la bulle, action en cours, pastille discrète pendant une tâche longue, puis Claude-tan qui réapparaît avec un petit son à la fin, sans notification Windows. Le détail par événement est dans [Architecture](#architecture).
 
 ### Opus pour les tâches compliquées
 
-La session principale délègue les tâches compliquées (code, recherche, plusieurs étapes) à un sous-agent défini dans `.claude/agents/` avec `model: opus`. C'est la description du sous-agent qui dit à la session quand déléguer. Le sous-agent tourne en arrière-plan, la session reste libre pour les petites demandes, et `SubagentStart` / `SubagentStop` alimentent le retour immédiat.
+La session principale délègue les tâches compliquées (code, recherche, plusieurs étapes) à un sous-agent que l'app lui passe par `--agents`, avec le modèle de la config et `background: true`. Un fichier dans `.claude/agents/` ajouterait aussi ce sous-agent aux sessions de développement lancées dans le repo. C'est la description du sous-agent qui dit à la session quand déléguer. Le sous-agent tourne en arrière-plan, la session reste libre pour les petites demandes, et `SubagentStart` / `SubagentStop` alimentent le retour immédiat.
 
 ### Actions simples sans quota Claude
 
@@ -36,7 +36,7 @@ Un registre d'actions Python, chacune avec un nom, une description, ses paramèt
 - lancer une app, météo du jour (Open-Meteo, sans clé), volume et lecture média, minuteur ;
 - usage du forfait (fenêtre de 5 h, semaine) et tokens de la session, lus dans les données de la statusline (voir [Notes techniques](#notes-techniques)).
 
-Un routeur choisit qui répond, du moins cher au plus cher : des règles exactes pour les phrases connues, puis un petit modèle local avec appel de fonctions via Ollama (déjà installé ; Qwen3 4B ou équivalent tient en 3 Go de VRAM environ à côté de Whisper), puis Claude pour tout le reste. Claude appelle les mêmes actions par un serveur MCP local, donc chaque outil ajouté sert aux deux.
+Un routeur choisit qui répond, du moins cher au plus cher : des règles exactes pour les phrases connues, puis un petit modèle local avec appel de fonctions via Ollama (à réinstaller, il n'est plus sur le disque ; Qwen3 4B ou équivalent tient en 3 Go de VRAM environ à côté de Whisper), puis Claude pour tout le reste. Claude appelle les mêmes actions par un serveur MCP local, donc chaque outil ajouté sert aux deux.
 
 ### Auto-amélioration
 
@@ -69,7 +69,7 @@ Ce que montre Claude-tan à chaque étape :
 
 | Événement | Retour |
 | :- | :- |
-| mot d'activation détecté | petit son et apparition en écoute, avant même la transcription |
+| mot d'activation détecté | petit son et apparition en écoute, avant la fin de la phrase : son début est transcrit dès 1,3 s |
 | phrase transcrite | la phrase comprise dans la bulle |
 | action locale exécutée | `present` et le résultat |
 | `UserPromptSubmit` | `point` : elle réfléchit |
@@ -77,8 +77,9 @@ Ce que montre Claude-tan à chaque étape :
 | `SubagentStart`, ou tâche de plus de 20 s | elle se réduit en pastille animée dans un coin |
 | `PermissionRequest`, `Notification` de type `permission_prompt` | `please`, puis `thanks` si accepté |
 | `MessageDisplay` | elle parle : `idle`, bouche animée et voix |
-| `Stop`, `SubagentStop` | son, `present` ou `happy`, notification Windows |
-| `StopFailure` | `surprised` et le message d'erreur |
+| `Stop` | son, `present` si des outils ont servi, sinon `happy`. Si un sous-agent tourne encore, elle redevient pastille. |
+| `SubagentStop` | rien : la session annonce le résultat dans le tour qu'elle lance ensuite |
+| `StopFailure` | `surprised` et le type d'erreur |
 
 ## Étapes
 
@@ -91,21 +92,24 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 1. MVP
 
-- [ ] Une app qui relie voix, session et avatar par une machine à états.
-- [ ] Retour immédiat : son au mot d'activation, phrase dans la bulle, suivi des hooks, pastille pour les tâches longues, notification Windows à la fin.
-- [ ] Sous-agent Opus pour les tâches compliquées, avec les modèles de la session et du sous-agent dans la config.
-- [ ] N'envoyer une commande que si la session est au repos (`Stop` reçu), sinon la mettre en file : taper pendant qu'un dialogue est ouvert casse la session.
-- [ ] Lancer `claude --continue` depuis un dossier dédié, puisque `--continue` reprend la dernière conversation du dossier courant.
-- [ ] Gérer au démarrage le dialogue "reprendre depuis un résumé" que Claude Code affiche sur Pro quand une grosse session reprend après une longue pause.
-- [ ] `/compact` à l'arrêt et après 55 min d'inactivité, seulement quand le contexte est gros (estimé via le `transcript_path` des hooks), car la compaction est elle-même une grosse requête.
-- [ ] Clic sur Claude-tan : ouvrir l'URL de session lue dans le terminal caché.
-- [ ] Notifications push du Remote Control activées, pour suivre depuis l'iPhone.
-- [ ] Config TOML : langue, regex d'activation, modèles, voix on/off, position.
-- [ ] Icône de notification et démarrage avec Windows.
+- [x] App `claudetan` : machine à états entre la voix, l'avatar et les hooks HTTP de la session, testée sur des événements simulés.
+- [x] Retour immédiat : son au mot d'activation, phrase dans la bulle, suivi des hooks, pastille pour les tâches longues, retour de Claude-tan avec un son à la fin.
+- [x] N'envoyer une commande qu'entre deux tours (de `UserPromptSubmit` à `Stop`), sinon la mettre en file : taper pendant qu'un dialogue est ouvert casse la session.
+- [ ] Session cachée lancée par l'app dans le repo : `--session-id` au premier lancement, puis `--resume` avec l'id gardé par l'app, puisque `--continue` reprendrait la dernière conversation du dossier, souvent une session de développement.
+- [ ] Sous-agent des tâches compliquées passé par `--agents`, avec les modèles de la session et du sous-agent dans la config.
+- [ ] Mini system prompt passé par `--append-system-prompt` : où l'app est installée et comment elle a lancé la session, puis les ajouts de l'utilisateur (clé `prompt` de la config, par exemple où sont ses dossiers). Le texte et la clé sont prêts, il reste à les passer à la session.
+- [ ] Dialogue "Resume from summary" que Claude Code affiche sur Pro quand une grosse session reprend après une longue pause : Entrée choisit le résumé, l'option par défaut.
+- [ ] `/compact` à l'arrêt et après 55 min d'inactivité, seulement quand le contexte est gros (estimé via le `transcript_path` des hooks), car la compaction est elle-même une grosse requête. Le hook `PostCompact` dit quand elle est finie.
+- [ ] Clic sur Claude-tan : ouvrir l'URL de session lue dans le terminal caché, au lieu de la liste des sessions de claude.ai/code.
+- [ ] Notifications push : `inputNeededNotifEnabled` ("Push when actions required") dans le `--settings` de la session. `agentPushNotifEnabled` ("Push when Claude decides") est déjà actif dans les réglages utilisateur.
+- [x] Config TOML dans `%APPDATA%\ClaudeTan\config.toml`, copiée au premier lancement : langue et regex d'activation. Les modèles y entrent avec la session, la voix avec le TTS.
+- [x] Claude-tan revient où on l'a déposée. Si cet écran est débranché, elle apparaît sur l'écran principal sans oublier sa place, et y retourne quand il est rebranché.
+- [x] Icône de notification, avec le même menu au clic gauche et au clic droit, et démarrage avec Windows.
+- [x] README et `uv run claudetan-setup` : Whisper téléchargé et testé sur le GPU, puis, au besoin, connexion à Claude Code et dialogue de confiance du dossier, que le script ouvre et où l'utilisateur répond.
 
 ### 2. Voix et contrôle
 
-- [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX, bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
+- [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX (à installer), bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
 - [ ] Commandes vocales "stop", "annule", "passe en Opus" (`/model opus`).
 - [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
 
@@ -187,13 +191,15 @@ Les quatre acceptent le mode `auto`. Les demandes simples ne consomment rien : l
 - L'abonnement ne fonctionne que dans Claude Code et claude.ai. L'app pilote donc le vrai CLI dans un pseudo-terminal, ce qui reste conforme.
 - pywinpty : passer argv en liste (une chaîne garde ses guillemets) et lancer via `cmd.exe /c chcp 65001 >nul && claude ...`, sinon les accents arrivent en cp850.
 - Retirer les variables d'une session imbriquée (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_PID`) avant de lancer `claude`.
-- Répondre `\r` au dialogue de confiance du dossier. Pour envoyer un prompt : le taper, attendre 0,4 s, puis `\r`.
-- Hooks `type: "http"` déclarés dans un fichier passé par `--settings`. `SessionStart` ne s'est pas déclenché en HTTP pendant les tests.
+- Le dialogue de confiance du dossier propose "No, exit" par défaut. L'app n'y répond pas : la session tourne dans le repo, déjà approuvé, et s'il s'affiche, il faut lancer `claude` une fois dans le repo pour l'accepter. Pour envoyer un prompt : le taper, attendre 0,4 s, puis `\r`.
+- Hooks `type: "http"` déclarés dans un fichier passé par `--settings`. `SessionStart` n'accepte que les hooks `command` et `mcp_tool`.
+- `--append-system-prompt` est enregistré à la première requête de la conversation, puis réutilisé tel quel jusqu'à la prochaine compaction, même si un lancement suivant passe un autre texte (`--system-prompt-snapshot`, actif par défaut). Un changement de mode d'auto-amélioration ne vaut donc qu'après un `/compact`, ou avec `--system-prompt-snapshot off`.
 - Statusline : sa commande, déclarée dans le même fichier `--settings` que les hooks, reçoit en JSON `rate_limits.five_hour` et `rate_limits.seven_day` (`used_percentage`, `resets_at`), `cost.total_cost_usd` et `context_window`, et les transmet à l'app. `rate_limits` n'apparaît qu'après la première réponse de la session et ne change qu'à ses réponses, alors que la limite est partagée avec claude.ai et les autres sessions : `/usage` (alias `/cost` et `/stats`) donne le chiffre frais.
 - Channels exige `--dangerously-load-development-channels`, qui pose une question interactive : inutilisable en session cachée pour l'instant.
-- Whisper : `large-v3-turbo` (0,5 s) ou `small` (0,2 s) en `int8_float16` sur CUDA, `beam_size=1`, `condition_on_previous_text=False`, audio passé en numpy (le décodage par PyAV plante).
+- Whisper : `large-v3-turbo` (0,5 s) ou `small` (0,2 s) en `int8_float16` sur CUDA, `beam_size=1`, `condition_on_previous_text=False`, audio passé en numpy (le décodage par PyAV plante). cuDNN vient de la roue de ctranslate2, cuBLAS du CUDA Toolkit 12 sur le PATH.
 - Silero VAD : trames de 512 échantillons à 16 kHz, sortie 1-D.
 - Picovoice n'a plus d'offre gratuite et le modèle openWakeWord "hey claude" n'existe qu'en anglais.
 - Mesuré : démarrage de session 5,5 s, réponse simple 2,3 s, tour avec un outil 8,5 s.
 - Ctrl+C dans une app Qt : la boucle d'événements ne rend pas la main à Python, d'où `signal.signal(signal.SIGINT, signal.SIG_DFL)`.
+- Captures hors écran (`QT_QPA_PLATFORM=offscreen`) : sans `QT_QPA_FONTDIR=C:/Windows/Fonts`, le texte s'affiche en carrés.
 
