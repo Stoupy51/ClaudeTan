@@ -4,11 +4,15 @@ version = "0.0.0"
 description = "Extracts the Claude-tan sprites from the source video"
 requires-python = ">=3.14"
 dependencies = [
+	"accelerate>=1.15.0",
+	"bitsandbytes>=0.50.2",
+	"diffusers>=0.41.0",
 	"einops",
 	"huggingface-hub",
 	"kornia",
 	"numpy",
 	"opencv-python<5",
+	"peft>=0.21.2",
 	"spandrel",
 	"timm",
 	"torch",

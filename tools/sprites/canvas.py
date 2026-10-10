@@ -21,7 +21,7 @@ TILT: float = np.radians(11.8)
 """ Head tilt of the idle pose, kept for every sprite so the reference itself is not rotated. """
 LEFT: Point = (MID[0] - IOD / 2 * np.cos(TILT), MID[1] + IOD / 2 * np.sin(TILT))
 RIGHT: Point = (MID[0] + IOD / 2 * np.cos(TILT), MID[1] - IOD / 2 * np.sin(TILT))
-EDGE_FADE: float = 40.0
+EDGE_FADE: float = 90.0
 """ Width of the fade where the frame or a clip box cuts her, in canvas pixels. """
 FADE_ROWS: tuple[int, int] = (430, 604)
 """ Rows where the shared bottom fade starts and reaches zero. """

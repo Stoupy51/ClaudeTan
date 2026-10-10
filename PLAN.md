@@ -107,31 +107,33 @@ Ce que montre Claude-tan à chaque étape :
 - [x] Icône de notification, avec le même menu au clic gauche et au clic droit, et démarrage avec Windows.
 - [x] README et `uv run claudetan-setup` : Whisper téléchargé et testé sur le GPU, puis, au besoin, connexion à Claude Code et dialogue de confiance du dossier, que le script ouvre et où l'utilisateur répond.
 
-### 2. Voix et contrôle
+### 2. Avatar
 
-- [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX (à installer), bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
-- [ ] Commandes vocales "stop", "annule", "passe en Opus" (`/model opus`).
-- [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
+- [ ] Expressions manquantes : travaille, réfléchit de face, triste ou erreur. La vidéo n'en a pas d'utilisable : réfléchit (1220) est flou, la main dans les cheveux (3040) et la joie yeux fermés (3080) ont le buste caché par des bulles de chat. Piste : éditer `idle` avec un modèle d'édition d'image (FLUX Kontext, Qwen-Image-Edit), puis passer le résultat dans le pipeline.
+- [x] Clignement sur toutes les poses, avec les yeux fermés de la même image. La bouche ne bouge que sur `idle` et `hello`, les seules poses qui parlent.
+- [x] Bords coupés par le cadre ou le décor fondus sur 90 px, comme le bas : `please` et `thanks` restent plus étroites, leur illustration étant coupée dans la vidéo elle-même.
+- [x] Rendu : halo chaud qui respire, apparition avec rebond et gerbe d'étincelles, fondu entre expressions, étincelles quand elle est contente ou présente un résultat, bulle à étiquette dont le texte s'écrit lettre par lettre, pastille en comète.
+- [x] Pipeline de sprites dans `tools/sprites/`, pour pouvoir ajouter des expressions.
 
-### 3. Actions locales
-
-- [ ] Registre d'actions et premières actions : capture de l'écran 1 ou 2, raccourcis clavier (Alt+F10 pour ShadowPlay), lancer une app, météo, volume et média, minuteur, usage du forfait.
-- [ ] Routeur : règles exactes, puis petit modèle local via Ollama, puis Claude.
-- [ ] Analyse d'une capture par un modèle de vision local ou par Claude, au choix dans la config.
-- [ ] Serveur MCP local pour que Claude appelle les mêmes actions.
-
-### 4. Auto-amélioration
+### 3. Auto-amélioration
 
 - [ ] `CLAUDE.md` du repo qui explique à la session comment ajouter une action, avec son test et les contrôles.
 - [ ] Rechargement à chaud du registre, et relance de l'app avec reprise de la session quand son cœur change.
 - [ ] Lanceur qui annule le dernier changement et relance l'app quand elle plante juste après.
 - [ ] Mode dans la config : à relire (défaut tant que le lanceur manque), branche dédiée ou auto-suffisant (commits directs sur main), transmis à la session par `--append-system-prompt`.
 
-### 5. Avatar
+### 4. Actions locales
 
-- [ ] Expressions manquantes : travaille, réfléchit de face, triste ou erreur. Piste spéculative : éditer `idle` avec un modèle d'édition d'image (FLUX Kontext, Qwen-Image-Edit), puis passer le résultat dans le pipeline.
-- [ ] Clignement et bouche sur toutes les poses, pas seulement `idle` et `hello`.
-- [x] Pipeline de sprites dans `tools/sprites/`, pour pouvoir ajouter des expressions.
+- [ ] Registre d'actions et premières actions : capture de l'écran 1 ou 2, raccourcis clavier (Alt+F10 pour ShadowPlay), lancer une app, météo, volume et média, minuteur, usage du forfait.
+- [ ] Routeur : règles exactes, puis petit modèle local via Ollama, puis Claude.
+- [ ] Analyse d'une capture par un modèle de vision local ou par Claude, au choix dans la config.
+- [ ] Serveur MCP local pour que Claude appelle les mêmes actions.
+
+### 5. Voix et contrôle
+
+- [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX (à installer), bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
+- [ ] Commandes vocales "stop", "annule", "passe en Opus" (`/model opus`).
+- [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
 
 ### 6. Plus tard
 
@@ -141,13 +143,13 @@ Ce que montre Claude-tan à chaque étape :
 
 ## Sprites
 
-`assets/claude/` contient 16 PNG de 850x608 px. Dans toutes les images de face, les iris tombent sur les mêmes pixels à 0,4 px près : gauche (382,4 ; 288,9), droit (467,6 ; 271,1). `point` regarde de côté, ce sont donc ses yeux et non ses iris qui sont alignés.
+`assets/claude/` contient 24 PNG de 850x608 px. Dans toutes les images de face, les iris tombent sur les mêmes pixels à 0,4 px près : gauche (382,4 ; 288,9), droit (467,6 ; 271,1). `point` regarde de côté, ce sont donc ses yeux et non ses iris qui sont alignés.
 
 | Sprite | Image source (vidéo à 30 images/s) | Usage |
 | :- | :- | :- |
 | `idle` | 3771 | repos, main sur le coeur |
 | `idle_talk_open`, `idle_talk_o`, `idle_talk_wide` | bouches de 3785, 3789, 3757 | `idle` qui parle |
-| `idle_blink` | yeux de 1998 | clignement |
+| `<pose>_blink`, pour chaque pose | yeux de 1998 | clignement |
 | `happy` | 3764 | grand sourire |
 | `surprised` | 3760 | surprise |
 | `hello` | 72 | salut de la main |
@@ -163,7 +165,7 @@ Le pipeline, dans l'ordre :
 1. Détourage ToonOut (BiRefNet affiné sur l'anime) en deux passes.
 2. Iris trouvés par corrélation avec ceux d'`idle`, puis une similitude pose les deux yeux sur les pixels cibles.
 3. Couleurs du personnage séparées du fond sur les bords (blur fusion), super-résolution Real-ESRGAN anime pour les plans larges.
-4. Fondu de 40 px partout où le cadre ou le décor la coupe, et fondu commun en bas (lignes 430 à 604).
+4. Fondu de 90 px partout où le cadre ou le décor la coupe, et fondu commun en bas (lignes 430 à 604).
 5. Reflets violets des néons repeints couleur cheveux, puis couleurs ramenées sur celles d'`idle`, peau, cheveux et reste séparément.
 6. Bouches et yeux greffés sur la pose de base après un alignement local.
 

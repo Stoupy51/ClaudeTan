@@ -28,6 +28,9 @@ SHELF_CORNER: Box = (2930, 0, 3240, 275)
 """ A shelf corner the matte keeps above her head in the thanks frame. """
 BENCH: Box = (2330, 640, 2620, 1000)
 """ The striped bench the matte glues to her hair in the pointing frame. """
+BLINK_FRAME: int = 1998
+BLINK_EYES: tuple[tuple[float, float], tuple[float, float]] = ((2675.5, 1259.7), (2905.5, 1216.9))
+""" Eye centers of the open-eyed frame just before the blink, which the iris templates cannot find with the eyes closed. """
 POSES: list[Pose] = [
 	Pose(name="idle",      frame=3771, hands=((460, 510),)),
 	Pose(name="happy",     frame=3764, hands=((460, 510),)),
@@ -44,12 +47,12 @@ RIGS: list[Rig] = [
 	Rig(name="idle_talk_open",  base="idle",  frame=3785, part=MOUTH),
 	Rig(name="idle_talk_o",     base="idle",  frame=3789, part=MOUTH),
 	Rig(name="idle_talk_wide",  base="idle",  frame=3757, part=MOUTH),
-	Rig(name="idle_blink",      base="idle",  frame=1998, part=EYES, eyes=((2675.5, 1259.7), (2905.5, 1216.9))),
 	Rig(name="hello_talk_open", base="hello", frame=93,   part=MOUTH),
 	Rig(name="hello_talk_o",    base="hello", frame=82,   part=MOUTH),
 	Rig(name="hello_talk_wide", base="hello", frame=67,   part=MOUTH),
+	*[Rig(name=f"{pose.name}_blink", base=pose.name, frame=BLINK_FRAME, part=EYES, eyes=BLINK_EYES) for pose in POSES],
 ]
-""" The blink frame borrows the eye centers of the open-eyed frame just before it. """
+""" Only `idle` and `hello` talk, every pose blinks with the closed eyes of the same frame. """
 
 
 # Functions
