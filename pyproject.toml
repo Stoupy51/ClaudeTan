@@ -1,3 +1,10 @@
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
 [project]
 name = "claudetan"
 version = "0.0.0"
@@ -23,6 +30,12 @@ authors = [
 	{ name = "Stoupy51", email = "stoupy51@gmail.com" },
 ]
 
+[project.scripts]
+claudetan-setup = "claudetan.setup:main"
+
+[project.gui-scripts]
+claudetan = "claudetan.app:main"
+
 [project.urls]
 Issues = "https://github.com/Stoupy51/ClaudeTan/issues"
 Repository = "https://github.com/Stoupy51/ClaudeTan"
@@ -30,11 +43,9 @@ Repository = "https://github.com/Stoupy51/ClaudeTan"
 [dependency-groups]
 dev = [
 	"pyright",
+	"pytest",
 	"ruff",
 ]
-
-[tool.uv]
-package = false
 
 [tool.pyright]
 typeCheckingMode = "strict"
