@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Self
 
 # Constants
-ROOT: Path = Path(__file__).resolve().parent.parent
+ROOT: Path = Path(__file__).resolve().parents[2]
 """ The ClaudeTan repository, which the app runs from. """
 APP_DATA: Path = Path(os.environ["APPDATA"]) / "ClaudeTan"
 DEFAULTS: Path = Path(__file__).with_name("config.toml")
