@@ -1,0 +1,85 @@
+
+# 🎙️ ClaudeTan
+
+<div align="center">
+
+<img src="assets/claude/hello.png" alt="Claude-tan waving" width="360">
+
+*Say "Hey Claude": Claude-tan pops up on your screen while a hidden Claude Code session, running on your Claude subscription, does the work.*
+
+</div>
+
+> [!NOTE]
+> Work in progress: the voice and the avatar work, the hidden Claude Code session they drive is being written.
+> The roadmap is in [PLAN.md](PLAN.md), in French.
+
+## 📋 Requirements
+
+- Windows 10 or 11 and a microphone.
+- An NVIDIA GPU with the CUDA 12 runtime, which the [CUDA Toolkit 12](https://developer.nvidia.com/cuda-downloads) installs, for Whisper.
+- [uv](https://docs.astral.sh/uv/getting-started/installation/), which installs Python 3.14 by itself.
+- [Claude Code](https://code.claude.com/docs/en/setup), signed in with a Claude Pro or Max subscription.
+
+## 🔧 Installation
+
+```powershell
+git clone https://github.com/Stoupy51/ClaudeTan
+cd ClaudeTan
+uv run claudetan-setup
+```
+
+The setup installs the dependencies, downloads Whisper (1.6 GB) and runs it once on the GPU.
+Then, only when needed, it opens Claude Code's sign-in page, and Claude Code itself in this folder so that you trust it:
+pick *Yes, I trust this folder*, then type `/exit`. This dialog is Claude Code's safety check before it works in a folder, so the app never answers it for you.
+
+Optional, once:
+
+- Windows hides new tray icons behind the `^` arrow: drag Claude-tan's next to the clock to keep it in sight.
+- Tick *Démarrer avec Windows* in her tray menu to start her at logon.
+
+## ▶️ Usage
+
+```powershell
+uv run claudetan
+```
+
+Say *"Hey Claude, ..."* or *"Hé Claude, ..."*: she shows up as soon as she hears it, then shows the sentence she understood.
+
+- A click on her opens Claude Code's Remote Control on claude.ai, a long press lets you drag her.
+- Dropped on a second screen, she comes back there, and shows up on the main screen while it is unplugged.
+- Her tray icon, with a left or a right click, opens the session or the config, toggles the start with Windows, and quits.
+
+## ⚙️ Configuration
+
+*Ouvrir la config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
+the speech recognition language, the wake phrase, and your additions to the hidden session's system prompt, such as where your folders are.
+Quit and restart the app to apply a change. Its log is next to it, in `claudetan.log`.
+
+## 🧑‍💻 Development
+
+```powershell
+uv run pytest tests --doctest-modules claudetan
+uv run ruff check .
+uv run pyright
+uv run prototypes/overlay_demo.py              # plays every expression in a loop
+uv run prototypes/voice_demo.py --wav clip.wav # prints what the listener hears, from the microphone without --wav
+```
+
+The sprites in `assets/claude/` come out of `tools/sprites/`, a separate uv project described in [PLAN.md](PLAN.md#sprites).
+
+### With Claude Code in auto mode
+
+The auto mode classifier stops a session from writing and running code that starts another Claude Code session in auto mode, which is what this app does ("Create Unsafe Agents").
+To let Claude Code work on that part, add this exception to your user settings, `~/.claude/settings.json`, since the classifier ignores a project's own settings:
+
+```json
+"autoMode": {
+	"allow": [
+		"$defaults",
+		"In the ClaudeTan repository, the app starts a hidden Claude Code session with claude --remote-control --permission-mode auto and types the user's voice commands into it: writing, testing and running that launcher, including scripts that start such a session to test it, is allowed."
+	]
+}
+```
+
+`claude auto-mode config` shows the rules in effect. Without the exception, ask for that action explicitly in your message instead.
+
