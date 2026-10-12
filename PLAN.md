@@ -46,13 +46,9 @@ Le mode se règle dans la config : changements laissés à relire, commités sur
 
 ### Applications connectées
 
-Claude-tan lit et écrit dans d'autres applications, à commencer par Discord. Exemple : "Artyu m'a MP pour une PR, tu peux aller la résoudre stp ?" La session lit le dernier MP d'Artyu et y trouve la PR. Elle lui répond selon le contexte ("Je regarde ta PR"), confie la correction au sous-agent Opus, puis lui écrit quand c'est terminé, avec le lien du commit. Chaque application connectée devient une action du registre, donc aussi un outil MCP pour Claude. GitHub passe déjà par `gh`, que la session sait utiliser.
+Claude-tan lit d'autres applications sans jamais y écrire, à commencer par Discord. Exemple : "Artyu m'a MP pour une PR, tu peux aller la résoudre stp ?" La session retrouve le dernier MP d'Artyu, y lit le lien de la PR et confie la correction au sous-agent Opus. C'est l'utilisateur qui répond sur Discord. Chaque application connectée devient une action du registre, donc aussi un outil MCP pour Claude. GitHub passe déjà par `gh`, que la session sait utiliser.
 
-Pour Discord, l'API des bots ne lit que les messages adressés au bot. Automatiser un compte utilisateur (self-bot, avec le jeton du compte) est interdit par les conditions de Discord, et le compte risque d'être banni. Pistes à trancher avant de coder :
-
-- un bot Claude-tan officiel, à qui les amis écrivent ou qu'on ajoute aux serveurs : conforme, mais il ne voit pas les MP reçus par le compte ;
-- lire les MP dans les notifications Windows que Discord affiche (`UserNotificationListener`, à vérifier depuis une app non empaquetée), et répondre en ouvrant la conversation puis en tapant dans le client : c'est encore de l'automatisation du compte, donc la même zone grise ;
-- un serveur MCP Discord existant, après avoir vérifié s'il passe par un bot ou par le jeton du compte.
+Les MP sont lus avec le compte de l'utilisateur, par l'API HTTP que le client Discord utilise lui-même, en lecture seule : l'app n'envoie jamais rien. Discord interdit d'automatiser un compte utilisateur, même en lecture ; l'utilisateur accepte ce risque pour son compte. Le jeton du compte se met dans la config, à la main.
 
 ### Depuis l'iPhone
 
@@ -135,6 +131,7 @@ Ce que montre Claude-tan à chaque étape :
 ### 4. Actions locales
 
 - [x] Registre d'actions (`actions.py`) et routeur à règles exactes : capture de l'écran 1 à 3, Alt+F10 pour ShadowPlay, lecture, piste suivante ou précédente, volume. Une phrase d'action part sans attendre la fin de la dictée.
+- [x] Transcription de réunion jusqu'à ce qu'on l'arrête : son du PC (loopback WASAPI) et micro, chacun sur son fil, dans un fichier de `Documents\Transcriptions`.
 - [ ] Vérifier que ShadowPlay accepte le Alt+F10 simulé par `keybd_event`.
 - [ ] Autres actions : lancer une app, météo, minuteur, usage du forfait.
 - [ ] Petit modèle local via Ollama entre les règles et Claude.
@@ -150,9 +147,7 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 6. Applications connectées
 
-- [ ] Choisir comment lire et envoyer les MP Discord (voir [Applications connectées](#applications-connectées)).
-- [ ] Action Discord : lire les derniers messages d'une personne, lui répondre.
-- [ ] Suivi d'une demande venue d'un message : réponse selon le contexte au début, puis une autre quand la tâche est terminée.
+- [ ] Action Discord : les derniers MP échangés avec une personne, lus avec le jeton du compte mis dans la config.
 
 ### 7. Plus tard
 

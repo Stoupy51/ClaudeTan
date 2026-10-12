@@ -8,9 +8,9 @@ from pathlib import Path
 import numpy as np
 import stouputils as stp
 
+from claudetan.audio import RATE, load_whisper
 from claudetan.config import ROOT
 from claudetan.console import enable_colors
-from claudetan.voice import RATE, load_whisper
 
 
 # Functions

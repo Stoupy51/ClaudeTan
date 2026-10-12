@@ -21,6 +21,7 @@ dependencies = [
 	"pyside6>=6.9",
 	"pyte>=0.8.2",
 	"pywinpty>=2.0",
+	"soundcard>=0.4.6",
 	"sounddevice",
 	"soundfile",
 	"stouputils>=26.10.1",

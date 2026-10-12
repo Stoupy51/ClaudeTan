@@ -10,6 +10,8 @@ from pathlib import Path
 from PySide6.QtCore import QStandardPaths
 from PySide6.QtGui import QGuiApplication
 
+from claudetan.meeting import Meeting
+
 
 # Classes
 @dataclass(frozen=True)
@@ -29,6 +31,8 @@ KEY_UP: int = 0x0002
 """ `KEYEVENTF_KEYUP`, the flag of a key release for `keybd_event`. """
 CURLY_APOSTROPHE: str = chr(0x2019)
 """ The apostrophe Whisper sometimes writes, turned into a straight one before matching phrases. """
+MEETING: Meeting = Meeting()
+""" The one meeting transcription, started and stopped by voice. """
 SCREENS: dict[str, int] = {"1": 1, "un": 1, "one": 1, "2": 2, "deux": 2, "two": 2, "3": 3, "trois": 3, "three": 3}
 """ Screen numbers as Whisper may write them. """
 ACTIONS: list[Action] = [
@@ -37,6 +41,17 @@ ACTIONS: list[Action] = [
 		phrases=r"(?:fais une |prends une |take a )?(?:capture|screenshot)(?: d'écran)?"
 		r"(?: (?:de |of )?(?:l' ?écran|screen|monitor)(?: (?P<screen>[1-3]|un|deux|trois|one|two|three))?)?",
 		run=lambda match: screenshot(SCREENS[(match["screen"] or "1").lower()]),
+	),
+	Action(
+		name="meeting_start",
+		phrases=r"(?:lance|démarre|commence) (?:la |une )?(?:re)?transcription(?: de la réunion)?|transcris(?: la réunion)?"
+		r"|(?:start )?(?:transcribing|transcribe)(?: the meeting)?|start (?:a |the )?transcription",
+		run=lambda _: MEETING.start(),
+	),
+	Action(
+		name="meeting_stop",
+		phrases=r"(?:arrête|stoppe|termine|coupe) (?:la )?(?:re)?transcription|stop (?:the )?(?:transcription|transcribing)",
+		run=lambda _: MEETING.stop(),
 	),
 	Action(
 		name="clip",
@@ -85,6 +100,8 @@ def route(request: str) -> tuple[Action, re.Match[str]] | None:
 	('screenshot', '2')
 	>>> route("Monte le son !")[0].name
 	'volume_up'
+	>>> route("Arrête la transcription.")[0].name
+	'meeting_stop'
 	>>> route("Mets pause, puis ouvre Spotify.") is None
 	True
 	"""

@@ -1,39 +1,21 @@
-""" The microphone, cut into sentences by Silero VAD and transcribed by Whisper, reduced to the commands spoken to her. """
+""" The microphone's sentences, transcribed by Whisper and reduced to the requests spoken to her. """
 # Imports
-import queue
 import threading
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass
 
-import numpy as np
-import sounddevice as sd
-from faster_whisper import WhisperModel
-from faster_whisper.vad import get_vad_model
 from PySide6.QtCore import QObject, Signal
 
 from claudetan.actions import route
+from claudetan.audio import Audio, load_whisper, utterances
 from claudetan.config import Config
 
 # Constants
-type Audio = np.ndarray[tuple[int], np.dtype[np.float32]]
-RATE: int = 16000
-FRAME: int = 512
-""" Samples per VAD step, the window Silero expects at 16 kHz (32 ms). """
-EARLY_CHECK_FRAMES: int = 40
-""" Length (1.3 s) at which a sentence still being spoken is transcribed once, so she reacts to the wake phrase before it ends. """
 FOLLOW_UP_S: float = 8.0
 """ How long a lone wake phrase keeps her listening for the command. """
 
 
 # Classes
-@dataclass(frozen=True)
-class Speech:
-	audio: Audio
-	ended: bool
-	""" False for the opening of a sentence still being spoken. """
-
-
 class Listener(QObject):
 	""" Runs the microphone pipeline on its own thread and reports to the Qt thread through its signals. """
 	woke = Signal()
@@ -97,57 +79,4 @@ class Listener(QObject):
 		self.request = []
 		if request:
 			self.heard.emit(request)
-
-
-# Functions
-def load_whisper() -> WhisperModel:
-	""" Whisper on the GPU, downloaded from Hugging Face on the first call (1.6 GB). """
-	return WhisperModel("large-v3-turbo", device="cuda", compute_type="int8_float16")
-
-
-def microphone() -> Iterator[Audio]:
-	frames: queue.Queue[Audio] = queue.Queue()
-	with sd.InputStream(
-		samplerate=RATE, channels=1, dtype="float32", blocksize=FRAME,
-		callback=lambda data, _count, _time, _status: frames.put(data[:, 0].copy()),
-	):
-		while True:
-			yield frames.get()
-
-
-def utterances(frames: Iterator[Audio], pause_s: float) -> Iterator[Speech | None]:
-	""" Sentences cut out of the frames: one starts after 250 ms above the threshold and ends after 800 ms of silence or 15 s.
-
-	Each sentence reaching `EARLY_CHECK_FRAMES` is also yielded once before it ends, and None once `pause_s` pass without a voice.
-	"""
-	speech: list[Audio] = []
-	for window, voiced, silent in voice_activity(frames):
-		if speech:
-			speech.append(window[-1])
-		elif voiced >= 8:
-			speech = list(window)
-		elif silent == round(pause_s * RATE / FRAME):
-			yield None
-			continue
-		else:
-			continue
-
-		ended = silent >= 25 or len(speech) >= 15 * RATE // FRAME
-		if ended or len(speech) == EARLY_CHECK_FRAMES:
-			yield Speech(audio=np.concatenate(speech), ended=ended)
-		if ended:
-			speech = []
-
-
-def voice_activity(frames: Iterator[Audio]) -> Iterator[tuple[list[Audio], int, int]]:
-	""" Each frame at the end of the half second before it, with how many frames in a row Silero VAD found voiced and silent. """
-	vad = get_vad_model()
-	window: list[Audio] = []
-	voiced = silent = 0
-	for frame in frames:
-		window = [*window[-15:], frame]
-		probability = float(vad(np.concatenate(window))[-1])
-		voiced = voiced + 1 if probability > 0.5 else 0
-		silent = silent + 1 if probability < 0.35 else 0
-		yield window, voiced, silent
 

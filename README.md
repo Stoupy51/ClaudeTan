@@ -46,6 +46,7 @@ The app starts in the background with a hidden Claude Code session in this folde
 The session stays in claude.ai's list after you quit, and the app resumes it on its next start.
 Say *"Hey Claude, ..."* or *"Hé Claude, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
 Screenshots (*"capture l'écran 2"*), ShadowPlay clips (*"enregistre ça"*), music (*"pause"*, *"musique suivante"*) and volume (*"monte le son"*) are done by the app itself, at once and without the session.
+*"Transcris la réunion"* writes everything the PC plays and your microphone hears into `Documents\Transcriptions`, one timed line per sentence, until *"arrête la transcription"*.
 You may pause while you speak: she sends your request after 15 s of silence, or as soon as it ends with *"prompt done"* or *"fin du prompt"*. Ending it with *"cancel prompt"* or *"annule le prompt"* drops it.
 
 - A click on her opens Claude Code's Remote Control on claude.ai, a long press lets you drag her.
