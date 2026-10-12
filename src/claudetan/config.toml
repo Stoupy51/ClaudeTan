@@ -1,4 +1,5 @@
-# ClaudeTan settings. Start the app again to apply a change: it replaces the one running.
+# ClaudeTan settings, applied as soon as you save this file.
+# The models, the prompt and avatar_zoom restart the app once she has nothing running, resuming the same session.
 
 # Language of the speech recognition: "fr", "en", or "auto" to detect it on each sentence
 language = "auto"
@@ -6,6 +7,10 @@ language = "auto"
 # Wake phrase, matched ignoring case at the start of each sentence as Whisper spells it ("Hé Claude" often comes out as "Et Claude").
 # Its first group is the command said in the same breath.
 wake = '^\W*(?:hey|hé|he|eh|et|dis|ok|okay)\W+(?:claude|clode|clod|clodo|clown)\b[\s,.!?]*(.*)'
+
+# How close a voice must be to yours, recorded by `uv run claudetan-setup`, to wake her or ask her something:
+# from 0 (anyone) to 1 (never). The log shows the similarity of each sentence, to adjust it.
+voice_match = 0.5
 
 # You may pause while you speak: she sends your request after this many seconds of silence,
 # or as soon as it ends with one of the `done` phrases. Ending it with one of the `cancel` phrases drops it.

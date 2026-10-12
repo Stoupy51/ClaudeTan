@@ -1,17 +1,20 @@
 """ ClaudeTan: Claude-tan reacting to what she hears and to the hidden Claude Code session, through its hook events. """
 # Imports
 import logging
+import re
 import signal
 import subprocess
 import sys
 import threading
+import tomllib
 from collections import deque
+from dataclasses import fields
 from functools import partial
 from pathlib import Path
 from urllib.parse import urlparse
 
 import stouputils as stp
-from PySide6.QtCore import QObject, QPoint, QTimer, Signal
+from PySide6.QtCore import QFileSystemWatcher, QObject, QPoint, QTimer, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
@@ -19,7 +22,7 @@ from claudetan.actions import route
 from claudetan.audio import microphone
 from claudetan.avatar import Avatar, Pill, chime
 from claudetan.bubble import shorten
-from claudetan.config import APP_DATA, LOG_FILE, Config
+from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
 from claudetan.session import HookServer, JsonDict, Session
 from claudetan.tray import Tray
@@ -42,6 +45,8 @@ COMPACT_TIMEOUT_MS: int = 180_000
 """ How long quitting waits for the session's compaction. """
 INSTANCE_NAME: str = "ClaudeTan"
 """ Local server of the running app: a new one connects to it to have it quit. """
+RESTART_KEYS: frozenset[str] = frozenset({"model", "agent_model", "prompt", "avatar_zoom"})
+""" Settings fixed when the session or the overlay starts, which only a new app applies. """
 READY: str = "ready\n"
 """ Last line the background app writes to `main`, which returns on it: the venv's launcher keeps the pipe open after it. """
 
@@ -53,6 +58,8 @@ class Assistant(QObject):
 	""" A command to type, emitted only between turns: keys typed while a dialog is open would answer it. """
 	idle = Signal()
 	""" No hook for `COMPACT_IDLE_MS` and no turn running. """
+	restart = Signal()
+	""" Settings in `RESTART_KEYS` changed, and she has just left with nothing running. """
 
 	def __init__(self, avatar: Avatar, pill: Pill) -> None:
 		super().__init__()
@@ -64,6 +71,7 @@ class Assistant(QObject):
 		self.asking = False
 		self.worked = False
 		""" Whether the turn used a tool, which makes her present the result rather than smile. """
+		self.restart_pending = False
 		self.activity = ""
 		self.message_id = ""
 		self.message = ""
@@ -92,6 +100,18 @@ class Assistant(QObject):
 	def on_cancel(self) -> None:
 		LOG.info("Request cancelled")
 		self.appear("idle", bubble="D'accord, j'oublie.")
+		self.dismiss.start(HEARD_MS)
+
+	def on_config(self, changed: list[str]) -> None:
+		LOG.info("Config changed: %s", ", ".join(changed))
+		self.restart_pending = self.restart_pending or not RESTART_KEYS.isdisjoint(changed)
+		later = " Je redémarre pour l'appliquer dès que je n'ai plus rien en cours." if self.restart_pending else ""
+		self.appear("happy", bubble=f"J'ai relu ta config : {', '.join(changed)}.{later}")
+		self.dismiss.start(HEARD_MS)
+
+	def on_config_error(self, error: str) -> None:
+		LOG.warning("Config not applied: %s", error)
+		self.appear("sad", bubble=f"Je n'arrive pas à lire ta config, je garde l'ancienne : {error}")
 		self.dismiss.start(HEARD_MS)
 
 	def on_command(self, text: str) -> None:
@@ -222,6 +242,8 @@ class Assistant(QObject):
 			return
 		self.pill.hide()
 		self.avatar.pop_out()
+		if self.restart_pending:
+			self.restart.emit()
 
 	def on_idle(self) -> None:
 		if not self.busy:
@@ -271,11 +293,7 @@ def main() -> None:
 	""" Starts the app in the background and returns once it reports it is ready, so no console window stays open. """
 	enable_colors()
 	stp.progress("Starting ClaudeTan, which takes about 15 s...")
-	# A gui-script would not do: uv makes the venv's pythonw.exe a copy of the console python.exe, which opens a window
-	app = subprocess.Popen(
-		[sys.executable, "-m", "claudetan.app"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-		text=True, creationflags=subprocess.CREATE_NO_WINDOW,
-	)
+	app = spawn_app(subprocess.PIPE)
 	assert app.stdout
 	for line in app.stdout:
 		if line == READY:
@@ -283,6 +301,31 @@ def main() -> None:
 			return
 		print(line, end="", flush=True)
 	stp.error(f"ClaudeTan stopped while starting, see {stp.CYAN}{LOG_FILE}")
+
+
+def spawn_app(stdout: int) -> subprocess.Popen[str]:
+	""" The app started in the background, writing its start-up report to `stdout`. It has the running one quit. """
+	# A gui-script would not do: uv makes the venv's pythonw.exe a copy of the console python.exe, which opens a window
+	return subprocess.Popen(
+		[sys.executable, "-m", "claudetan.app"], stdin=subprocess.DEVNULL, stdout=stdout, stderr=subprocess.DEVNULL,
+		text=True, creationflags=subprocess.CREATE_NO_WINDOW,
+	)
+
+
+def reload_config(watcher: QFileSystemWatcher, listener: Listener, assistant: Assistant) -> None:
+	""" Applies the saved config: the listener reads its settings on each sentence, the others wait for `Assistant.restart`. """
+	# Editors save by replacing the file, which drops it from the watch
+	watcher.addPath(str(USER_CONFIG))
+	try:
+		config = Config.load()
+	except (tomllib.TOMLDecodeError, re.error) as error:
+		assistant.on_config_error(str(error))
+		return
+
+	changed = [field.name for field in fields(Config) if getattr(config, field.name) != getattr(listener.config, field.name)]
+	if changed:
+		listener.config = config
+		assistant.on_config(changed)
 
 
 def report_ready(session: Session, listener: Listener) -> None:
@@ -358,6 +401,11 @@ def run() -> None:
 	listener.dictated.connect(assistant.on_dictation)
 	listener.cancelled.connect(assistant.on_cancel)
 	listener.heard.connect(assistant.on_command)
+	assistant.restart.connect(lambda: spawn_app(subprocess.DEVNULL))
+	watcher = QFileSystemWatcher([str(USER_CONFIG)])
+	saved = QTimer(singleShot=True, interval=300)
+	saved.timeout.connect(partial(reload_config, watcher, listener, assistant))
+	watcher.fileChanged.connect(lambda: saved.start())
 	threading.Thread(target=listener.run, args=(microphone(),), daemon=True).start()
 	report_ready(session, listener)
 	sys.exit(app.exec())

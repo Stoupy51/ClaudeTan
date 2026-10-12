@@ -23,6 +23,8 @@ class Config:
 	language: str | None
 	""" Whisper language code, None to detect it on each sentence. """
 	wake: re.Pattern[str]
+	voice_match: float
+	""" Lowest similarity to the owner's voiceprint of a sentence she obeys. """
 	pause_s: float
 	""" Silence after which a spoken request is sent. """
 	done: re.Pattern[str]
@@ -48,6 +50,7 @@ class Config:
 		return cls(
 			language=None if values["language"] == "auto" else values["language"],
 			wake=re.compile(values["wake"], re.IGNORECASE),
+			voice_match=values["voice_match"],
 			pause_s=values["pause_s"],
 			done=re.compile(rf"\W*\b(?:{values['done']})\W*$", re.IGNORECASE),
 			cancel=re.compile(rf"\W*\b(?:{values['cancel']})\W*$", re.IGNORECASE),

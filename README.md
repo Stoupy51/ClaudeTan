@@ -28,6 +28,8 @@ uv run claudetan-setup
 ```
 
 The setup installs the dependencies, downloads Whisper (1.6 GB) and runs it once on the GPU.
+It then has you read a few sentences aloud (about 15 s) to record your voice: only that voice can wake her and ask her something.
+To record it again, delete `%APPDATA%\ClaudeTan\voiceprint.npy` and run the setup again.
 Then, only when needed, it opens Claude Code's sign-in page, and Claude Code itself in this folder so that you trust it:
 pick *Yes, I trust this folder*, then type `/exit`. This dialog is Claude Code's safety check before it works in a folder, so the app never answers it for you.
 
@@ -58,7 +60,7 @@ You may pause while you speak: she sends your request after 15 s of silence, or 
 *Ouvrir la config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
 the speech recognition language, the wake phrase, the pause and the phrases that end a spoken request,
 the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), her size on screen, and your additions to the session's system prompt, such as where your folders are.
-Start the app again to apply a change: it replaces the one running.
+A change applies as soon as you save the file, and she tells you what changed. The models, the system prompt and her size restart the app once she has nothing running, resuming the same session.
 
 ## 🧑‍💻 Development
 

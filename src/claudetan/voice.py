@@ -9,6 +9,7 @@ from PySide6.QtCore import QObject, Signal
 from claudetan.actions import route
 from claudetan.audio import Audio, load_whisper, utterances
 from claudetan.config import Config
+from claudetan.voiceprint import is_owner
 
 # Constants
 FOLLOW_UP_S: float = 8.0
@@ -42,6 +43,8 @@ class Listener(QObject):
 		for speech in utterances(frames, self.config.pause_s):
 			if speech is None:
 				self.send()
+				continue
+			if not is_owner(speech.audio, self.config.voice_match):
 				continue
 			segments, _ = whisper.transcribe(
 				speech.audio, language=self.config.language, beam_size=1, condition_on_previous_text=False,

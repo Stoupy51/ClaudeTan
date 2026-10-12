@@ -124,6 +124,7 @@ Ce que montre Claude-tan à chaque étape :
 ### 3. Auto-amélioration
 
 - [ ] `CLAUDE.md` du repo qui explique à la session comment ajouter une action, avec son test et les contrôles.
+- [x] Config rechargée dès qu'elle est enregistrée, avec une réaction de Claude-tan : la voix tout de suite, les modèles, le prompt et la taille par une relance de l'app qui reprend la session dès qu'elle n'a plus rien en cours.
 - [ ] Rechargement à chaud du registre, et relance de l'app avec reprise de la session quand son cœur change.
 - [ ] Lanceur qui annule le dernier changement et relance l'app quand elle plante juste après.
 - [ ] Mode dans la config : à relire (défaut tant que le lanceur manque), branche dédiée ou auto-suffisant (commits directs sur main), transmis à la session par `--append-system-prompt`.
@@ -142,6 +143,7 @@ Ce que montre Claude-tan à chaque étape :
 
 - [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX (à installer), bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
 - [x] Dictée : les pauses ne coupent plus la demande, envoyée après 15 s de silence ou sur "prompt done", et annulée par "cancel prompt".
+- [x] Seule la voix du propriétaire, enregistrée par `claudetan-setup`, réveille Claude-tan et lui demande quelque chose : empreinte WeSpeaker (sherpa-onnx, sur le CPU) comparée à chaque phrase avant Whisper, seuil `voice_match` dans la config.
 - [ ] Commandes vocales "stop" (arrêter le tour en cours), "passe en Opus" (`/model opus`).
 - [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
 
