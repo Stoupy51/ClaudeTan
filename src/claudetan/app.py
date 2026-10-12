@@ -45,8 +45,8 @@ COMPACT_TIMEOUT_MS: int = 180_000
 """ How long quitting waits for the session's compaction. """
 INSTANCE_NAME: str = "ClaudeTan"
 """ Local server of the running app: a new one connects to it to have it quit. """
-RESTART_KEYS: frozenset[str] = frozenset({"model", "agent_model", "prompt", "avatar_zoom"})
-""" Settings fixed when the session or the overlay starts, which only a new app applies. """
+SESSION_KEYS: frozenset[str] = frozenset({"agent_model", "prompt"})
+""" Settings Claude Code reads only when it starts, applied by restarting the session on the same conversation. """
 READY: str = "ready\n"
 """ Last line the background app writes to `main`, which returns on it: the venv's launcher keeps the pipe open after it. """
 
@@ -59,7 +59,7 @@ class Assistant(QObject):
 	idle = Signal()
 	""" No hook for `COMPACT_IDLE_MS` and no turn running. """
 	restart = Signal()
-	""" Settings in `RESTART_KEYS` changed, and she has just left with nothing running. """
+	""" Settings in `SESSION_KEYS` changed, and she has just left with nothing running. """
 
 	def __init__(self, avatar: Avatar, pill: Pill) -> None:
 		super().__init__()
@@ -102,10 +102,16 @@ class Assistant(QObject):
 		self.appear("idle", bubble="D'accord, j'oublie.")
 		self.dismiss.start(HEARD_MS)
 
-	def on_config(self, changed: list[str]) -> None:
+	def on_config(self, config: Config, changed: list[str]) -> None:
 		LOG.info("Config changed: %s", ", ".join(changed))
-		self.restart_pending = self.restart_pending or not RESTART_KEYS.isdisjoint(changed)
-		later = " Je redémarre pour l'appliquer dès que je n'ai plus rien en cours." if self.restart_pending else ""
+		if "avatar_zoom" in changed:
+			self.avatar.set_zoom(config.avatar_zoom)
+			self.pill.set_zoom(config.avatar_zoom)
+		if "model" in changed:
+			self.commands.append(f"/model {config.model}")
+			self.flush()
+		self.restart_pending = self.restart_pending or not SESSION_KEYS.isdisjoint(changed)
+		later = " Je relance la session Claude pour l'appliquer dès que je n'ai plus rien en cours." if self.restart_pending else ""
 		self.appear("happy", bubble=f"J'ai relu ta config : {', '.join(changed)}.{later}")
 		self.dismiss.start(HEARD_MS)
 
@@ -243,6 +249,7 @@ class Assistant(QObject):
 		self.pill.hide()
 		self.avatar.pop_out()
 		if self.restart_pending:
+			self.restart_pending = False
 			self.restart.emit()
 
 	def on_idle(self) -> None:
@@ -293,7 +300,11 @@ def main() -> None:
 	""" Starts the app in the background and returns once it reports it is ready, so no console window stays open. """
 	enable_colors()
 	stp.progress("Starting ClaudeTan, which takes about 15 s...")
-	app = spawn_app(subprocess.PIPE)
+	# A gui-script would not do: uv makes the venv's pythonw.exe a copy of the console python.exe, which opens a window
+	app = subprocess.Popen(
+		[sys.executable, "-m", "claudetan.app"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+		text=True, creationflags=subprocess.CREATE_NO_WINDOW,
+	)
 	assert app.stdout
 	for line in app.stdout:
 		if line == READY:
@@ -303,17 +314,8 @@ def main() -> None:
 	stp.error(f"ClaudeTan stopped while starting, see {stp.CYAN}{LOG_FILE}")
 
 
-def spawn_app(stdout: int) -> subprocess.Popen[str]:
-	""" The app started in the background, writing its start-up report to `stdout`. It has the running one quit. """
-	# A gui-script would not do: uv makes the venv's pythonw.exe a copy of the console python.exe, which opens a window
-	return subprocess.Popen(
-		[sys.executable, "-m", "claudetan.app"], stdin=subprocess.DEVNULL, stdout=stdout, stderr=subprocess.DEVNULL,
-		text=True, creationflags=subprocess.CREATE_NO_WINDOW,
-	)
-
-
 def reload_config(watcher: QFileSystemWatcher, listener: Listener, assistant: Assistant) -> None:
-	""" Applies the saved config: the listener reads its settings on each sentence, the others wait for `Assistant.restart`. """
+	""" Applies the saved config: the listener reads its settings on each sentence, and `Assistant.on_config` applies the others. """
 	# Editors save by replacing the file, which drops it from the watch
 	watcher.addPath(str(USER_CONFIG))
 	try:
@@ -325,7 +327,7 @@ def reload_config(watcher: QFileSystemWatcher, listener: Listener, assistant: As
 	changed = [field.name for field in fields(Config) if getattr(config, field.name) != getattr(listener.config, field.name)]
 	if changed:
 		listener.config = config
-		assistant.on_config(changed)
+		assistant.on_config(config, changed)
 
 
 def report_ready(session: Session, listener: Listener) -> None:
@@ -401,7 +403,7 @@ def run() -> None:
 	listener.dictated.connect(assistant.on_dictation)
 	listener.cancelled.connect(assistant.on_cancel)
 	listener.heard.connect(assistant.on_command)
-	assistant.restart.connect(lambda: spawn_app(subprocess.DEVNULL))
+	assistant.restart.connect(lambda: session.restart(listener.config))
 	watcher = QFileSystemWatcher([str(USER_CONFIG)])
 	saved = QTimer(singleShot=True, interval=300)
 	saved.timeout.connect(partial(reload_config, watcher, listener, assistant))

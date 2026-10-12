@@ -95,20 +95,27 @@ class Session(QObject):
 
 	def __init__(self, hooks_url: str, config: Config) -> None:
 		super().__init__()
-		settings = APP_DATA / "session_settings.json"
+		self.settings = APP_DATA / "session_settings.json"
 		hooks = {name: [{"hooks": [{"type": "http", "url": hooks_url, "timeout": 5}]}] for name in HOOK_EVENTS}
-		settings.write_text(json.dumps({"hooks": hooks, "inputNeededNotifEnabled": True}), encoding="utf-8")
+		self.settings.write_text(json.dumps({"hooks": hooks, "inputNeededNotifEnabled": True}), encoding="utf-8")
+		self.id = SESSION_ID.read_text() if SESSION_ID.exists() else ""
+		self.transcript = ""
+		self.screen_lock = threading.Lock()
+		self.url = "https://claude.ai/code"
+		self.started = threading.Event()
+		""" Set once Remote Control prints the session's URL, when the session is ready for prompts. """
+		self.start(config)
+
+	def start(self, config: Config) -> None:
+		""" Starts Claude Code with the config's models and prompt, which it reads only then, resuming the conversation if any. """
 		prompt = APP_DATA / "session_prompt.md"
 		prompt.write_text(system_prompt(config.prompt), encoding="utf-8")
 		worker = {"description": WORKER_DESCRIPTION, "prompt": WORKER_PROMPT, "model": config.agent_model, "background": True}
-
-		self.id = SESSION_ID.read_text() if SESSION_ID.exists() else ""
-		self.transcript = ""
 		resume = ["--resume", self.id] if self.id else ["--session-id", str(uuid.uuid4())]
 		claude = [
 			"claude", "--remote-control", "ClaudeTan", "--permission-mode", "auto", "--model", config.model,
 			"--agents", json.dumps({"worker": worker}),
-			"--settings", str(settings), "--append-system-prompt-file", str(prompt), *resume,
+			"--settings", str(self.settings), "--append-system-prompt-file", str(prompt), *resume,
 		]
 		# chcp 65001: without it the pseudo console feeds Claude Code accented letters in cp850
 		argv = ["cmd.exe", "/c", "chcp", "65001", ">nul", "&&", *claude]
@@ -116,29 +123,30 @@ class Session(QObject):
 		self.pty = PtyProcess.spawn(argv, cwd=str(ROOT), env=env, dimensions=(50, 200))
 		self.screen = pyte.Screen(200, 50)
 		""" What the terminal shows, rebuilt from its output: Claude Code only redraws the characters that change. """
-		self.screen_lock = threading.Lock()
-		self.url = "https://claude.ai/code"
-		self.started = threading.Event()
-		""" Set once Remote Control prints the session's URL, when the session is ready for prompts. """
-		threading.Thread(target=self.read_output, daemon=True).start()
+		threading.Thread(target=self.read_output, args=(self.pty, self.screen), daemon=True).start()
 
-	def read_output(self) -> None:
+	def restart(self, config: Config) -> None:
+		""" Claude Code started again on the same conversation, to apply settings it reads only when it starts. """
+		self.close()
+		self.start(config)
+
+	def read_output(self, pty: PtyProcess, screen: pyte.Screen) -> None:
 		""" Renders the terminal's output, read continuously so the session never blocks on a full pipe. """
-		stream = pyte.Stream(self.screen)
+		stream = pyte.Stream(screen)
 		resume_answered = False
-		while self.pty.isalive():
+		while pty.isalive():
 			try:
-				output = self.pty.read(4096)
+				output = pty.read(4096)
 			except EOFError:
 				return
 			with self.screen_lock:
 				stream.feed(output)
-			screen = self.text()
+			shown = self.text()
 			# Enter picks its first option, "Resume from summary", which Claude Code recommends
-			if not resume_answered and RESUME_DIALOG in screen:
+			if not resume_answered and RESUME_DIALOG in shown:
 				resume_answered = True
-				self.pty.write("\r")
-			if not self.started.is_set() and (match := SESSION_URL.search(screen)):
+				pty.write("\r")
+			if not self.started.is_set() and (match := SESSION_URL.search(shown)):
 				self.url = match.group()
 				self.started.set()
 

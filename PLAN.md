@@ -124,7 +124,7 @@ Ce que montre Claude-tan à chaque étape :
 ### 3. Auto-amélioration
 
 - [ ] `CLAUDE.md` du repo qui explique à la session comment ajouter une action, avec son test et les contrôles.
-- [x] Config rechargée dès qu'elle est enregistrée, avec une réaction de Claude-tan : la voix tout de suite, les modèles, le prompt et la taille par une relance de l'app qui reprend la session dès qu'elle n'a plus rien en cours.
+- [x] Config rechargée dès qu'elle est enregistrée, avec une réaction de Claude-tan : la voix et la taille tout de suite, le modèle par `/model`, le modèle du sous-agent et le prompt, que Claude Code ne lit qu'au démarrage, par une relance de la seule session sur la même conversation dès qu'elle n'a plus rien en cours.
 - [ ] Rechargement à chaud du registre, et relance de l'app avec reprise de la session quand son cœur change.
 - [ ] Lanceur qui annule le dernier changement et relance l'app quand elle plante juste après.
 - [ ] Mode dans la config : à relire (défaut tant que le lanceur manque), branche dédiée ou auto-suffisant (commits directs sur main), transmis à la session par `--append-system-prompt`.

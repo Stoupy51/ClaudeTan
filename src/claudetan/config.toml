@@ -1,5 +1,5 @@
 # ClaudeTan settings, applied as soon as you save this file.
-# The models, the prompt and avatar_zoom restart the app once she has nothing running, resuming the same session.
+# agent_model and the prompt restart the hidden Claude Code session on the same conversation, once she has nothing running.
 
 # Language of the speech recognition: "fr", "en", or "auto" to detect it on each sentence
 language = "auto"

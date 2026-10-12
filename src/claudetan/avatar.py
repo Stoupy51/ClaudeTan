@@ -82,22 +82,10 @@ class Avatar(QWidget):
 		super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
 		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 		self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-		self.zoom = zoom
-		# Pixmaps hold as many pixels as they cover once zoomed, so they stay sharp
-		ratio = QGuiApplication.primaryScreen().devicePixelRatio() * zoom
-		self.sprites: dict[str, QPixmap] = {}
-		for path in ASSETS.glob("*.png"):
-			pixmap = QPixmap(str(path)).scaledToHeight(round(SPRITE_HEIGHT * ratio), Qt.TransformationMode.SmoothTransformation)
-			pixmap.setDevicePixelRatio(ratio)
-			self.sprites[path.stem] = pixmap
-		self.sprite_width = round(self.sprites["idle"].width() / ratio)
-		self.sprite_left = BUBBLE_WIDTH - round(0.3 * self.sprite_width)
-		self.resize(round(zoom * (self.sprite_left + self.sprite_width)), round(zoom * (SPRITE_TOP + SPRITE_HEIGHT)))
-
+		self.lay_out(zoom)
 		self.expression = "idle"
 		self.frame = "idle"
 		self.bubble = Bubble()
-		self.halo = glow(round(0.75 * self.sprite_width), round(0.7 * SPRITE_HEIGHT), ratio)
 		self.clock = QElapsedTimer()
 		self.clock.start()
 		self.previous_frame = ""
@@ -132,6 +120,30 @@ class Avatar(QWidget):
 		self.ticker.setInterval(FRAME_MS)
 		self.ticker.timeout.connect(self.tick)
 		self.schedule_blink()
+
+	def lay_out(self, zoom: float) -> None:
+		self.zoom = zoom
+		# Pixmaps hold as many pixels as they cover once zoomed, so they stay sharp
+		ratio = QGuiApplication.primaryScreen().devicePixelRatio() * zoom
+		self.sprites: dict[str, QPixmap] = {}
+		for path in ASSETS.glob("*.png"):
+			pixmap = QPixmap(str(path)).scaledToHeight(round(SPRITE_HEIGHT * ratio), Qt.TransformationMode.SmoothTransformation)
+			pixmap.setDevicePixelRatio(ratio)
+			self.sprites[path.stem] = pixmap
+		self.sprite_width = round(self.sprites["idle"].width() / ratio)
+		self.sprite_left = BUBBLE_WIDTH - round(0.3 * self.sprite_width)
+		self.halo = glow(round(0.75 * self.sprite_width), round(0.7 * SPRITE_HEIGHT), ratio)
+		self.resize(round(zoom * (self.sprite_left + self.sprite_width)), round(zoom * (SPRITE_TOP + SPRITE_HEIGHT)))
+
+	def set_zoom(self, zoom: float) -> None:
+		""" Lays her out again at `zoom`, her bottom-right corner staying where she was dropped. """
+		before = self.size()
+		self.lay_out(zoom)
+		saved = self.settings.value("pos")
+		if isinstance(saved, QPoint):
+			self.settings.setValue("pos", saved + QPoint(before.width() - self.width(), before.height() - self.height()))
+		if self.isVisible():
+			self.move(self.home())
 
 	def set_expression(self, expression: str, *, talking: bool = False, bubble: str = "") -> None:
 		now = self.now()
@@ -299,13 +311,16 @@ class Pill(QWidget):
 		super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
 		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 		self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-		self.zoom = zoom
-		self.resize(round(PILL_SIZE * zoom), round(PILL_SIZE * zoom))
-		self.face = face(round(PILL_SIZE * zoom))
+		self.set_zoom(zoom)
 		self.angle = 0
 		self.spin = QTimer(self)
 		self.spin.setInterval(30)
 		self.spin.timeout.connect(self.turn)
+
+	def set_zoom(self, zoom: float) -> None:
+		self.zoom = zoom
+		self.resize(round(PILL_SIZE * zoom), round(PILL_SIZE * zoom))
+		self.face = face(round(PILL_SIZE * zoom))
 
 	def show_at(self, corner: QPoint) -> None:
 		""" Shows the pill with its bottom-right corner on `corner`. """

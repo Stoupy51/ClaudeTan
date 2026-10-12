@@ -60,7 +60,7 @@ You may pause while you speak: she sends your request after 15 s of silence, or 
 *Ouvrir la config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
 the speech recognition language, the wake phrase, the pause and the phrases that end a spoken request,
 the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), her size on screen, and your additions to the session's system prompt, such as where your folders are.
-A change applies as soon as you save the file, and she tells you what changed. The models, the system prompt and her size restart the app once she has nothing running, resuming the same session.
+A change applies as soon as you save the file, and she tells you what changed. The agent's model and the system prompt, which Claude Code reads only when it starts, restart the hidden session on the same conversation once she has nothing running.
 
 ## 🧑‍💻 Development
 

@@ -30,10 +30,10 @@ def main() -> None:
 	list(segments)
 	stp.info("Whisper runs on the GPU")
 	if not VOICEPRINT.exists():
-		stp.progress("So that only you can command her, read this aloud into your microphone until it stops you (about 15 s):")
+		stp.progress("So that only you can command her, read this aloud, then keep talking about anything until it says it is done:")
 		stp.info(VOICE_SAMPLE)
 		VOICEPRINT.parent.mkdir(parents=True, exist_ok=True)
-		np.save(VOICEPRINT, embed(record_speech(seconds=15.0)))
+		np.save(VOICEPRINT, embed(record_speech(seconds=12.0)))
 		stp.info("Your voice is recorded")
 
 	if not shutil.which("claude"):
@@ -54,13 +54,18 @@ def main() -> None:
 
 
 def record_speech(seconds: float) -> Audio:
-	""" The sentences said into the microphone, stopped once they add up to `seconds`. """
+	""" The sentences said into the microphone, each printed as Whisper hears it, stopped once they add up to `seconds`. """
 	sentences = utterances(microphone(), pause_s=60.0)
 	said: list[Audio] = []
 	while sum(map(len, said)) < seconds * RATE:
 		speech = next(sentences)
-		if speech is not None and speech.ended:
-			said.append(speech.audio)
+		if speech is None or not speech.ended:
+			continue
+
+		said.append(speech.audio)
+		segments, _ = load_whisper().transcribe(speech.audio, beam_size=1, condition_on_previous_text=False)
+		heard = " ".join(segment.text.strip() for segment in segments)
+		stp.info(f"Heard ({sum(map(len, said)) / RATE:.0f}/{seconds:.0f} s): {heard}")
 	return np.concatenate(said)
 
 
