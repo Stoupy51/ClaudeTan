@@ -77,12 +77,12 @@ CHIME_RATE: int = 44100
 class Avatar(QWidget):
 	clicked = Signal()
 
-	def __init__(self, zoom: float = 1.0) -> None:
-		""" The overlay, laid out at its default size and drawn `zoom` times larger. """
+	def __init__(self, zoom: float = 1.0, text_zoom: float = 1.0) -> None:
+		""" The overlay, with her drawn `zoom` times and her bubble `text_zoom` times their default size. """
 		super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
 		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 		self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-		self.lay_out(zoom)
+		self.lay_out(zoom, text_zoom)
 		self.expression = "idle"
 		self.frame = "idle"
 		self.bubble = Bubble()
@@ -121,8 +121,9 @@ class Avatar(QWidget):
 		self.ticker.timeout.connect(self.tick)
 		self.schedule_blink()
 
-	def lay_out(self, zoom: float) -> None:
+	def lay_out(self, zoom: float, text_zoom: float) -> None:
 		self.zoom = zoom
+		self.text_zoom = text_zoom
 		# Pixmaps hold as many pixels as they cover once zoomed, so they stay sharp
 		ratio = QGuiApplication.primaryScreen().devicePixelRatio() * zoom
 		self.sprites: dict[str, QPixmap] = {}
@@ -131,14 +132,15 @@ class Avatar(QWidget):
 			pixmap.setDevicePixelRatio(ratio)
 			self.sprites[path.stem] = pixmap
 		self.sprite_width = round(self.sprites["idle"].width() / ratio)
-		self.sprite_left = BUBBLE_WIDTH - round(0.3 * self.sprite_width)
+		# In her own coordinates, which `zoom` scales: the bubble, scaled apart, overlaps her by a third of her width
+		self.sprite_left = max(0.0, text_zoom * BUBBLE_WIDTH / zoom - 0.3 * self.sprite_width)
 		self.halo = glow(round(0.75 * self.sprite_width), round(0.7 * SPRITE_HEIGHT), ratio)
 		self.resize(round(zoom * (self.sprite_left + self.sprite_width)), round(zoom * (SPRITE_TOP + SPRITE_HEIGHT)))
 
-	def set_zoom(self, zoom: float) -> None:
-		""" Lays her out again at `zoom`, her bottom-right corner staying where she was dropped. """
+	def set_zoom(self, zoom: float, text_zoom: float) -> None:
+		""" Lays her and her bubble out again, her bottom-right corner staying where she was dropped. """
 		before = self.size()
-		self.lay_out(zoom)
+		self.lay_out(zoom, text_zoom)
 		saved = self.settings.value("pos")
 		if isinstance(saved, QPoint):
 			self.settings.setValue("pos", saved + QPoint(before.width() - self.width(), before.height() - self.height()))
@@ -241,6 +243,7 @@ class Avatar(QWidget):
 	def paintEvent(self, event: QPaintEvent) -> None:
 		painter = QPainter(self)
 		painter.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
+		painter.save()
 		painter.scale(self.zoom, self.zoom)
 		now = self.now()
 		breath = math.sin(2 * math.pi * now / BREATH_S)
@@ -251,9 +254,12 @@ class Avatar(QWidget):
 		self.paint_sprite(painter, now, breath)
 		for spark in self.sparks:
 			spark.paint(painter, now)
+		painter.restore()
+
 		if self.bubble.text:
+			painter.scale(self.text_zoom, self.text_zoom)
 			# Growing upward from just above her hands keeps the finger of `thinking` and the wave of `hello` in sight
-			self.bubble.paint(painter, now, bottom=SPRITE_TOP + FACE_Y * SPRITE_HEIGHT - 26)
+			self.bubble.paint(painter, now, bottom=self.zoom * (SPRITE_TOP + FACE_Y * SPRITE_HEIGHT - 26) / self.text_zoom)
 
 	def paint_sprite(self, painter: QPainter, now: float, breath: float) -> None:
 		""" The sprite popping up from its bottom edge, breathing, and fading in over the previous frame after a change. """

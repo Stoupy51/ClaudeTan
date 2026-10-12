@@ -37,6 +37,8 @@ LONG_TASK_MS: int = 20_000
 """ How long a turn runs before she shrinks to the pill. """
 HEARD_MS: int = 4000
 """ How long the sentence she understood stays up when the session does not start on it right away. """
+CONFIG_NOTICE_MS: int = 6000
+""" How long she stays up to say what she applied from the saved config. """
 STARTUP_S: float = 60.0
 """ How long the session and Whisper may take to start before the app reports them as failed. """
 COMPACT_IDLE_MS: int = 55 * 60_000
@@ -104,8 +106,8 @@ class Assistant(QObject):
 
 	def on_config(self, config: Config, changed: list[str]) -> None:
 		LOG.info("Config changed: %s", ", ".join(changed))
-		if "avatar_zoom" in changed:
-			self.avatar.set_zoom(config.avatar_zoom)
+		if "avatar_zoom" in changed or "text_zoom" in changed:
+			self.avatar.set_zoom(config.avatar_zoom, config.text_zoom)
 			self.pill.set_zoom(config.avatar_zoom)
 		if "model" in changed:
 			self.commands.append(f"/model {config.model}")
@@ -113,12 +115,12 @@ class Assistant(QObject):
 		self.restart_pending = self.restart_pending or not SESSION_KEYS.isdisjoint(changed)
 		later = " Je relance la session Claude pour l'appliquer dès que je n'ai plus rien en cours." if self.restart_pending else ""
 		self.appear("happy", bubble=f"J'ai relu ta config : {', '.join(changed)}.{later}")
-		self.dismiss.start(HEARD_MS)
+		self.dismiss.start(CONFIG_NOTICE_MS)
 
 	def on_config_error(self, error: str) -> None:
 		LOG.warning("Config not applied: %s", error)
 		self.appear("sad", bubble=f"Je n'arrive pas à lire ta config, je garde l'ancienne : {error}")
-		self.dismiss.start(HEARD_MS)
+		self.dismiss.start(CONFIG_NOTICE_MS)
 
 	def on_command(self, text: str) -> None:
 		LOG.info("Heard: %s", text)
@@ -382,7 +384,7 @@ def run() -> None:
 	instance = QLocalServer()
 	instance.listen(INSTANCE_NAME)
 	config = Config.load()
-	avatar, pill = Avatar(config.avatar_zoom), Pill(config.avatar_zoom)
+	avatar, pill = Avatar(config.avatar_zoom, config.text_zoom), Pill(config.avatar_zoom)
 	assistant = Assistant(avatar, pill)
 	tray = Tray()
 	tray.show()

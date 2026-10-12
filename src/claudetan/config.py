@@ -38,7 +38,9 @@ class Config:
 	agent_model: str
 	""" Model of the agent the session hands complicated requests to. """
 	avatar_zoom: float
-	""" Size of the overlay, 1 for its default size. """
+	""" Size of Claude-tan and her pill, 1 for their default size. """
+	text_zoom: float
+	""" Size of her speech bubble and its text, 1 for their default size. """
 
 	@classmethod
 	def load(cls) -> Self:
@@ -58,5 +60,6 @@ class Config:
 			model=values["model"],
 			agent_model=values["agent_model"],
 			avatar_zoom=values["avatar_zoom"],
+			text_zoom=values["text_zoom"],
 		)
 
