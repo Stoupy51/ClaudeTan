@@ -1,9 +1,12 @@
 """ Claude-tan's reactions to the session's hook events, and the queue that keeps commands from being typed during a turn. """
 # Imports
+from ctypes import windll
+
 import pytest
 from PySide6.QtWidgets import QApplication
 
 import claudetan.app
+from claudetan.actions import VK_PLAY_PAUSE
 from claudetan.app import Assistant
 from claudetan.avatar import Avatar, Pill
 from claudetan.session import JsonDict
@@ -80,4 +83,19 @@ def test_permission_is_asked_then_thanked(assistant: Assistant) -> None:
 
 	assistant.on_hook(hook("PostToolUse", tool_name="Bash", tool_input=command, tool_response={}, tool_use_id="t1"))
 	assert assistant.avatar.expression == "thanks"
+
+
+
+def test_local_actions_skip_the_session(assistant: Assistant, monkeypatch: pytest.MonkeyPatch) -> None:
+	keys: list[int] = []
+	def press(key: int, _scan: int, flags: int, _extra: int) -> None:
+		if not flags:
+			keys.append(key)
+	monkeypatch.setattr(windll.user32, "keybd_event", press)
+	sent: list[str] = []
+	assistant.send.connect(sent.append)
+	assistant.on_command("Mets la musique en pause.")
+	assert keys == [VK_PLAY_PAUSE]
+	assert sent == []
+	assert assistant.avatar.expression == "present"
 

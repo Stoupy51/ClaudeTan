@@ -294,12 +294,14 @@ class Pill(QWidget):
 	""" Her face in a disc ringed by a spinning arc, shown in her place while a long task runs. """
 	clicked = Signal()
 
-	def __init__(self) -> None:
+	def __init__(self, zoom: float = 1.0) -> None:
+		""" The pill, laid out at its default size and drawn `zoom` times larger. """
 		super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
 		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 		self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-		self.resize(PILL_SIZE, PILL_SIZE)
-		self.face = face(PILL_SIZE)
+		self.zoom = zoom
+		self.resize(round(PILL_SIZE * zoom), round(PILL_SIZE * zoom))
+		self.face = face(round(PILL_SIZE * zoom))
 		self.angle = 0
 		self.spin = QTimer(self)
 		self.spin.setInterval(30)
@@ -307,7 +309,7 @@ class Pill(QWidget):
 
 	def show_at(self, corner: QPoint) -> None:
 		""" Shows the pill with its bottom-right corner on `corner`. """
-		self.move(corner - QPoint(PILL_SIZE, PILL_SIZE))
+		self.move(corner - QPoint(self.width(), self.height()))
 		self.show()
 		self.spin.start()
 
@@ -323,6 +325,7 @@ class Pill(QWidget):
 	def paintEvent(self, event: QPaintEvent) -> None:
 		painter = QPainter(self)
 		painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+		painter.scale(self.zoom, self.zoom)
 		ring = QRectF(4, 4, PILL_SIZE - 8, PILL_SIZE - 8)
 		disc = QPainterPath()
 		disc.addEllipse(ring)

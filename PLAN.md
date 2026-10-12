@@ -44,6 +44,16 @@ La session cachée travaille dans le repo ClaudeTan. "Crée-toi un outil pour X"
 
 Le mode se règle dans la config : changements laissés à relire, commités sur une branche dédiée, ou "auto-suffisant", commités directement sur main sans relecture. "À relire" reste le défaut tant que le lanceur n'existe pas. `~/.claude/CLAUDE.md` interdit de commiter sans demande : l'app donne donc le mode à la session cachée par `--append-system-prompt`, et non dans le CLAUDE.md du repo, que lisent aussi les sessions de développement.
 
+### Applications connectées
+
+Claude-tan lit et écrit dans d'autres applications, à commencer par Discord. Exemple : "Artyu m'a MP pour une PR, tu peux aller la résoudre stp ?" La session lit le dernier MP d'Artyu et y trouve la PR. Elle lui répond selon le contexte ("Je regarde ta PR"), confie la correction au sous-agent Opus, puis lui écrit quand c'est terminé, avec le lien du commit. Chaque application connectée devient une action du registre, donc aussi un outil MCP pour Claude. GitHub passe déjà par `gh`, que la session sait utiliser.
+
+Pour Discord, l'API des bots ne lit que les messages adressés au bot. Automatiser un compte utilisateur (self-bot, avec le jeton du compte) est interdit par les conditions de Discord, et le compte risque d'être banni. Pistes à trancher avant de coder :
+
+- un bot Claude-tan officiel, à qui les amis écrivent ou qu'on ajoute aux serveurs : conforme, mais il ne voit pas les MP reçus par le compte ;
+- lire les MP dans les notifications Windows que Discord affiche (`UserNotificationListener`, à vérifier depuis une app non empaquetée), et répondre en ouvrant la conversation puis en tapant dans le client : c'est encore de l'automatisation du compte, donc la même zone grise ;
+- un serveur MCP Discord existant, après avoir vérifié s'il passe par un bot ou par le jeton du compte.
+
 ### Depuis l'iPhone
 
 Possible dès le MVP, sans serveur. Grâce au Remote Control, l'app Claude iOS parle déjà à la session cachée (texte ou dictée), avec tous ses outils locaux. Claude Code envoie aussi des notifications push au téléphone à la fin d'une tâche longue ou quand il faut décider (`/config` : "Push when Claude decides" et "Push when actions required"). Pour avoir la voix et l'avatar sur le téléphone, piste à creuser : une page web servie par l'app et joignable via Tailscale (réseau privé, rien d'ouvert sur Internet) plutôt qu'un serveur public.
@@ -70,13 +80,13 @@ Ce que montre Claude-tan à chaque étape :
 | Événement | Retour |
 | :- | :- |
 | mot d'activation détecté | petit son et apparition en écoute, avant la fin de la phrase : son début est transcrit dès 1,3 s |
-| phrase transcrite | la demande comprise jusque-là dans la bulle, envoyée après 15 s de silence ou dès qu'elle finit par "prompt done" ("cancel prompt" l'annule) |
+| phrase transcrite | la demande comprise jusque-là dans la bulle, envoyée après 15 s de silence ou dès qu'elle finit par "prompt done" ("cancel prompt" l'annule). Délai et formules se règlent dans la config. |
 | action locale exécutée | `present` et le résultat |
 | `UserPromptSubmit` | `thinking` : elle réfléchit |
 | `PreToolUse` | `working` et l'action en cours dans la bulle ("écrit main.py"), sans répéter la même |
 | `SubagentStart`, ou tâche de plus de 20 s | elle se réduit en pastille animée dans un coin |
 | `PermissionRequest`, `Notification` de type `permission_prompt` | `please`, puis `thanks` si accepté |
-| `MessageDisplay` | elle parle : `idle`, bouche animée et voix |
+| `MessageDisplay` | elle parle : `idle` avec une bouche ouverte tirée au hasard pour tout le message, et voix |
 | `Stop` | son, `present` si des outils ont servi, sinon `happy`. Si un sous-agent tourne encore, elle redevient pastille. |
 | `SubagentStop` | rien : la session annonce le résultat dans le tour qu'elle lance ensuite |
 | `StopFailure` | `sad` et le type d'erreur |
@@ -124,18 +134,27 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 4. Actions locales
 
-- [ ] Registre d'actions et premières actions : capture de l'écran 1 ou 2, raccourcis clavier (Alt+F10 pour ShadowPlay), lancer une app, météo, volume et média, minuteur, usage du forfait.
-- [ ] Routeur : règles exactes, puis petit modèle local via Ollama, puis Claude.
+- [x] Registre d'actions (`actions.py`) et routeur à règles exactes : capture de l'écran 1 à 3, Alt+F10 pour ShadowPlay, lecture, piste suivante ou précédente, volume. Une phrase d'action part sans attendre la fin de la dictée.
+- [ ] Vérifier que ShadowPlay accepte le Alt+F10 simulé par `keybd_event`.
+- [ ] Autres actions : lancer une app, météo, minuteur, usage du forfait.
+- [ ] Petit modèle local via Ollama entre les règles et Claude.
 - [ ] Analyse d'une capture par un modèle de vision local ou par Claude, au choix dans la config.
 - [ ] Serveur MCP local pour que Claude appelle les mêmes actions.
 
 ### 5. Voix et contrôle
 
 - [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX (à installer), bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
-- [ ] Commandes vocales "stop", "annule", "passe en Opus" (`/model opus`).
+- [x] Dictée : les pauses ne coupent plus la demande, envoyée après 15 s de silence ou sur "prompt done", et annulée par "cancel prompt".
+- [ ] Commandes vocales "stop" (arrêter le tour en cours), "passe en Opus" (`/model opus`).
 - [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
 
-### 6. Plus tard
+### 6. Applications connectées
+
+- [ ] Choisir comment lire et envoyer les MP Discord (voir [Applications connectées](#applications-connectées)).
+- [ ] Action Discord : lire les derniers messages d'une personne, lui répondre.
+- [ ] Suivi d'une demande venue d'un message : réponse selon le contexte au début, puis une autre quand la tâche est terminée.
+
+### 7. Plus tard
 
 - [ ] Page web pour parler à Claude-tan depuis l'iPhone (voix et avatar), joignable via Tailscale.
 - [ ] Channels (serveur MCP) quand la fonction sortira de la research preview, pour ne plus taper dans le terminal.

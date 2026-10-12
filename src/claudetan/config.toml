@@ -7,6 +7,13 @@ language = "auto"
 # Its first group is the command said in the same breath.
 wake = '^\W*(?:hey|hé|he|eh|et|dis|ok|okay)\W+(?:claude|clode|clod|clodo|clown)\b[\s,.!?]*(.*)'
 
+# You may pause while you speak: she sends your request after this many seconds of silence,
+# or as soon as it ends with one of the `done` phrases. Ending it with one of the `cancel` phrases drops it.
+# Both are regexes matched ignoring case, and only count as the last words of the request.
+pause_s = 15.0
+done = 'prompte? done|fin du prompte?'
+cancel = 'cancel prompte?|annule le prompte?'
+
 # Model of the hidden Claude session, which answers quick requests: "sonnet", "opus", "haiku", or a full model name
 model = "sonnet"
 

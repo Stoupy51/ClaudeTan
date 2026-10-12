@@ -23,6 +23,12 @@ class Config:
 	language: str | None
 	""" Whisper language code, None to detect it on each sentence. """
 	wake: re.Pattern[str]
+	pause_s: float
+	""" Silence after which a spoken request is sent. """
+	done: re.Pattern[str]
+	""" Last words that send a spoken request at once, with the punctuation around them. """
+	cancel: re.Pattern[str]
+	""" Last words that drop a spoken request, with the punctuation around them. """
 	prompt: str
 	""" The user's additions to the system prompt of the hidden session. """
 	model: str
@@ -42,6 +48,9 @@ class Config:
 		return cls(
 			language=None if values["language"] == "auto" else values["language"],
 			wake=re.compile(values["wake"], re.IGNORECASE),
+			pause_s=values["pause_s"],
+			done=re.compile(rf"\W*\b(?:{values['done']})\W*$", re.IGNORECASE),
+			cancel=re.compile(rf"\W*\b(?:{values['cancel']})\W*$", re.IGNORECASE),
 			prompt=values["prompt"],
 			model=values["model"],
 			agent_model=values["agent_model"],

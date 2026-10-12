@@ -15,6 +15,7 @@ from PySide6.QtCore import QObject, QPoint, QTimer, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
+from claudetan.actions import route
 from claudetan.avatar import Avatar, Pill, chime
 from claudetan.bubble import shorten
 from claudetan.config import APP_DATA, LOG_FILE, Config
@@ -94,6 +95,13 @@ class Assistant(QObject):
 
 	def on_command(self, text: str) -> None:
 		LOG.info("Heard: %s", text)
+		if routed := route(text):
+			action, match = routed
+			LOG.info("Local action: %s", action.name)
+			self.appear("present", bubble=action.run(match))
+			self.dismiss.start(HEARD_MS)
+			return
+
 		self.appear("idle", bubble=f"« {text} »" + (" Je m'en occupe juste après." if self.busy else ""))
 		self.dismiss.start(HEARD_MS)
 		self.commands.append(text)
@@ -328,7 +336,7 @@ def run() -> None:
 	instance = QLocalServer()
 	instance.listen(INSTANCE_NAME)
 	config = Config.load()
-	avatar, pill = Avatar(config.avatar_zoom), Pill()
+	avatar, pill = Avatar(config.avatar_zoom), Pill(config.avatar_zoom)
 	assistant = Assistant(avatar, pill)
 	tray = Tray()
 	tray.show()
@@ -344,7 +352,7 @@ def run() -> None:
 	assistant.send.connect(session.send)
 	assistant.idle.connect(session.compact)
 	app.aboutToQuit.connect(session.close)
-	listener = Listener(config.language, config.wake)
+	listener = Listener(config)
 	listener.woke.connect(assistant.on_wake)
 	listener.dictated.connect(assistant.on_dictation)
 	listener.cancelled.connect(assistant.on_cancel)

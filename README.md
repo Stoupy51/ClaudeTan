@@ -45,6 +45,7 @@ uv run claudetan
 The app starts in the background with a hidden Claude Code session in this folder, prints the session's link and your plan usage once ready, and keeps running until you quit it from her tray icon.
 The session stays in claude.ai's list after you quit, and the app resumes it on its next start.
 Say *"Hey Claude, ..."* or *"Hé Claude, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
+Screenshots (*"capture l'écran 2"*), ShadowPlay clips (*"enregistre ça"*), music (*"pause"*, *"musique suivante"*) and volume (*"monte le son"*) are done by the app itself, at once and without the session.
 You may pause while you speak: she sends your request after 15 s of silence, or as soon as it ends with *"prompt done"* or *"fin du prompt"*. Ending it with *"cancel prompt"* or *"annule le prompt"* drops it.
 
 - A click on her opens Claude Code's Remote Control on claude.ai, a long press lets you drag her.
@@ -54,8 +55,8 @@ You may pause while you speak: she sends your request after 15 s of silence, or 
 ## ⚙️ Configuration
 
 *Ouvrir la config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
-the speech recognition language, the wake phrase, the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus),
-and your additions to the session's system prompt, such as where your folders are.
+the speech recognition language, the wake phrase, the pause and the phrases that end a spoken request,
+the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), her size on screen, and your additions to the session's system prompt, such as where your folders are.
 Start the app again to apply a change: it replaces the one running.
 
 ## 🧑‍💻 Development
