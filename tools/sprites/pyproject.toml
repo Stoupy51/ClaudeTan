@@ -13,6 +13,7 @@ dependencies = [
 	"numpy",
 	"nunchaku",
 	"opencv-python<5",
+	"resvg-py>=0.5",
 	"spandrel",
 	"timm",
 	"torch==2.11.*",

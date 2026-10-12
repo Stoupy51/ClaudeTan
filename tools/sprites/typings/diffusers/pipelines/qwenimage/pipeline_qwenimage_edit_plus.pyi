@@ -11,7 +11,11 @@ VAE_IMAGE_SIZE: int
 class QwenImagePipelineOutput:
 	images: NDArray[np.float32]
 
+class AutoencoderKLQwenImage:
+	def enable_tiling(self) -> None: ...
+
 class QwenImageEditPlusPipeline:
+	vae: AutoencoderKLQwenImage
 	@classmethod
 	def from_pretrained(cls, pretrained_model_name_or_path: str, *, transformer: torch.nn.Module, dtype: torch.dtype, cache_dir: Path) -> Self: ...
 	def enable_model_cpu_offload(self) -> None: ...

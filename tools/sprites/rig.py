@@ -1,4 +1,4 @@
-""" Face parts of other frames or of edits of a pose, transplanted onto it: mouth shapes for talking, closed eyes for blinking. """
+""" Face parts of a pose redrawn by the image editor, transplanted back onto it: mouths for talking, closed eyes for blinking. """
 # Imports
 from dataclasses import dataclass
 
@@ -13,20 +13,19 @@ from matting import Box
 # Classes
 @dataclass(frozen=True)
 class Part:
-	""" A face part that a donor frame may replace. """
+	""" A face part that a redrawn sprite may replace. """
 	box: Box
 	""" Where it sits on the canvas. """
 	pieces: int
-	""" How many separate areas it holds: one mouth, two eyes with their eyebrows. """
+	""" How many separate areas of change to keep: the new mouth and both corners of the old one, or two eyes with their eyebrows. """
 
 
 @dataclass(frozen=True)
 class Rig:
-	""" A pose with one face part taken from another frame or redrawn. """
+	""" A pose with one face part redrawn. """
 	name: str
 	base: str
-	donor: int | str
-	""" Video frame the part is taken from, or the prompt that redraws the base sprite with it. """
+	prompt: str
 	part: Part
 
 

@@ -9,6 +9,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap, QRadialGradient
 
 # Constants
+ACCENT: QColor = QColor(217, 119, 87)
 SPARK_COLORS: tuple[QColor, ...] = (QColor(255, 247, 222), QColor(255, 214, 150), QColor(255, 178, 128))
 GLOW_COLOR: QColor = QColor(255, 150, 96)
 
@@ -96,6 +97,15 @@ def halo(rgb: int) -> QPixmap:
 	painter.drawEllipse(QRectF(0, 0, 64, 64))
 	painter.end()
 	return pixmap
+
+
+def overshoot(t: float) -> float:
+	""" Ease-out that passes its target by about 10% before settling, for things that pop up.
+
+	>>> round(overshoot(0.0), 6), overshoot(1.0), round(max(overshoot(i / 100) for i in range(101)), 2)
+	(0.0, 1.0, 1.1)
+	"""
+	return 1 + 2.70158 * (t - 1) ** 3 + 1.70158 * (t - 1) ** 2
 
 
 def star(center: QPointF, radius: float, angle: float) -> QPainterPath:

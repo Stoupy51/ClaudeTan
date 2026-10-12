@@ -3,10 +3,8 @@
 A click on her or on the pill opens the Remote Control session, a long press on her lets you drag her somewhere else.
 """
 # Imports
-import html
 import math
 import random
-import re
 from pathlib import Path
 from typing import override
 
@@ -30,10 +28,8 @@ from PySide6.QtGui import (
 	QBrush,
 	QColor,
 	QConicalGradient,
-	QFont,
 	QGuiApplication,
 	QHideEvent,
-	QLinearGradient,
 	QMouseEvent,
 	QPainter,
 	QPainterPath,
@@ -41,45 +37,38 @@ from PySide6.QtGui import (
 	QPen,
 	QPixmap,
 	QShowEvent,
-	QTextDocument,
 )
 from PySide6.QtWidgets import QWidget
 
+from claudetan.bubble import WIDTH as BUBBLE_WIDTH, Bubble
 from claudetan.config import ROOT
-from claudetan.effects import Spark, burst, glow, mote
+from claudetan.effects import ACCENT, Spark, burst, glow, mote, overshoot
 
 # Constants
 ASSETS: Path = ROOT / "assets" / "claude"
 SPRITE_HEIGHT: int = 400
 """ Display height of the sprites, which all share one canvas with her eyes on the same pixels. """
-BUBBLE_WIDTH: int = 250
-BUBBLE_CHARS: int = 220
-""" Longest text the bubble shows, the full reply staying readable in the session. """
 SPRITE_TOP: int = 24
 FACE_Y: float = 0.49
 """ Vertical position of the face center in the sprites, as a fraction of the sprite height. """
 FACE: QRect = QRect(300, 160, 240, 240)
 """ Square around her face on the sprite canvas, cropped for the pill and the tray icon. """
 PILL_SIZE: int = 64
-ACCENT: QColor = QColor(217, 119, 87)
 LONG_PRESS_MS: int = 200
 CLICK_SLOP: int = 6
 """ Pixels the cursor may travel during a press that still counts as a click. """
 TALK_FRAMES: dict[str, tuple[str, ...]] = {
-	"idle": ("idle", "idle_talk_open", "idle_talk_o", "idle_talk_wide"),
-	"hello": ("hello", "hello_talk_open", "hello_talk_o", "hello_talk_wide"),
+	"idle": ("idle_talk_open", "idle_talk_o", "idle_talk_wide"),
+	"hello": ("hello_talk_open", "hello_talk_o", "hello_talk_wide"),
 }
-""" Mouth frames of the poses that can talk. """
+""" Open mouths of the poses that can talk, one picked at random and held for a whole reply. """
 CELEBRATIONS: frozenset[str] = frozenset({"happy", "present", "thanks"})
 """ Expressions she greets with a burst of sparks. """
 FRAME_MS: int = 16
 CROSSFADE_S: float = 0.18
 POP_S: float = 0.45
-BUBBLE_POP_S: float = 0.25
 BREATH_S: float = 3.8
 """ Period of her breathing, a slight swell of the sprite from its bottom edge. """
-TYPING_SPEED: float = 70.0
-""" Characters per second the bubble's text appears at. """
 MOTE_EVERY_S: float = 0.7
 CHIME_RATE: int = 44100
 
@@ -88,11 +77,14 @@ CHIME_RATE: int = 44100
 class Avatar(QWidget):
 	clicked = Signal()
 
-	def __init__(self) -> None:
+	def __init__(self, zoom: float = 1.0) -> None:
+		""" The overlay, laid out at its default size and drawn `zoom` times larger. """
 		super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
 		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 		self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-		ratio = QGuiApplication.primaryScreen().devicePixelRatio()
+		self.zoom = zoom
+		# Pixmaps hold as many pixels as they cover once zoomed, so they stay sharp
+		ratio = QGuiApplication.primaryScreen().devicePixelRatio() * zoom
 		self.sprites: dict[str, QPixmap] = {}
 		for path in ASSETS.glob("*.png"):
 			pixmap = QPixmap(str(path)).scaledToHeight(round(SPRITE_HEIGHT * ratio), Qt.TransformationMode.SmoothTransformation)
@@ -100,11 +92,11 @@ class Avatar(QWidget):
 			self.sprites[path.stem] = pixmap
 		self.sprite_width = round(self.sprites["idle"].width() / ratio)
 		self.sprite_left = BUBBLE_WIDTH - round(0.3 * self.sprite_width)
-		self.resize(self.sprite_left + self.sprite_width, SPRITE_TOP + SPRITE_HEIGHT)
+		self.resize(round(zoom * (self.sprite_left + self.sprite_width)), round(zoom * (SPRITE_TOP + SPRITE_HEIGHT)))
 
 		self.expression = "idle"
 		self.frame = "idle"
-		self.bubble = ""
+		self.bubble = Bubble()
 		self.halo = glow(round(0.75 * self.sprite_width), round(0.7 * SPRITE_HEIGHT), ratio)
 		self.clock = QElapsedTimer()
 		self.clock.start()
@@ -112,15 +104,6 @@ class Avatar(QWidget):
 		""" Frame fading out under `frame` for `CROSSFADE_S` after `changed_at`. """
 		self.changed_at = -1.0
 		self.popped_at = -1.0
-		self.bubble_at = -1.0
-		self.revealed = 0.0
-		""" How many characters of the bubble are typed so far. """
-		self.document = QTextDocument()
-		""" The bubble's text laid out, kept between frames while `typed` is unchanged. """
-		self.document.setDefaultFont(QFont("Segoe UI", 11))
-		self.document.setDocumentMargin(0)
-		self.document.setTextWidth(BUBBLE_WIDTH - 48)
-		self.typed = ("", -1)
 		self.sparks: list[Spark] = []
 		self.next_mote = 0.0
 		self.last_tick = 0.0
@@ -145,9 +128,6 @@ class Avatar(QWidget):
 		self.blink = QTimer(self)
 		self.blink.setSingleShot(True)
 		self.blink.timeout.connect(self.close_eyes)
-		self.mouth = QTimer(self)
-		self.mouth.setInterval(110)
-		self.mouth.timeout.connect(self.flap)
 		self.ticker = QTimer(self)
 		self.ticker.setInterval(FRAME_MS)
 		self.ticker.timeout.connect(self.tick)
@@ -161,17 +141,11 @@ class Avatar(QWidget):
 			if expression in CELEBRATIONS and self.isVisible():
 				self.sparks += burst(self.face_center(), now, count=18)
 		self.expression = expression
-		self.frame = expression
-		text = shorten(bubble)
-		# A reply streamed in pieces keeps typing where it was, any other text starts over
-		if not (self.bubble and text.startswith(self.bubble)):
-			self.revealed = 0.0
-			self.bubble_at = now
-		self.bubble = text
-		if talking and expression in TALK_FRAMES:
-			self.mouth.start()
-		else:
-			self.mouth.stop()
+		if not talking or expression not in TALK_FRAMES:
+			self.frame = expression
+		elif self.frame not in TALK_FRAMES[expression]:
+			self.frame = random.choice(TALK_FRAMES[expression])
+		self.bubble.say(bubble, now)
 		self.update()
 
 	def pop_in(self) -> None:
@@ -213,7 +187,7 @@ class Avatar(QWidget):
 
 	def close_eyes(self) -> None:
 		blink = f"{self.expression}_blink"
-		if self.frame == self.expression and blink in self.sprites and not self.mouth.isActive():
+		if self.frame == self.expression and blink in self.sprites:
 			self.frame = blink
 			self.update()
 			QTimer.singleShot(130, self.open_eyes)
@@ -223,10 +197,6 @@ class Avatar(QWidget):
 		if self.frame.endswith("_blink"):
 			self.frame = self.expression
 			self.update()
-
-	def flap(self) -> None:
-		self.frame = random.choice([f for f in TALK_FRAMES[self.expression] if f != self.frame])
-		self.update()
 
 	def now(self) -> float:
 		return self.clock.elapsed() / 1000
@@ -246,7 +216,7 @@ class Avatar(QWidget):
 
 	def tick(self) -> None:
 		now = self.now()
-		self.revealed = min(len(self.bubble), self.revealed + TYPING_SPEED * (now - self.last_tick))
+		self.bubble.type(now - self.last_tick)
 		self.last_tick = now
 		if now >= self.next_mote:
 			left, top = self.sprite_left + 0.2 * self.sprite_width, SPRITE_TOP + 0.15 * SPRITE_HEIGHT
@@ -259,6 +229,7 @@ class Avatar(QWidget):
 	def paintEvent(self, event: QPaintEvent) -> None:
 		painter = QPainter(self)
 		painter.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
+		painter.scale(self.zoom, self.zoom)
 		now = self.now()
 		breath = math.sin(2 * math.pi * now / BREATH_S)
 		painter.setOpacity(0.8 + 0.2 * breath)
@@ -268,8 +239,9 @@ class Avatar(QWidget):
 		self.paint_sprite(painter, now, breath)
 		for spark in self.sparks:
 			spark.paint(painter, now)
-		if self.bubble:
-			self.paint_bubble(painter, now)
+		if self.bubble.text:
+			# Growing upward from just above her hands keeps the finger of `thinking` and the wave of `hello` in sight
+			self.bubble.paint(painter, now, bottom=SPRITE_TOP + FACE_Y * SPRITE_HEIGHT - 26)
 
 	def paint_sprite(self, painter: QPainter, now: float, breath: float) -> None:
 		""" The sprite popping up from its bottom edge, breathing, and fading in over the previous frame after a change. """
@@ -287,61 +259,6 @@ class Avatar(QWidget):
 			painter.setOpacity(fade)
 		painter.drawPixmap(top_left, self.sprites[self.frame])
 		painter.restore()
-
-	def paint_bubble(self, painter: QPainter, now: float) -> None:
-		""" Speech bubble with her name tag, the text typed in place so that words never jump to the next line. """
-		shown = round(self.revealed)
-		if self.typed != (self.bubble, shown):
-			self.typed = (self.bubble, shown)
-			self.document.setHtml(
-				f'<span style="color: #30221c">{html.escape(self.bubble[:shown])}</span>'
-				f'<span style="color: rgba(0, 0, 0, 0)">{html.escape(self.bubble[shown:])}</span>',
-			)
-		height = self.document.size().height()
-		# Growing upward from just above her hands keeps the finger of `thinking` and the wave of `hello` in sight
-		bottom = SPRITE_TOP + FACE_Y * SPRITE_HEIGHT - 26
-		box = QRectF(8, max(18.0, bottom - height - 26), BUBBLE_WIDTH - 20, height + 26)
-		shape = QPainterPath()
-		shape.addRoundedRect(box, 14, 14)
-		tail = QPainterPath()
-		tail.moveTo(box.right() - 4, box.bottom() - 34)
-		tail.lineTo(box.right() + 18, box.bottom() - 22)
-		tail.lineTo(box.right() - 4, box.bottom() - 18)
-		shape = shape.united(tail)
-
-		appeared = min(1.0, (now - self.bubble_at) / BUBBLE_POP_S)
-		tip = QPointF(box.right() + 18, box.bottom() - 22)
-		painter.save()
-		painter.setOpacity(min(1.0, 3 * appeared))
-		painter.translate(tip)
-		painter.scale(0.85 + 0.15 * overshoot(appeared), 0.85 + 0.15 * overshoot(appeared))
-		painter.translate(-tip)
-		painter.setPen(Qt.PenStyle.NoPen)
-		for offset, alpha in ((5.0, 10), (3.0, 14), (1.5, 18)):
-			painter.setBrush(QColor(70, 30, 15, alpha))
-			painter.drawPath(shape.translated(0, offset))
-		fill = QLinearGradient(box.topLeft(), box.bottomLeft())
-		fill.setColorAt(0, QColor(255, 253, 249, 250))
-		fill.setColorAt(1, QColor(255, 240, 230, 250))
-		painter.setPen(QPen(ACCENT, 1.5))
-		painter.setBrush(fill)
-		painter.drawPath(shape)
-		self.paint_name_tag(painter, box)
-		painter.translate(box.left() + 14, box.top() + 14)
-		self.document.drawContents(painter)
-		painter.restore()
-
-	def paint_name_tag(self, painter: QPainter, box: QRectF) -> None:
-		painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-		tag = QRectF(box.left() + 12, box.top() - 10, painter.fontMetrics().horizontalAdvance("Claude-tan") + 18, 19)
-		fill = QLinearGradient(tag.topLeft(), tag.topRight())
-		fill.setColorAt(0, ACCENT)
-		fill.setColorAt(1, QColor(240, 150, 100))
-		painter.setPen(Qt.PenStyle.NoPen)
-		painter.setBrush(fill)
-		painter.drawRoundedRect(tag, 9.5, 9.5)
-		painter.setPen(QColor(255, 255, 255))
-		painter.drawText(tag, Qt.AlignmentFlag.AlignCenter, "Claude-tan")
 
 	@override
 	def mousePressEvent(self, event: QMouseEvent) -> None:
@@ -436,27 +353,6 @@ def face(size: int) -> QPixmap:
 	pixmap = cropped.scaled(pixels, pixels, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
 	pixmap.setDevicePixelRatio(ratio)
 	return pixmap
-
-
-def shorten(text: str) -> str:
-	""" The text as the bubble shows it: Markdown marks dropped, whitespace collapsed, cut at a word past `BUBBLE_CHARS`.
-
-	>>> shorten("**Done**: edited `app.py`.\\n\\n- one\\n- two")
-	'Done: edited app.py. one two'
-	>>> shorten("word " * 100)[-12:]
-	'word word...'
-	"""
-	plain = " ".join(re.sub(r"[*`#]|^\s*[-+] ", "", text, flags=re.MULTILINE).split())
-	return plain if len(plain) <= BUBBLE_CHARS else plain[:BUBBLE_CHARS].rsplit(" ", 1)[0] + "..."
-
-
-def overshoot(t: float) -> float:
-	""" Ease-out that passes its target by about 10% before settling, for things that pop up.
-
-	>>> round(overshoot(0.0), 6), overshoot(1.0), round(max(overshoot(i / 100) for i in range(101)), 2)
-	(0.0, 1.0, 1.1)
-	"""
-	return 1 + 2.70158 * (t - 1) ** 3 + 1.70158 * (t - 1) ** 2
 
 
 def chime(*notes: float) -> None:

@@ -1,4 +1,4 @@
-""" Sprites redrawn by Qwen-Image-Edit-2511 with its 4-step Lightning LoRA merged, run by Nunchaku in int4: about 30 s each on 12 GB.
+""" Sprites redrawn by Qwen-Image-Edit-2511 with its 4-step Lightning LoRA merged, run by Nunchaku in int4 on 12 GB.
 
 Nunchaku 1.3 predates both 2511 and diffusers 0.41. The patches below load a checkpoint recompressed with a SVD rank per layer,
 and give the transformer the 2511 forward, where the tokens of the reference image are modulated at timestep 0 (`zero_cond_t`).
@@ -22,17 +22,20 @@ from nunchaku.models.linear import SVDQW4A4Linear
 from nunchaku.models.transformers.transformer_qwenimage import NunchakuQwenImageTransformerBlock
 from PIL import Image
 
-from canvas import LEFT, RIGHT, WIDTH as CANVAS_WIDTH, upscale4
+from canvas import HEIGHT as CANVAS_HEIGHT, LEFT, RIGHT, WIDTH as CANVAS_WIDTH, upscale4
 from eyes import Eyes
 from sources import WORK, fetch
 
 # Constants
-WIDTH, HEIGHT = 864, 608
-""" The canvas padded to the multiple of 16 the editor works in. """
-PAD: int = (WIDTH - CANVAS_WIDTH) // 2
+PADDED_WIDTH: int = 864
+""" The canvas width padded to the multiple of 16 the editor works in. """
+PAD: int = (PADDED_WIDTH - CANVAS_WIDTH) // 2
+SCALE: int = 2
+""" The editor draws at twice the canvas size, which gives mouths and eyes enough pixels to stay crisp. """
+WIDTH, HEIGHT = SCALE * PADDED_WIDTH, SCALE * CANVAS_HEIGHT
 BACKGROUND: float = 232 / 255
 """ The plain light gray she is drawn on, which the matte removes afterwards. """
-CANVAS_EYES: Eyes = Eyes(left=(4 * (LEFT[0] + PAD), 4 * LEFT[1]), right=(4 * (RIGHT[0] + PAD), 4 * RIGHT[1]))
+CANVAS_EYES: Eyes = Eyes(left=(SCALE * (LEFT[0] + PAD), SCALE * LEFT[1]), right=(SCALE * (RIGHT[0] + PAD), SCALE * RIGHT[1]))
 """ Where the canvas eyes land in an edited frame, for edits that leave her head in place. """
 TRANSFORMER_URL: str = (
 	"https://huggingface.co/wazimondo/Qwen_image_edit_2511_int4/resolve/main/"
@@ -41,27 +44,28 @@ TRANSFORMER_URL: str = (
 PIPELINE_REPO: str = "ovedrive/Qwen-Image-Edit-2511-4bit"
 """ Text encoder, quantized to 4 bits by bitsandbytes, and VAE. """
 BLOCKS_ON_GPU: int = 20
-""" Transformer blocks kept on the GPU out of 60, the others streamed from RAM: 10.3 GiB at peak. """
+""" Transformer blocks kept on the GPU out of 60, the others streamed from RAM: 10.3 GiB at peak, 90 s a drawing. """
 
 
 # Classes
 @dataclass(frozen=True)
 class Drawing:
-	""" A sprite the image editor draws from the first pose. """
+	""" A sprite the image editor draws from `idle`. """
 	name: str
 	prompt: str
 
 
 # Functions
 def edit(name: str, sprite: MatLike, prompt: str) -> MatLike:
-	""" RGB uint8 frame of the sprite redrawn by the prompt, enlarged 4 times like a video frame, cached in `.work/edits/`.
+	""" RGB uint8 frame of the sprite redrawn by the prompt at `SCALE` times the padded canvas, cached in `.work/edits/`.
 
 	Args:
 		sprite: RGBA canvas, values in [0, 1].
 	"""
 	on_gray = sprite[..., :3] * sprite[..., 3:] + BACKGROUND * (1 - sprite[..., 3:])
-	padded = np.pad(on_gray, ((0, 0), (PAD, WIDTH - CANVAS_WIDTH - PAD), (0, 0)), constant_values=BACKGROUND)
-	reference = (padded * 255).round().astype(np.uint8)
+	padded = np.pad(on_gray, ((0, 0), (PAD, PADDED_WIDTH - CANVAS_WIDTH - PAD), (0, 0)), constant_values=BACKGROUND)
+	enlarged = cv2.resize(upscale4(padded.astype(np.float32)), (WIDTH, HEIGHT), interpolation=cv2.INTER_AREA)
+	reference = (enlarged.clip(0, 1) * 255).round().astype(np.uint8)
 	path = WORK / "edits" / f"{name}_{hashlib.sha1(reference.tobytes() + prompt.encode()).hexdigest()[:8]}.png"
 	if not path.exists():
 		drawn: MatLike = pipeline()(
@@ -72,13 +76,12 @@ def edit(name: str, sprite: MatLike, prompt: str) -> MatLike:
 		cv2.imwrite(str(path), cv2.cvtColor((drawn * 255).round().astype(np.uint8), cv2.COLOR_RGB2BGR))
 	image = cv2.imread(str(path))
 	assert image is not None
-	enlarged = upscale4(cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32) / 255)
-	return (enlarged * 255).round().astype(np.uint8)
+	return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 
 @cache
 def pipeline() -> pipeline_qwenimage_edit_plus.QwenImageEditPlusPipeline:
-	# The reference image would otherwise be resized to 1 MP, twice the tokens of the canvas
+	# The reference image would otherwise be resized to 1 MP, half the tokens of the drawing
 	pipeline_qwenimage_edit_plus.VAE_IMAGE_SIZE = WIDTH * HEIGHT
 	transformer = NunchakuQwenImageTransformer2DModel.from_pretrained(fetch(TRANSFORMER_URL))
 	transformer.set_offload(True, use_pin_memory=False, num_blocks_on_gpu=BLOCKS_ON_GPU)
@@ -86,6 +89,7 @@ def pipeline() -> pipeline_qwenimage_edit_plus.QwenImageEditPlusPipeline:
 		PIPELINE_REPO, transformer=transformer, dtype=torch.bfloat16, cache_dir=WORK / "hf",
 	)
 	editor.enable_model_cpu_offload()
+	editor.vae.enable_tiling()
 	return editor
 
 

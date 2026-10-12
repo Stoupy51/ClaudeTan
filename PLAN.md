@@ -110,7 +110,7 @@ Ce que montre Claude-tan à chaque étape :
 ### 2. Avatar
 
 - [x] Expressions travaille, réfléchit et triste, et poses `hello`, `present`, `please` et `thanks` redessinées depuis `idle` par Qwen-Image-Edit-2511, pour un style uniforme.
-- [x] Clignement sur toutes les poses, yeux fermés redessinés sur la pose elle-même. La bouche ne bouge que sur `idle` et `hello`, les seules poses qui parlent.
+- [x] Clignement sur toutes les poses, yeux fermés redessinés sur la pose elle-même. Seules `idle` et `hello` parlent, avec une bouche ouverte tirée au hasard et gardée toute la réponse.
 - [x] Bords coupés par le cadre fondus sur 90 px, comme le bas.
 - [x] Rendu : halo chaud qui respire, apparition avec rebond et gerbe d'étincelles, fondu entre expressions, étincelles quand elle est contente ou présente un résultat, bulle à étiquette dont le texte s'écrit lettre par lettre, pastille en comète.
 - [x] Pipeline de sprites dans `tools/sprites/`, pour pouvoir ajouter des expressions.
@@ -147,16 +147,16 @@ Ce que montre Claude-tan à chaque étape :
 
 | Sprite | Source | Usage |
 | :- | :- | :- |
-| `idle` | image 3771 de la vidéo (30 images/s) | repos, main sur le coeur |
-| `idle_talk_open`, `idle_talk_o`, `idle_talk_wide` | bouches des images 3785, 3789, 3757 | `idle` qui parle |
-| `happy` | image 3764 | grand sourire |
-| `hello` | dessiné depuis `idle` | salut de la main |
+| `idle` | image 3771 de la vidéo (30 images/s), redessinée au propre | repos, main sur le coeur |
+| `idle_talk_open`, `idle_talk_o`, `idle_talk_wide` | bouches dessinées sur `idle` | `idle` qui parle |
+| `happy` | dessiné depuis `idle` | grand sourire |
+| `hello` | dessiné depuis `idle`, main gardée d'un dessin précédent | salut de la main |
 | `hello_talk_open`, `hello_talk_o`, `hello_talk_wide` | bouches dessinées sur `hello` | `hello` qui parle |
-| `present` | dessiné depuis `idle` | "voilà", paume ouverte |
+| `present` | dessiné depuis `idle`, main gardée d'un dessin précédent | "voilà", paume ouverte |
 | `please` | dessiné depuis `idle` | demande, mains jointes |
 | `thanks` | dessiné depuis `idle` | merci, mains sur les joues |
 | `thinking` | dessiné depuis `idle` | réfléchit, doigt sur le menton |
-| `working` | dessiné depuis `idle` | travaille, tape sur un clavier |
+| `working` | dessiné depuis `idle`, mains gardées d'un dessin précédent | travaille, tape sur un clavier |
 | `sad` | dessiné depuis `idle` | erreur, main sur la tête |
 | `<pose>_blink`, pour chaque pose | yeux fermés dessinés sur la pose | clignement |
 
@@ -166,13 +166,14 @@ Le pipeline, dans l'ordre :
 2. Iris trouvés par corrélation avec ceux d'`idle`, puis une similitude pose les deux yeux sur les pixels cibles.
 3. Couleurs du personnage séparées du fond sur les bords (blur fusion).
 4. Fondu de 90 px partout où le cadre la coupe, et fondu commun en bas (lignes 430 à 604).
-5. Reflets violets des néons repeints couleur cheveux, puis couleurs des images de la vidéo ramenées sur celles d'`idle`, peau, cheveux et reste séparément.
-6. Les autres poses dessinées depuis `idle` par Qwen-Image-Edit-2511, agrandies 4 fois par Real-ESRGAN anime, puis détourées et alignées comme une image de la vidéo.
-7. Bouches et yeux greffés sur la pose de base après un alignement local.
+5. Reflets violets des néons repeints couleur cheveux, puis `idle` redessinée au propre par Qwen-Image-Edit-2511.
+6. Les autres poses dessinées depuis `idle`, puis détourées et alignées comme l'image de la vidéo. Les mains de `hello`, `present` et `working` sont celles de calques gardés dans `tools/sprites/hands/`, que l'éditeur dessinait mieux à partir de l'image de la vidéo.
+7. Bouches et yeux fermés dessinés sur la pose, puis greffés sur elle après un alignement local.
+8. Le reflet en croix que l'éditeur met dans les pupilles est effacé et remplacé par une étoile blanche à 7 branches comme la fleur de ses cheveux (`spark.svg`), sauf sur les yeux fermés.
 
-Le pipeline est dans `tools/sprites/`, un projet uv à part en Python 3.13 qui garde torch hors de l'app. `uv run build.py` dans ce dossier régénère `assets/claude/` (ffmpeg et node sur le PATH, GPU CUDA de 12 Go) et affiche l'écart de chaque iris à sa cible. Le premier lancement télécharge environ 20 Go de modèles et dessine 19 images en 20 min, les suivants réutilisent les dessins en cache. La vidéo, les images décodées, les poids des modèles, les détourages et les dessins sont gardés dans `tools/sprites/.work/`, ignoré par git. Un dessin est refait quand son prompt ou l'image dont il part change. Ajouter une expression revient à ajouter une ligne à `POSES`, `DRAWINGS` ou `RIGS` dans `build.py`.
+Le pipeline est dans `tools/sprites/`, un projet uv à part en Python 3.13 qui garde torch hors de l'app. `uv run build.py` dans ce dossier régénère `assets/claude/` (ffmpeg et node sur le PATH, GPU CUDA de 12 Go) et affiche l'écart de chaque iris à sa cible. Le premier lancement télécharge environ 20 Go de modèles et dessine 24 images en 40 min, les suivants réutilisent les dessins en cache. La vidéo, les images décodées, les poids des modèles, les détourages et les dessins sont gardés dans `tools/sprites/.work/`, ignoré par git. Un dessin est refait quand son prompt ou l'image dont il part change. Ajouter une expression revient à ajouter une ligne à `DRAWINGS` dans `build.py`, qui lui donne aussi son clignement.
 
-Les dessins tournent sur Nunchaku en int4 avec le LoRA Lightning 4 étapes fusionné, 20 blocs sur 60 gardés sur le GPU et les autres chargés depuis la RAM : 30 s par image et 10,3 Gio au plus. `edit.py` corrige Nunchaku 1.3, plus ancien que 2511 et que diffusers 0.41 : rang SVD propre à chaque couche du checkpoint, et modulation au pas de temps 0 des jetons de l'image de référence (`zero_cond_t`).
+Les dessins tournent sur Nunchaku en int4 avec le LoRA Lightning 4 étapes fusionné, 20 blocs sur 60 gardés sur le GPU et les autres chargés depuis la RAM. L'image de départ est agrandie 4 fois par Real-ESRGAN anime et le dessin est fait au double du canevas, pour que bouches et yeux restent nets : 90 s par image et 10,3 Gio au plus. `edit.py` corrige Nunchaku 1.3, plus ancien que 2511 et que diffusers 0.41 : rang SVD propre à chaque couche du checkpoint, et modulation au pas de temps 0 des jetons de l'image de référence (`zero_cond_t`).
 
 ## Modèle
 

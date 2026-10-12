@@ -15,7 +15,8 @@ from PySide6.QtCore import QObject, QPoint, QTimer, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
-from claudetan.avatar import Avatar, Pill, chime, shorten
+from claudetan.avatar import Avatar, Pill, chime
+from claudetan.bubble import shorten
 from claudetan.config import APP_DATA, LOG_FILE, Config
 from claudetan.console import enable_colors
 from claudetan.session import HookServer, JsonDict, Session
@@ -318,7 +319,7 @@ def run() -> None:
 	instance = QLocalServer()
 	instance.listen(INSTANCE_NAME)
 	config = Config.load()
-	avatar, pill = Avatar(), Pill()
+	avatar, pill = Avatar(config.avatar_zoom), Pill()
 	assistant = Assistant(avatar, pill)
 	tray = Tray()
 	tray.show()

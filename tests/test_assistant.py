@@ -68,7 +68,7 @@ def test_background_work_keeps_the_pill_until_its_result(assistant: Assistant) -
 	assistant.on_hook(hook("UserPromptSubmit", prompt="L'expert a fini."))
 	assistant.on_hook(hook("Stop", last_assistant_message="Le projet est rangé."))
 	assert not assistant.pill.isVisible()
-	assert assistant.avatar.bubble == "Le projet est rangé."
+	assert assistant.avatar.bubble.text == "Le projet est rangé."
 
 
 def test_permission_is_asked_then_thanked(assistant: Assistant) -> None:

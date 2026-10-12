@@ -29,6 +29,8 @@ class Config:
 	""" Model of the hidden session, as `claude --model` takes it. """
 	agent_model: str
 	""" Model of the agent the session hands complicated requests to. """
+	avatar_zoom: float
+	""" Size of the overlay, 1 for its default size. """
 
 	@classmethod
 	def load(cls) -> Self:
@@ -43,5 +45,6 @@ class Config:
 			prompt=values["prompt"],
 			model=values["model"],
 			agent_model=values["agent_model"],
+			avatar_zoom=values["avatar_zoom"],
 		)
 

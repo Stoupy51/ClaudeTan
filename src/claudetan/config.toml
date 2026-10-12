@@ -13,6 +13,9 @@ model = "sonnet"
 # Model of the agent the session hands complicated requests to, such as code, research or several steps, in the background
 agent_model = "opus"
 
+# Size of Claude-tan on screen: 1 for the default size, 0.75 for a quarter smaller, 1.5 for half as big again
+avatar_zoom = 1.0
+
 # Your additions to the system prompt of the hidden Claude session, after what the app writes there itself:
 # where ClaudeTan is installed and how it started the session. Write them between the two ''' lines, for example:
 # "My projects are located in D:\advanced_desktop, my screenshots in D:\Captures."

@@ -1,7 +1,5 @@
 """ Cutting her out of a frame and onto the shared canvas. """
 # Imports
-from dataclasses import dataclass
-
 import cv2
 import numpy as np
 from cv2.typing import MatLike
@@ -10,16 +8,6 @@ from canvas import render
 from eyes import Eyes, find_eyes
 from matting import matte
 from sources import WORK
-
-
-# Classes
-@dataclass(frozen=True)
-class Pose:
-	""" A sprite cut out of one frame of the video. """
-	name: str
-	frame: int
-	hands: tuple[tuple[int, int], ...] = ()
-	""" Canvas points on her visible hands, so their skin is recolored like her face. """
 
 
 # Functions
