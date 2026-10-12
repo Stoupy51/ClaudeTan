@@ -59,7 +59,7 @@ CLICK_SLOP: int = 6
 """ Pixels the cursor may travel during a press that still counts as a click. """
 TALK_FRAMES: dict[str, tuple[str, ...]] = {
 	"idle": ("idle_talk_open", "idle_talk_o", "idle_talk_wide"),
-	"hello": ("hello_talk_open", "hello_talk_o", "hello_talk_wide"),
+	"hello": ("hello_talk_open", "hello_talk_wide"),
 }
 """ Open mouths of the poses that can talk, one picked at random and held for a whole reply. """
 CELEBRATIONS: frozenset[str] = frozenset({"happy", "present", "thanks"})

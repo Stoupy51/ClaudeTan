@@ -70,7 +70,7 @@ Ce que montre Claude-tan à chaque étape :
 | Événement | Retour |
 | :- | :- |
 | mot d'activation détecté | petit son et apparition en écoute, avant la fin de la phrase : son début est transcrit dès 1,3 s |
-| phrase transcrite | la phrase comprise dans la bulle |
+| phrase transcrite | la demande comprise jusque-là dans la bulle, envoyée après 15 s de silence ou dès qu'elle finit par "prompt done" ("cancel prompt" l'annule) |
 | action locale exécutée | `present` et le résultat |
 | `UserPromptSubmit` | `thinking` : elle réfléchit |
 | `PreToolUse` | `working` et l'action en cours dans la bulle ("écrit main.py"), sans répéter la même |
@@ -143,7 +143,7 @@ Ce que montre Claude-tan à chaque étape :
 
 ## Sprites
 
-`assets/claude/` contient 24 PNG de 850x608 px. Dans toutes les images, les iris tombent sur les mêmes pixels à 0,5 px près : gauche (382,4 ; 288,9), droit (467,6 ; 271,1).
+`assets/claude/` contient 23 PNG de 850x608 px. Dans toutes les images, les iris tombent sur les mêmes pixels à 0,5 px près : gauche (382,4 ; 288,9), droit (467,6 ; 271,1).
 
 | Sprite | Source | Usage |
 | :- | :- | :- |
@@ -151,7 +151,7 @@ Ce que montre Claude-tan à chaque étape :
 | `idle_talk_open`, `idle_talk_o`, `idle_talk_wide` | bouches dessinées sur `idle` | `idle` qui parle |
 | `happy` | dessiné depuis `idle` | grand sourire |
 | `hello` | dessiné depuis `idle`, main gardée d'un dessin précédent | salut de la main |
-| `hello_talk_open`, `hello_talk_o`, `hello_talk_wide` | bouches dessinées sur `hello` | `hello` qui parle |
+| `hello_talk_open`, `hello_talk_wide` | bouches dessinées sur `hello` | `hello` qui parle |
 | `present` | dessiné depuis `idle`, main gardée d'un dessin précédent | "voilà", paume ouverte |
 | `please` | dessiné depuis `idle` | demande, mains jointes |
 | `thanks` | dessiné depuis `idle` | merci, mains sur les joues |
@@ -170,8 +170,9 @@ Le pipeline, dans l'ordre :
 6. Les autres poses dessinées depuis `idle`, puis détourées et alignées comme l'image de la vidéo. Les mains de `hello`, `present` et `working` sont celles de calques gardés dans `tools/sprites/hands/`, que l'éditeur dessinait mieux à partir de l'image de la vidéo.
 7. Bouches et yeux fermés dessinés sur la pose, puis greffés sur elle après un alignement local.
 8. Le reflet en croix que l'éditeur met dans les pupilles est effacé et remplacé par une étoile blanche à 7 branches comme la fleur de ses cheveux (`spark.svg`), sauf sur les yeux fermés.
+9. Couleurs de chaque sprite ramenées sur celles d'`idle`, mesurées là où les deux dessins montrent la même chose, car l'éditeur les réchauffe un peu.
 
-Le pipeline est dans `tools/sprites/`, un projet uv à part en Python 3.13 qui garde torch hors de l'app. `uv run build.py` dans ce dossier régénère `assets/claude/` (ffmpeg et node sur le PATH, GPU CUDA de 12 Go) et affiche l'écart de chaque iris à sa cible. Le premier lancement télécharge environ 20 Go de modèles et dessine 24 images en 40 min, les suivants réutilisent les dessins en cache. La vidéo, les images décodées, les poids des modèles, les détourages et les dessins sont gardés dans `tools/sprites/.work/`, ignoré par git. Un dessin est refait quand son prompt ou l'image dont il part change. Ajouter une expression revient à ajouter une ligne à `DRAWINGS` dans `build.py`, qui lui donne aussi son clignement.
+Le pipeline est dans `tools/sprites/`, un projet uv à part en Python 3.13 qui garde torch hors de l'app. `uv run build.py` dans ce dossier régénère `assets/claude/` (ffmpeg et node sur le PATH, GPU CUDA de 12 Go) et affiche l'écart de chaque iris à sa cible. Le premier lancement télécharge environ 20 Go de modèles et dessine 23 images en 40 min, les suivants réutilisent les dessins en cache. La vidéo, les images décodées, les poids des modèles, les détourages et les dessins sont gardés dans `tools/sprites/.work/`, ignoré par git. Un dessin est refait quand son prompt ou l'image dont il part change. Ajouter une expression revient à ajouter une ligne à `DRAWINGS` dans `build.py`, qui lui donne aussi son clignement.
 
 Les dessins tournent sur Nunchaku en int4 avec le LoRA Lightning 4 étapes fusionné, 20 blocs sur 60 gardés sur le GPU et les autres chargés depuis la RAM. L'image de départ est agrandie 4 fois par Real-ESRGAN anime et le dessin est fait au double du canevas, pour que bouches et yeux restent nets : 90 s par image et 10,3 Gio au plus. `edit.py` corrige Nunchaku 1.3, plus ancien que 2511 et que diffusers 0.41 : rang SVD propre à chaque couche du checkpoint, et modulation au pas de temps 0 des jetons de l'image de référence (`zero_cond_t`).
 

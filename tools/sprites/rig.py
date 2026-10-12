@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 from cv2.typing import MatLike
+from numpy.typing import NDArray
 
 from colors import to_lab
 from matting import Box
@@ -32,7 +33,11 @@ class Rig:
 # Functions
 def transplant(base: MatLike, donor: MatLike, part: Part) -> MatLike:
 	""" The base sprite wearing the donor's version of the part, aligned and recolored to melt in. """
-	donor = match_colors(base, align_locally(base, donor, part.box), part.box)
+	x0, y0, x1, y1 = part.box
+	ring = np.zeros(base.shape[:2], bool)
+	ring[y0 - 20:y1 + 20, x0 - 20:x1 + 20] = True
+	ring[y0:y1, x0:x1] = False
+	donor = match_colors(base, align_locally(base, donor, part.box), ring)
 	mask = changed_region(base, donor, part)
 	result = base * (1 - mask) + donor * mask
 	result[..., 3] = base[..., 3]
@@ -59,17 +64,13 @@ def align_locally(base: MatLike, donor: MatLike, box: Box) -> MatLike:
 	return cv2.warpAffine(donor, warp, size, flags=cv2.INTER_CUBIC + cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_CONSTANT)
 
 
-def match_colors(base: MatLike, donor: MatLike, box: Box) -> MatLike:
-	""" The donor with the LAB mean and spread of the base, measured on a ring around the box. """
-	x0, y0, x1, y1 = box
-	ring = np.zeros(base.shape[:2], bool)
-	ring[y0 - 20:y1 + 20, x0 - 20:x1 + 20] = True
-	ring[y0:y1, x0:x1] = False
-	ring &= (base[..., 3] > 0.95) & (donor[..., 3] > 0.95)
-	base_lab, donor_lab = to_lab(base)[ring], to_lab(donor)
-	gain = np.clip(base_lab.std(0) / np.maximum(donor_lab[ring].std(0), 1e-3), 0.8, 1.25)
+def match_colors(base: MatLike, donor: MatLike, where: NDArray[np.bool_]) -> MatLike:
+	""" The donor with the LAB mean and spread the base has on the pixels `where`, counting those opaque in both. """
+	where = where & (base[..., 3] > 0.95) & (donor[..., 3] > 0.95)
+	base_lab, donor_lab = to_lab(base)[where], to_lab(donor)
+	gain = np.clip(base_lab.std(0) / np.maximum(donor_lab[where].std(0), 1e-3), 0.8, 1.25)
 	matched = donor.copy()
-	recolored = (donor_lab - donor_lab[ring].mean(0)) * gain + base_lab.mean(0)
+	recolored = (donor_lab - donor_lab[where].mean(0)) * gain + base_lab.mean(0)
 	matched[..., :3] = cv2.cvtColor(recolored.astype(np.float32), cv2.COLOR_LAB2RGB).clip(0, 1)
 	return matched
 

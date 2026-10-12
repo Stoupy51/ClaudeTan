@@ -45,6 +45,7 @@ uv run claudetan
 The app starts in the background with a hidden Claude Code session in this folder, prints the session's link and your plan usage once ready, and keeps running until you quit it from her tray icon.
 The session stays in claude.ai's list after you quit, and the app resumes it on its next start.
 Say *"Hey Claude, ..."* or *"Hé Claude, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
+You may pause while you speak: she sends your request after 15 s of silence, or as soon as it ends with *"prompt done"* or *"fin du prompt"*. Ending it with *"cancel prompt"* or *"annule le prompt"* drops it.
 
 - A click on her opens Claude Code's Remote Control on claude.ai, a long press lets you drag her.
 - Dropped on a second screen, she comes back there, and shows up on the main screen while it is unplugged.

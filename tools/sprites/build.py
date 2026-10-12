@@ -14,11 +14,11 @@ from cv2.typing import MatLike
 from resvg_py import svg_to_bytes
 
 from canvas import LEFT, RIGHT, bottom_fade
-from colors import derim
+from colors import derim, to_lab
 from cutout import cut_out
 from edit import CANVAS_EYES, Drawing, edit
 from eyes import find_eyes
-from rig import Part, Rig, transplant
+from rig import Part, Rig, match_colors, transplant
 from sources import read_frame
 
 # Constants
@@ -58,14 +58,15 @@ SPARK: Path = Path(__file__).with_name("spark.svg")
 """ A seven-pointed star like the flower in her hair, drawn in white where the editor puts a cross-shaped highlight in her pupils. """
 FACES: list[str] = ["idle", *(drawing.name for drawing in DRAWINGS)]
 """ Every sprite but the rigs, which blink and get their eyes checked. """
-TALKERS: tuple[str, ...] = ("idle", "hello")
 MOUTHS: dict[str, str] = {
 	"talk_open": "Open her mouth as if saying 'ah' in the middle of a sentence.",
 	"talk_o":    "Round her mouth into a small 'o' as if saying 'oh'.",
 	"talk_wide": "Open her mouth in a relaxed smile, white upper teeth showing, as if saying 'ee'.",
 }
+TALKS: dict[str, tuple[str, ...]] = {"idle": ("talk_open", "talk_o", "talk_wide"), "hello": ("talk_open", "talk_wide")}
+""" Mouths of the poses that talk. The editor draws the 'o' of `hello` askew. """
 RIGS: list[Rig] = [
-	*[Rig(name=f"{base}_{shape}", base=base, prompt=prompt, part=MOUTH) for base in TALKERS for shape, prompt in MOUTHS.items()],
+	*[Rig(name=f"{base}_{shape}", base=base, prompt=MOUTHS[shape], part=MOUTH) for base, shapes in TALKS.items() for shape in shapes],
 	*[Rig(name=f"{name}_blink", base=name, prompt=BLINK, part=EYES) for name in FACES],
 ]
 """ Only `idle` and `hello` talk, every pose blinks. Each prompt is followed by `ONLY`. """
@@ -87,8 +88,11 @@ def main() -> None:
 
 	for path in ASSETS.glob("*.png"):
 		path.unlink()
+	idle_lab = to_lab(sprites["idle"])
 	for name, rgba in sprites.items():
-		finished = rgba if name.endswith("_blink") else stamp_sparks(rgba)
+		# The editor warms her colors a little on every pose, so each is matched to `idle` where both show the same thing
+		matched = match_colors(sprites["idle"], rgba, np.linalg.norm(to_lab(rgba) - idle_lab, axis=2) < 10)
+		finished = matched if name.endswith("_blink") else stamp_sparks(matched)
 		bgra = cv2.cvtColor((bottom_fade(finished) * 255).round().astype(np.uint8), cv2.COLOR_RGBA2BGRA)
 		cv2.imwrite(str(ASSETS / f"{name}.png"), bgra, [cv2.IMWRITE_PNG_COMPRESSION, 9])
 	for name in FACES:

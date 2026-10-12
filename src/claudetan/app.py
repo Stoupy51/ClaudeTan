@@ -83,6 +83,15 @@ class Assistant(QObject):
 		self.appear("hello", bubble="Oui ?")
 		self.dismiss.start(round(FOLLOW_UP_S * 1000))
 
+	def on_dictation(self, text: str) -> None:
+		self.appear("idle", bubble=f"« {text} »")
+		self.dismiss.stop()
+
+	def on_cancel(self) -> None:
+		LOG.info("Request cancelled")
+		self.appear("idle", bubble="D'accord, j'oublie.")
+		self.dismiss.start(HEARD_MS)
+
 	def on_command(self, text: str) -> None:
 		LOG.info("Heard: %s", text)
 		self.appear("idle", bubble=f"« {text} »" + (" Je m'en occupe juste après." if self.busy else ""))
@@ -337,6 +346,8 @@ def run() -> None:
 	app.aboutToQuit.connect(session.close)
 	listener = Listener(config.language, config.wake)
 	listener.woke.connect(assistant.on_wake)
+	listener.dictated.connect(assistant.on_dictation)
+	listener.cancelled.connect(assistant.on_cancel)
 	listener.heard.connect(assistant.on_command)
 	threading.Thread(target=listener.run, args=(microphone(),), daemon=True).start()
 	report_ready(session, listener)

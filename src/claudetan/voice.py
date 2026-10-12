@@ -22,6 +22,12 @@ EARLY_CHECK_FRAMES: int = 40
 """ Length (1.3 s) at which a sentence still being spoken is transcribed once, so she reacts to the wake phrase before it ends. """
 FOLLOW_UP_S: float = 8.0
 """ How long a lone wake phrase keeps her listening for the command. """
+PAUSE_S: float = 15.0
+""" Silence after which the request said since the wake phrase is sent. """
+DONE: re.Pattern[str] = re.compile(r"\W*\b(?:prompte? done|fin du prompte?)\W*$", re.IGNORECASE)
+""" Sends the request at once, only as its last words: anything said after them in the same breath keeps her listening. """
+CANCEL: re.Pattern[str] = re.compile(r"\W*\b(?:cancel prompte?|annule le prompte?)\W*$", re.IGNORECASE)
+""" Drops the request, under the same rule as `DONE`. """
 
 
 # Classes
@@ -35,32 +41,60 @@ class Speech:
 class Listener(QObject):
 	""" Runs the microphone pipeline on its own thread and reports to the Qt thread through its signals. """
 	woke = Signal()
+	dictated = Signal(str)
+	""" The request so far, while she waits for the rest of it. """
 	heard = Signal(str)
-	""" A command, said after the wake phrase or alone within `FOLLOW_UP_S` of it. """
+	""" A request started after the wake phrase or alone within `FOLLOW_UP_S` of it, ended by `DONE` or `PAUSE_S` of silence. """
+	cancelled = Signal()
 
 	def __init__(self, language: str | None, wake: re.Pattern[str]) -> None:
 		super().__init__()
 		self.language = language
 		self.wake = wake
 		self.loaded = threading.Event()
+		self.awake_until = 0.0
+		self.request: list[str] = []
+		""" Sentences of the request being dictated. Both are touched only by the microphone thread. """
 
 	def run(self, frames: Iterator[Audio]) -> None:
 		whisper = load_whisper()
 		self.loaded.set()
-		awake_until = 0.0
 		for speech in utterances(frames):
+			if speech is None:
+				self.send()
+				continue
 			segments, _ = whisper.transcribe(speech.audio, language=self.language, beam_size=1, condition_on_previous_text=False)
-			text = " ".join(segment.text.strip() for segment in segments)
-			match = self.wake.match(text)
-			if match:
-				if time.monotonic() > awake_until:
-					self.woke.emit()
-				awake_until = time.monotonic() + FOLLOW_UP_S
+			self.hear(" ".join(segment.text.strip() for segment in segments), ended=speech.ended)
 
-			command = match.group(1) if match else text
-			if speech.ended and command and time.monotonic() < awake_until:
-				self.heard.emit(command)
-				awake_until = 0.0
+	def hear(self, text: str, *, ended: bool) -> None:
+		match = self.wake.match(text)
+		if match:
+			if time.monotonic() > self.awake_until:
+				self.woke.emit()
+			self.awake_until = time.monotonic() + FOLLOW_UP_S
+
+		command = match.group(1) if match else text
+		if ended and command and (self.request or time.monotonic() < self.awake_until):
+			self.add(command)
+			self.awake_until = 0.0
+
+	def add(self, sentence: str) -> None:
+		self.request.append(sentence)
+		request = " ".join(self.request)
+		if CANCEL.search(request):
+			self.request = []
+			self.cancelled.emit()
+		elif DONE.search(request):
+			self.request = [DONE.sub("", request)]
+			self.send()
+		else:
+			self.dictated.emit(request)
+
+	def send(self) -> None:
+		request = " ".join(self.request)
+		self.request = []
+		if request:
+			self.heard.emit(request)
 
 
 # Functions
@@ -79,24 +113,20 @@ def microphone() -> Iterator[Audio]:
 			yield frames.get()
 
 
-def utterances(frames: Iterator[Audio]) -> Iterator[Speech]:
+def utterances(frames: Iterator[Audio]) -> Iterator[Speech | None]:
 	""" Sentences cut out of the frames: one starts after 250 ms above the threshold and ends after 800 ms of silence or 15 s.
 
-	Each sentence reaching `EARLY_CHECK_FRAMES` is also yielded once before it ends.
+	Each sentence reaching `EARLY_CHECK_FRAMES` is also yielded once before it ends, and None once `PAUSE_S` pass without a voice.
 	"""
-	vad = get_vad_model()
-	window: list[Audio] = []
 	speech: list[Audio] = []
-	voiced = silent = 0
-	for frame in frames:
-		window = [*window[-15:], frame]
-		probability = float(vad(np.concatenate(window))[-1])
-		voiced = voiced + 1 if probability > 0.5 else 0
-		silent = silent + 1 if probability < 0.35 else 0
+	for window, voiced, silent in voice_activity(frames):
 		if speech:
-			speech.append(frame)
+			speech.append(window[-1])
 		elif voiced >= 8:
 			speech = list(window)
+		elif silent == round(PAUSE_S * RATE / FRAME):
+			yield None
+			continue
 		else:
 			continue
 
@@ -105,4 +135,17 @@ def utterances(frames: Iterator[Audio]) -> Iterator[Speech]:
 			yield Speech(audio=np.concatenate(speech), ended=ended)
 		if ended:
 			speech = []
+
+
+def voice_activity(frames: Iterator[Audio]) -> Iterator[tuple[list[Audio], int, int]]:
+	""" Each frame at the end of the half second before it, with how many frames in a row Silero VAD found voiced and silent. """
+	vad = get_vad_model()
+	window: list[Audio] = []
+	voiced = silent = 0
+	for frame in frames:
+		window = [*window[-15:], frame]
+		probability = float(vad(np.concatenate(window))[-1])
+		voiced = voiced + 1 if probability > 0.5 else 0
+		silent = silent + 1 if probability < 0.35 else 0
+		yield window, voiced, silent
 
