@@ -137,7 +137,7 @@ Ce que montre Claude-tan à chaque étape :
 - [ ] Autres actions : lancer une app, météo, minuteur, usage du forfait.
 - [ ] Petit modèle local via Ollama entre les règles et Claude.
 - [ ] Analyse d'une capture par un modèle de vision local ou par Claude, au choix dans la config.
-- [ ] Serveur MCP local pour que Claude appelle les mêmes actions.
+- [x] Serveur MCP local (`mcp.py`, HTTP sur 127.0.0.1) : chaque action de `ACTIONS` est aussi un outil `mcp__claudetan__*` de la session, qui reçoit `--mcp-config` et `--allowedTools`.
 
 ### 5. Voix et contrôle
 

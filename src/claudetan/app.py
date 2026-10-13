@@ -8,6 +8,8 @@ import sys
 import threading
 import tomllib
 from collections import deque
+from collections.abc import Mapping
+from concurrent.futures import Future
 from dataclasses import fields
 from functools import partial
 from pathlib import Path
@@ -18,9 +20,10 @@ from PySide6.QtCore import QFileSystemWatcher, QObject, QPoint, QTimer, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
-from claudetan.actions import route
+from claudetan.actions import Action, route
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
+from claudetan.mcp import ActionServer
 from claudetan.overlay.avatar import Avatar, Pill, chime
 from claudetan.overlay.bubble import shorten
 from claudetan.overlay.tray import Tray
@@ -125,11 +128,9 @@ class Assistant(QObject):
 	def on_command(self, text: str) -> None:
 		LOG.info("Heard: %s", text)
 		if routed := route(text):
-			action, match = routed
+			action, arguments = routed
 			LOG.info("Local action: %s", action.name)
-			if action.name == "stop_all":
-				self.stop_all()
-			self.appear("present", bubble=action.run(match))
+			self.appear("present", bubble=self.run_action(action, arguments))
 			self.dismiss.start(HEARD_MS)
 			return
 
@@ -137,6 +138,18 @@ class Assistant(QObject):
 		self.dismiss.start(HEARD_MS)
 		self.commands.append(text)
 		self.flush()
+
+	def run_action(self, action: Action, arguments: Mapping[str, str | None]) -> str:
+		""" Carries the action out, whoever asked, and returns what it says about it. """
+		text = action.run(arguments)
+		if action.name == "stop_all":
+			self.stop_all()
+		return text
+
+	def on_tool_call(self, action: Action, arguments: dict[str, str], text: Future[str]) -> None:
+		""" The session called the action as a tool: she does it without interrupting what she shows. """
+		LOG.info("Tool called: %s", action.name)
+		text.set_result(self.run_action(action, arguments))
 
 	def stop_all(self) -> None:
 		""" Drops the queued commands and what the session runs, its agents included, by starting it again. """
@@ -399,7 +412,8 @@ def run() -> None:
 	tray = Tray()
 	tray.show()
 	hooks = HookServer()
-	session = Session(hooks.url, config)
+	tools = ActionServer()
+	session = Session(hooks.url, tools.url, config)
 	quit_app = partial(shut_down, app, tray, assistant, session)
 	tray.quit_requested.connect(quit_app)
 	instance.newConnection.connect(quit_app)
@@ -407,6 +421,7 @@ def run() -> None:
 		clicked.connect(session.open)
 	hooks.posted.connect(session.on_hook)
 	hooks.posted.connect(assistant.on_hook)
+	tools.called.connect(assistant.on_tool_call)
 	assistant.send.connect(session.send)
 	assistant.idle.connect(session.compact)
 	app.aboutToQuit.connect(session.close)

@@ -1,9 +1,9 @@
-""" Requests she carries out herself, without the Claude session, when the whole request is one of their phrases. """
+""" What she does on the computer: said aloud as the phrases of an action, or called by the session as an MCP tool. """
 # Imports
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from ctypes import windll
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -16,11 +16,16 @@ from claudetan.voice.meeting import Meeting
 # Classes
 @dataclass(frozen=True)
 class Action:
-	""" Something she does on the computer when the whole request matches `phrases`, ignoring case. """
+	""" Something she does on the computer: the whole request matches `phrases`, or the session calls the tool `name`. """
 	name: str
+	description: str
+	""" What the session reads to choose the tool. """
 	phrases: str
-	run: Callable[[re.Match[str]], str]
+	""" Its named groups are the arguments the request gives. """
+	run: Callable[[Mapping[str, str | None]], str]
 	""" Carries the action out and returns what she says about it. """
+	parameters: Mapping[str, str] = field(default_factory=dict[str, str])
+	""" Each argument the action takes, with what it is. """
 
 
 # Constants
@@ -37,33 +42,40 @@ SCREENS: dict[str, int] = {"1": 1, "un": 1, "one": 1, "2": 2, "deux": 2, "two": 
 ACTIONS: list[Action] = [
 	Action(
 		name="screenshot",
+		description="Saves a screenshot of one screen in the Screenshots folder of the user's pictures.",
 		phrases=r"(?:fais une |prends une |take a )?(?:capture|screenshot)(?: d'écran)?"
 		r"(?: (?:de |of )?(?:l' ?écran|screen|monitor)(?: (?P<screen>[1-3]|un|deux|trois|one|two|three))?)?",
-		run=lambda match: screenshot(SCREENS[(match["screen"] or "1").lower()]),
+		run=lambda arguments: screenshot(SCREENS[(arguments.get("screen") or "1").lower()]),
+		parameters={"screen": "Screen number from 1, 1 by default."},
 	),
 	Action(
 		name="meeting_start",
+		description="Writes what the PC plays and the microphone hears into a file of the Transcriptions folder, until meeting_stop.",
 		phrases=r"(?:lance|démarre|commence) (?:la |une )?(?:re)?transcription(?: de la réunion)?|transcris(?: la réunion)?"
 		r"|(?:start )?(?:transcribing|transcribe)(?: the meeting)?|start (?:a |the )?transcription",
 		run=lambda _: MEETING.start(),
 	),
 	Action(
 		name="meeting_stop",
+		description="Stops the transcription started by meeting_start and says where its file is.",
 		phrases=r"(?:arrête|stoppe|termine|coupe) (?:la )?(?:re)?transcription|stop (?:the )?(?:transcription|transcribing)",
 		run=lambda _: MEETING.stop(),
 	),
 	Action(
 		name="stop_all",
+		description="Stops the running request, its agents and the queued ones, and restarts this session. Only if the user asks.",
 		phrases=r"(?:stop|arrête|stoppe|annule)(?: (?:tout|ça|everything|it))?(?: (?:maintenant|now))?",
 		run=lambda _: "J'arrête tout, je repars de zéro.",
 	),
 	Action(
 		name="clip",
+		description="Saves the last minutes of the game with ShadowPlay, by pressing Alt+F10.",
 		phrases=r"(?:enregistre|clippe|clip|save)(?: (?:ça|ca|ce moment|les dernières minutes|that|it|the replay))?",
 		run=lambda _: press(VK_MENU, VK_F10, said="J'ai appuyé sur Alt+F10 pour ShadowPlay."),
 	),
 	Action(
 		name="mute",
+		description="Mutes the PC's sound, or unmutes it when it is muted.",
 		phrases=r"coupe le son|(?:re)?mets le son|mute|unmute",
 		run=lambda _: press(VK_MUTE, said="C'est fait."),
 	),
@@ -72,8 +84,8 @@ ACTIONS: list[Action] = [
 
 
 # Functions
-def route(request: str) -> tuple[Action, re.Match[str]] | None:
-	""" The action whose phrases are the whole request, with the punctuation around it, and its match.
+def route(request: str) -> tuple[Action, dict[str, str | None]] | None:
+	""" The action whose phrases are the whole request, with the punctuation around it, and the arguments it gives.
 
 	>>> route("Capture l'écran 2.")[0].name, route("Capture l'écran 2.")[1]["screen"]
 	('screenshot', '2')
@@ -85,7 +97,8 @@ def route(request: str) -> tuple[Action, re.Match[str]] | None:
 	True
 	"""
 	words = request.strip(" .,;:!?").replace(CURLY_APOSTROPHE, "'")
-	return next(((action, match) for action in ACTIONS if (match := re.fullmatch(action.phrases, words, re.IGNORECASE))), None)
+	matches = ((action, re.fullmatch(action.phrases, words, re.IGNORECASE)) for action in ACTIONS)
+	return next(((action, match.groupdict()) for action, match in matches if match), None)
 
 
 def screenshot(screen: int) -> str:

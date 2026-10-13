@@ -28,6 +28,8 @@ SYSTEM_PROMPT: str = (
 	"Prompts come from the user's voice, transcribed by Whisper, which can mishear words, "
 	"or from the Remote Control on claude.ai or in the Claude app on their iPhone.\n"
 	"Your replies appear in a speech bubble next to your avatar, which only shows the start of long ones.\n"
+	"Your claudetan tools act on the user's computer, such as screenshots and transcribing meetings: "
+	"use them rather than writing scripts.\n"
 )
 """ What the app tells the session about itself, before the user's additions from the config. """
 WORKER_DESCRIPTION: str = (
@@ -93,7 +95,7 @@ class Session(QObject):
 	""" Claude Code started in the repo, resuming the saved conversation, with its hooks posting to `hooks_url`. """
 	compacted = Signal()
 
-	def __init__(self, hooks_url: str, config: Config) -> None:
+	def __init__(self, hooks_url: str, tools_url: str, config: Config) -> None:
 		super().__init__()
 		self.settings = APP_DATA / "session_settings.json"
 		hooks = {name: [{"hooks": [{"type": "http", "url": hooks_url, "timeout": 5}]}] for name in HOOK_EVENTS}
@@ -101,6 +103,7 @@ class Session(QObject):
 		self.id = SESSION_ID.read_text() if SESSION_ID.exists() else ""
 		self.transcript = ""
 		self.screen_lock = threading.Lock()
+		self.tools_url = tools_url
 		self.url = "https://claude.ai/code"
 		self.started = threading.Event()
 		""" Set once Remote Control prints the session's URL, when the session is ready for prompts. """
@@ -112,9 +115,10 @@ class Session(QObject):
 		prompt.write_text(system_prompt(config.prompt), encoding="utf-8")
 		worker = {"description": WORKER_DESCRIPTION, "prompt": WORKER_PROMPT, "model": config.agent_model, "background": True}
 		resume = ["--resume", self.id] if self.id else ["--session-id", str(uuid.uuid4())]
+		tools = json.dumps({"mcpServers": {"claudetan": {"type": "http", "url": self.tools_url}}})
 		claude = [
 			"claude", "--remote-control", "ClaudeTan", "--permission-mode", "auto", "--model", config.model,
-			"--agents", json.dumps({"worker": worker}),
+			"--agents", json.dumps({"worker": worker}), "--mcp-config", tools, "--allowedTools", "mcp__claudetan",
 			"--settings", str(self.settings), "--append-system-prompt-file", str(prompt), *resume,
 		]
 		# chcp 65001: without it the pseudo console feeds Claude Code accented letters in cp850
