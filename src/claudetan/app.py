@@ -61,7 +61,7 @@ class Assistant(QObject):
 	idle = Signal()
 	""" No hook for `COMPACT_IDLE_MS` and no turn running. """
 	restart = Signal()
-	""" Settings in `SESSION_KEYS` changed, and she has just left with nothing running. """
+	""" The session starts again: `SESSION_KEYS` settings changed while she was free, or she was told to stop everything. """
 
 	def __init__(self, avatar: Avatar, pill: Pill) -> None:
 		super().__init__()
@@ -127,6 +127,8 @@ class Assistant(QObject):
 		if routed := route(text):
 			action, match = routed
 			LOG.info("Local action: %s", action.name)
+			if action.name == "stop_all":
+				self.stop_all()
 			self.appear("present", bubble=action.run(match))
 			self.dismiss.start(HEARD_MS)
 			return
@@ -135,6 +137,14 @@ class Assistant(QObject):
 		self.dismiss.start(HEARD_MS)
 		self.commands.append(text)
 		self.flush()
+
+	def stop_all(self) -> None:
+		""" Drops the queued commands and what the session runs, its agents included, by starting it again. """
+		self.commands.clear()
+		self.agents.clear()
+		self.end_turn()
+		self.restart_pending = False
+		self.restart.emit()
 
 	def on_hook(self, event: JsonDict) -> None:
 		self.idle_timer.start()

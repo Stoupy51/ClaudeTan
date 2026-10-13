@@ -47,8 +47,22 @@ uv run claudetan
 The app starts in the background with a hidden Claude Code session in this folder, prints the session's link and your plan usage once ready, and keeps running until you quit it from her tray icon.
 The session stays in claude.ai's list after you quit, and the app resumes it on its next start.
 Say *"Hey Claude, ..."* or *"Hé Claude, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
-Screenshots (*"capture l'écran 2"*), ShadowPlay clips (*"enregistre ça"*), music (*"pause"*, *"musique suivante"*) and volume (*"monte le son"*) are done by the app itself, at once and without the session.
-*"Transcris la réunion"* writes everything the PC plays and your microphone hears into `Documents\Transcriptions`, one timed line per sentence, until *"arrête la transcription"*.
+A request that is exactly one of the phrases below is done by the app itself, at once and without the session. Anything else goes to the session.
+
+| Action | Say | Does |
+|---|---|---|
+| Screenshot | *"capture l'écran 2"*, *"screenshot"* | Saves the screen (1 to 3, the first by default) in `Pictures\Screenshots` |
+| Start a transcription | *"transcris la réunion"*, *"lance la transcription"* | Writes everything the PC plays and your microphone hears into `Documents\Transcriptions`, one timed line per sentence |
+| Stop the transcription | *"arrête la transcription"* | Closes that file |
+| Stop everything | *"stop"*, *"arrête tout"*, *"annule ça"* | Kills the running request, its agents and the queued commands, then starts the session again on the same conversation. The app keeps running |
+| ShadowPlay clip | *"enregistre ça"*, *"clip"* | Presses Alt+F10 |
+| Pause or resume the music | *"pause"*, *"reprends"* | Presses the media key |
+| Next track | *"musique suivante"* | Presses the media key |
+| Previous track | *"musique précédente"* | Presses the media key |
+| Volume up | *"monte le son"* | +10 % |
+| Volume down | *"baisse le son"* | -10 % |
+| Mute | *"coupe le son"*, *"remets le son"* | Toggles the mute |
+
 You may pause while you speak: she sends your request after 15 s of silence, or as soon as it ends with *"prompt done"* or *"fin du prompt"*. Ending it with *"cancel prompt"* or *"annule le prompt"* drops it.
 
 - A click on her opens Claude Code's Remote Control on claude.ai, a long press lets you drag her.

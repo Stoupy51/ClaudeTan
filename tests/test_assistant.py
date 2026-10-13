@@ -102,6 +102,18 @@ def test_local_actions_skip_the_session(assistant: Assistant, monkeypatch: pytes
 	assert assistant.avatar.expression == "present"
 
 
+def test_stopping_everything_restarts_the_session_and_forgets_the_work(assistant: Assistant) -> None:
+	restarts: list[bool] = []
+	assistant.restart.connect(lambda: restarts.append(True))
+	assistant.on_hook(hook("UserPromptSubmit", prompt="range le projet"))
+	assistant.on_hook(hook("SubagentStart", agent_id="worker"))
+	assistant.on_command("Stop.")
+	assert restarts == [True]
+	assert not assistant.busy
+	assert not assistant.agents
+	assert assistant.avatar.expression == "present"
+
+
 def test_settings_of_a_new_app_restart_it_once_she_is_free(assistant: Assistant, monkeypatch: pytest.MonkeyPatch) -> None:
 	restarts: list[bool] = []
 	assistant.restart.connect(lambda: restarts.append(True))

@@ -54,6 +54,11 @@ ACTIONS: list[Action] = [
 		run=lambda _: MEETING.stop(),
 	),
 	Action(
+		name="stop_all",
+		phrases=r"(?:stop|arrête|stoppe|annule)(?: (?:tout|ça|everything|it))?(?: (?:maintenant|now))?",
+		run=lambda _: "J'arrête tout, je repars de zéro.",
+	),
+	Action(
 		name="clip",
 		phrases=r"(?:enregistre|clippe|clip|save)(?: (?:ça|ca|ce moment|les dernières minutes|that|it|the replay))?",
 		run=lambda _: press(VK_MENU, VK_F10, said="J'ai appuyé sur Alt+F10 pour ShadowPlay."),
