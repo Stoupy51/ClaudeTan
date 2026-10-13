@@ -54,6 +54,7 @@ A request that is exactly one of the phrases below is done by the app itself, at
 | Stop the transcription | *"arrête la transcription"* | Closes that file |
 | Stop everything | *"stop"*, *"arrête tout"*, *"annule ça"* | Kills the running request, its agents and the queued commands, then starts the session again on the same conversation. The app keeps running |
 | Switch model | *"passe en Opus"*, *"bascule en Sonnet"* | Types `/model` into the session once its current request is done |
+| Read Discord messages | *"lis les messages de Artyu"* | Shows the last direct messages with that person, read with the `discord_token` of the config. It never sends anything |
 | ShadowPlay clip | *"enregistre ça"*, *"clip"* | Presses Alt+F10 |
 | Mute | *"coupe le son"*, *"remets le son"* | Toggles the mute |
 

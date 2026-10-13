@@ -149,7 +149,8 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 6. Applications connectées
 
-- [ ] Action Discord : les derniers MP échangés avec une personne, lus avec le jeton du compte mis dans la config.
+- [x] Action `discord_messages` (`discord.py`) : les derniers MP avec une personne, lus avec `discord_token` de la config, jamais envoyés.
+- [ ] Donner à la session cachée l'accès au navigateur de l'utilisateur (Claude in Chrome) pour lire les pages qui demandent une connexion, comme le portail de Survisland, au lieu de s'arrêter devant la page de connexion.
 
 ### 7. Plus tard
 

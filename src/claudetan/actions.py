@@ -10,6 +10,8 @@ from pathlib import Path
 from PySide6.QtCore import QStandardPaths
 from PySide6.QtGui import QGuiApplication
 
+from claudetan import discord
+from claudetan.config import Config
 from claudetan.voice.meeting import Meeting
 
 
@@ -83,6 +85,13 @@ ACTIONS: list[Action] = [
 		parameters={"model": f"One of {', '.join(MODELS)}."},
 	),
 	Action(
+		name="discord_messages",
+		description="Reads the last direct messages the user exchanged with a person on Discord. It never sends anything.",
+		phrases=r"(?:lis|montre|affiche)(?:-moi| moi)? (?:les )?(?:derniers )?(?:messages|mp) (?:de |d'|avec )(?P<person>.+)",
+		run=lambda arguments: discord_messages(arguments["person"] or "", int(arguments.get("count") or 10)),
+		parameters={"person": "Part of the person's Discord name.", "count": "How many messages, 10 by default."},
+	),
+	Action(
 		name="mute",
 		description="Mutes the PC's sound, or unmutes it when it is muted.",
 		phrases=r"coupe le son|(?:re)?mets le son|mute|unmute",
@@ -120,6 +129,11 @@ def chosen_model(arguments: Mapping[str, str | None]) -> str | None:
 	"""
 	model = (arguments["model"] or "").lower()
 	return model if model in MODELS else None
+
+
+def discord_messages(person: str, count: int) -> str:
+	token = Config.load().discord_token
+	return discord.last_messages(person, min(count, 50), token) if token else "Mets ton jeton dans la config (discord_token)."
 
 
 def screenshot(screen: int) -> str:
