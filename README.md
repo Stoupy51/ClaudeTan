@@ -84,6 +84,7 @@ uv run pytest tests --doctest-modules claudetan
 uv run ruff check .
 uv run pyright
 uv run prototypes/overlay_demo.py              # plays every expression in a loop
+uv run scripts/demo_video.py                   # renders dist/demo.mp4, a scripted run through her features (needs ffmpeg)
 uv run prototypes/voice_demo.py --wav clip.wav # prints what the listener hears, from the microphone without --wav
 ```
 

@@ -89,6 +89,10 @@ Ce que montre Claude-tan à chaque étape :
 
 ## Étapes
 
+### Priorité
+
+- [x] `scripts/demo_video.py` : une vidéo de démonstration refaisable d'une commande, où l'overlay réel joue un scénario (réveil, dictée, requête avec outils, actions locales, minuteur, permission, contexte, météo). Une horloge manuelle et un hasard fixé donnent la même vidéo à chaque fois. Rien n'est exécuté pour de vrai. Ajouter une scène au scénario quand une fonction mérite d'être montrée.
+
 ### 0. Prototypes (fait)
 
 - [x] `prototypes/session_demo.py` : session Remote Control cachée, envoi de prompts avec accents, événements des hooks.
