@@ -144,7 +144,7 @@ Ce que montre Claude-tan à chaque étape :
 - [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX (à installer), bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
 - [x] Dictée : les pauses ne coupent plus la demande, envoyée après 15 s de silence, sur "fin" dit seul ou "c'est tout" en fin de phrase, et annulée par "annule" seul. Les mots courts ne comptent que seuls : "jusqu'à la fin" ne coupe rien.
 - [x] Action "stop" : tue le tour en cours, ses agents et la file, puis relance la session sur la même conversation.
-- [ ] Commande vocale "passe en Opus" (`/model opus`).
+- [x] Action "model" ("passe en Opus", `/model` tapé entre deux tours), aussi outil MCP.
 - [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
 
 ### 6. Applications connectées

@@ -20,7 +20,7 @@ from PySide6.QtCore import QFileSystemWatcher, QObject, QPoint, QTimer, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
-from claudetan.actions import Action, route
+from claudetan.actions import Action, chosen_model, route
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
 from claudetan.mcp import ActionServer
@@ -115,8 +115,7 @@ class Assistant(QObject):
 			self.avatar.set_zoom(config.avatar_zoom, config.text_zoom)
 			self.pill.set_zoom(config.avatar_zoom)
 		if "model" in changed:
-			self.commands.append(f"/model {config.model}")
-			self.flush()
+			self.switch_model(config.model)
 		self.restart_pending = self.restart_pending or not SESSION_KEYS.isdisjoint(changed)
 		later = " Je relance la session Claude pour l'appliquer dès que je n'ai plus rien en cours." if self.restart_pending else ""
 		self.appear("happy", bubble=f"J'ai relu ta config : {', '.join(changed)}.{later}")
@@ -144,9 +143,18 @@ class Assistant(QObject):
 	def run_action(self, action: Action, arguments: Mapping[str, str | None]) -> str:
 		""" Carries the action out, whoever asked, and returns what it says about it. """
 		text = action.run(arguments)
-		if action.name == "stop_all":
-			self.stop_all()
+		match action.name:
+			case "stop_all":
+				self.stop_all()
+			case "model" if model := chosen_model(arguments):
+				self.switch_model(model)
+			case _:
+				pass
 		return text
+
+	def switch_model(self, model: str) -> None:
+		self.commands.append(f"/model {model}")
+		self.flush()
 
 	def on_tool_call(self, action: Action, arguments: dict[str, str], text: Future[str]) -> None:
 		""" The session called the action as a tool: she does it without interrupting what she shows. """

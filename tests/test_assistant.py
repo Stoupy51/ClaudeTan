@@ -115,6 +115,13 @@ def test_stopping_everything_restarts_the_session_and_forgets_the_work(assistant
 	assert assistant.avatar.expression == "present"
 
 
+def test_switching_model_by_voice_types_it_into_the_session(assistant: Assistant) -> None:
+	sent: list[str] = []
+	assistant.send.connect(sent.append)
+	assistant.on_command("Passe en Opus.")
+	assert sent == ["/model opus"]
+
+
 def test_settings_of_a_new_app_restart_it_once_she_is_free(assistant: Assistant, monkeypatch: pytest.MonkeyPatch) -> None:
 	restarts: list[bool] = []
 	assistant.restart.connect(lambda: restarts.append(True))

@@ -39,6 +39,8 @@ MEETING: Meeting = Meeting()
 """ The one meeting transcription, started and stopped by voice. """
 SCREENS: dict[str, int] = {"1": 1, "un": 1, "one": 1, "2": 2, "deux": 2, "two": 2, "3": 3, "trois": 3, "three": 3}
 """ Screen numbers as Whisper may write them. """
+MODELS: tuple[str, ...] = ("opus", "sonnet", "haiku")
+""" The models of `/model` she switches to by name. """
 ACTIONS: list[Action] = [
 	Action(
 		name="screenshot",
@@ -74,6 +76,13 @@ ACTIONS: list[Action] = [
 		run=lambda _: press(VK_MENU, VK_F10, said="J'ai appuyé sur Alt+F10 pour ShadowPlay."),
 	),
 	Action(
+		name="model",
+		description="Switches the model this session answers with, once the current request is done.",
+		phrases=r"(?:passe|bascule|switch|mets-toi)(?: en| sur| to)?(?: mode)? (?P<model>" + "|".join(MODELS) + ")",
+		run=lambda arguments: f"Je passe en {model}." if (model := chosen_model(arguments)) else f"Choisis {', '.join(MODELS)}.",
+		parameters={"model": f"One of {', '.join(MODELS)}."},
+	),
+	Action(
 		name="mute",
 		description="Mutes the PC's sound, or unmutes it when it is muted.",
 		phrases=r"coupe le son|(?:re)?mets le son|mute|unmute",
@@ -91,6 +100,8 @@ def route(request: str) -> tuple[Action, dict[str, str | None]] | None:
 	('screenshot', '2')
 	>>> route("Coupe le son !")[0].name
 	'mute'
+	>>> route("Passe en Opus !")[0].name, route("Passe en Opus !")[1]["model"]
+	('model', 'Opus')
 	>>> route("Arrête la transcription.")[0].name
 	'meeting_stop'
 	>>> route("Mets pause, puis ouvre Spotify.") is None
@@ -99,6 +110,16 @@ def route(request: str) -> tuple[Action, dict[str, str | None]] | None:
 	words = request.strip(" .,;:!?").replace(CURLY_APOSTROPHE, "'")
 	matches = ((action, re.fullmatch(action.phrases, words, re.IGNORECASE)) for action in ACTIONS)
 	return next(((action, match.groupdict()) for action, match in matches if match), None)
+
+
+def chosen_model(arguments: Mapping[str, str | None]) -> str | None:
+	""" The model the arguments name, None when it is not one of `MODELS`.
+
+	>>> chosen_model({"model": "Opus"}), chosen_model({"model": "gpt"})
+	('opus', None)
+	"""
+	model = (arguments["model"] or "").lower()
+	return model if model in MODELS else None
 
 
 def screenshot(screen: int) -> str:
