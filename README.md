@@ -3,7 +3,9 @@
 
 <div align="center">
 
-<img src="assets/claude/hello.png" alt="Claude-tan waving" width="360">
+<a href="assets/demo/demo_en.mp4"><img src="assets/demo/demo_en.jpg" alt="Demo video of Claude-tan" width="720"></a>
+
+*Watch the demo, also [in French](assets/demo/demo_fr.mp4).*
 
 *Say "Hey Claude": Claude-tan pops up on your screen while a hidden Claude Code session, running on your Claude subscription, does the work.*
 

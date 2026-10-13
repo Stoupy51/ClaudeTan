@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 
 from stouputils.typing import JsonDict
 
+from claudetan.overlay.bubble import TYPING_S, TYPING_SPEED
+
 # Constants
 WHISPER_S: float = 0.2
 """ How long after the end of a sentence Whisper hands it over. """
@@ -42,7 +44,6 @@ class Words:
 	yes: str
 	cleaned: str
 	dark_mode: str
-	dark_mode_task: str
 	handed_off: str
 	dark_mode_done: str
 	abroad: str
@@ -117,18 +118,18 @@ def speaking_s(text: str) -> float:
 	""" How long the user takes to say the text.
 
 	>>> round(speaking_s("Hey Claude."), 2)
-	0.62
+	0.7
 	"""
-	return 0.2 + 0.038 * length(text)
+	return 0.2 + 0.045 * length(text)
 
 
 def reading_s(text: str) -> float:
-	""" How long a bubble stays up: 25 characters a second, read as it types, and 3.2 s at most, enough to get the gist of a long one.
+	""" How long a bubble stays up: the time it takes to type, then 35 characters a second, 3 s at most to get the gist of a long one.
 
 	>>> round(reading_s("Thanks!"), 2), reading_s(200 * "a")
-	(1.08, 3.2)
+	(0.57, 3.0)
 	"""
-	return min(3.2, 0.8 + length(text) / 25)
+	return min(3.0, min(TYPING_S, length(text) / TYPING_SPEED) + 0.2 + length(text) / 35)
 
 
 def length(text: str) -> int:
@@ -143,16 +144,16 @@ def screenplay(words: Words) -> Timeline:
 	permission_by_voice(play, words)
 	background_work(play, words)
 	any_language(play, words)
-	play.cue(Leave(), then=0.6)
-	play.cue(Outro(), then=2.4)
+	play.cue(Leave(), then=0.4)
+	play.cue(Outro(), then=2.2)
 	return play
 
 
 def ask_out_loud(play: Timeline, words: Words) -> None:
 	play.cue(Title(1, words.chapters[0]), then=0.2)
 	play.say(words.question, words.language, then=0.1)
-	play.hook("UserPromptSubmit", then=0.7)
-	play.hook("PreToolUse", then=0.9, tool_name="mcp__claudetan__screenshot", tool_input={"screen": 1})
+	play.hook("UserPromptSubmit", then=0.5)
+	play.hook("PreToolUse", then=0.6, tool_name="mcp__claudetan__screenshot", tool_input={"screen": 1})
 	play.stream(words.reply, message_id="reply", every=0.2)
 	play.cue(Read())
 
@@ -160,11 +161,11 @@ def ask_out_loud(play: Timeline, words: Words) -> None:
 def permission_by_voice(play: Timeline, words: Words) -> None:
 	play.cue(Title(2, words.chapters[1]), then=0.2)
 	play.say(words.cleanup, words.language, then=0.1)
-	play.hook("UserPromptSubmit", then=0.7)
+	play.hook("UserPromptSubmit", then=0.5)
 	tool_input = {"command": "rm -r build", "description": words.cleanup_tool}
 	play.hook("PermissionRequest", then=0.0, tool_name="Bash", tool_input=tool_input)
 	play.cue(Read())
-	play.say(words.yes, words.language, then=1.0)
+	play.say(words.yes, words.language, then=0.7)
 	play.hook("Stop", then=0.0, last_assistant_message=words.cleaned)
 	play.cue(Read())
 
@@ -172,12 +173,11 @@ def permission_by_voice(play: Timeline, words: Words) -> None:
 def background_work(play: Timeline, words: Words) -> None:
 	play.cue(Title(3, words.chapters[2]), then=0.2)
 	play.say(words.dark_mode, words.language, then=0.1)
-	play.hook("UserPromptSubmit", then=0.7)
-	play.hook("PreToolUse", then=0.9, tool_name="Agent", tool_input={"description": words.dark_mode_task})
-	play.hook("SubagentStart", then=0.1, agent_id="dark-mode", agent_type="worker")
+	play.hook("UserPromptSubmit", then=0.5)
 	play.hook("Stop", then=0.0, last_assistant_message=words.handed_off)
 	play.cue(Read())
-	play.cue(Leave(), then=1.4)
+	# After her reply rather than before it, as it comes, so that she shrinks to the pill once instead of blinking through it
+	play.hook("SubagentStart", then=1.6, agent_id="dark-mode", agent_type="worker")
 	play.hook("SubagentStop", then=0.1, agent_id="dark-mode", agent_type="worker", last_assistant_message=words.dark_mode_done)
 	play.hook("UserPromptSubmit", then=0.3, prompt="<task-notification>")
 	play.hook("Stop", then=0.0, last_assistant_message=words.dark_mode_done)

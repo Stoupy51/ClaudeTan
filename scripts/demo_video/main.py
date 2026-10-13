@@ -4,7 +4,8 @@ Nothing runs for real: no microphone, no Claude session, no network call.
 The screenplay feeds the real listener what Whisper would hear and the real `Assistant` the hook events Claude Code would post,
 and a clock steps the overlay frame by frame, so the same script always gives the same videos.
 
-Run with `uv run scripts/demo_video/main.py`, which needs ffmpeg on the PATH and writes `dist/demo_en.mp4` and `dist/demo_fr.mp4`.
+Run with `uv run scripts/demo_video/main.py`, which needs ffmpeg on the PATH and writes `dist/demo_en.mp4` and `dist/demo_fr.mp4`,
+and `dist/demo_en_small.mp4` and `dist/demo_fr_small.mp4` under the 10 MB GitHub takes for the README.
 `--stills 12 30.5` saves the frames at those seconds as PNG images instead, to check a change in a few seconds.
 """
 # Imports
@@ -223,7 +224,14 @@ class Studio:
 				"-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
 				"-movflags", "+faststart", "-shortest", str(output),
 			], check=True)
-		print(f"{output}: {frames / FPS:.1f} s at {FPS} fps, {WIDTH}x{HEIGHT}")
+		# 720p at 30 frames per second and at most 1.2 Mb/s: under 10 MB for a minute
+		small = output.with_stem(f"{output.stem}_small")
+		subprocess.run([
+			"ffmpeg", "-y", "-loglevel", "error", "-i", str(output), "-vf", "scale=1280:-2,fps=30",
+			"-c:v", "libx264", "-preset", "slow", "-crf", "27", "-maxrate", "1200k", "-bufsize", "2400k",
+			"-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(small),
+		], check=True)
+		print(f"{output}: {frames / FPS:.1f} s at {FPS} fps, {WIDTH}x{HEIGHT}, and {small}: {small.stat().st_size / 1e6:.1f} MB")
 
 	def stills(self, moments: list[float], folder: Path) -> None:
 		""" Saves the frames at those seconds, stepping through the others without drawing them. """
