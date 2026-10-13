@@ -5,7 +5,6 @@ import os
 import re
 import subprocess
 import threading
-import time
 import uuid
 import webbrowser
 from concurrent.futures import CancelledError, Future
@@ -53,12 +52,6 @@ COMPACT_ABOVE_TOKENS: int = 100_000
 SESSION_ID: Path = APP_DATA / "session_id"
 """ The conversation the app resumes, saved once a hook reports it, so a session that never got a prompt is not resumed. """
 SESSION_URL: re.Pattern[str] = re.compile(r"https://claude\.ai/code/session_\w+")
-PLAN_USAGE: re.Pattern[str] = re.compile(
-	r"Current session\W+(?P<window>\d+)% used\s+Resets (?P<window_reset>[^)]*\)).*?"
-	r"Current week \(all models\)\W+(?P<week>\d+)% used\s+Resets (?P<week_reset>[^)]*\))",
-	re.DOTALL,
-)
-""" The two limits of the `/usage` panel, each followed by when it resets, such as "Resets Oct 12, 12am (Europe/Paris)". """
 NESTED_SESSION_VARS: tuple[str, ...] = (
 	"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_CHILD_SESSION",
 	"CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN", "CLAUDE_PID",
@@ -163,22 +156,6 @@ class Session(QObject):
 			if not self.started.is_set() and (match := SESSION_URL.search(shown)):
 				self.url = match.group()
 				self.started.set()
-
-	def plan_usage(self) -> str:
-		""" The plan's limits as `/usage` shows them, read before any prompt since keys typed while its panel is open land in it. """
-		self.pty.write("/usage")
-		time.sleep(PASTE_DELAY_MS / 1000)
-		self.pty.write("\r")
-		deadline = time.monotonic() + 15
-		while not (match := PLAN_USAGE.search(self.text())) and time.monotonic() < deadline:
-			time.sleep(0.2)
-		self.pty.write("\x1b")
-		if not match:
-			return "unknown, /usage did not show it"
-		return (
-			f"{match['window']}% of the 5-hour window, resets {match['window_reset']}; "
-			f"{match['week']}% of the week, resets {match['week_reset']}"
-		)
 
 	def text(self) -> str:
 		with self.screen_lock:

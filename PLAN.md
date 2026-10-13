@@ -135,7 +135,7 @@ Ce que montre Claude-tan à chaque étape :
 - [x] Transcription de réunion jusqu'à ce qu'on l'arrête : son du PC (loopback WASAPI) et micro, chacun sur son fil, dans un fichier de `Documents\Transcriptions`.
 - [x] ShadowPlay accepte le Alt+F10 simulé par `keybd_event`.
 - [x] Actions `timer`, `weather` (Open-Meteo, `city` de la config) et `launch_program` (raccourcis du menu Démarrer, par la session seulement : "ouvre" ne doit pas avaler "ouvre le site").
-- [ ] Action usage du forfait.
+- [x] Actions `context` et `plan_usage` (`services/claude.py`) : `claude -p "/context" --resume ... --fork-session` et `claude -p "/usage"`, sans rien taper dans la session cachée. Aussi dans le menu de l'icône.
 - [ ] Petit modèle local via Ollama entre les règles et Claude.
 - [ ] Analyse d'une capture par un modèle de vision local ou par Claude, au choix dans la config.
 - [x] Serveur MCP local (`mcp.py`, HTTP sur 127.0.0.1) : chaque action de `ACTIONS` est aussi un outil `mcp__claudetan__*` de la session, qui reçoit `--mcp-config` et `--allowedTools`.

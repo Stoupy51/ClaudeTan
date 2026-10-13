@@ -22,6 +22,8 @@ LAUNCHER: Path = Path(sys.prefix) / "Scripts" / "claudetan.exe"
 # Classes
 class Tray(QSystemTrayIcon):
 	open_session = Signal()
+	action_requested = Signal(str)
+	""" The name of an action picked in the menu. """
 	quit_requested = Signal()
 
 	def __init__(self) -> None:
@@ -29,6 +31,9 @@ class Tray(QSystemTrayIcon):
 		self.setToolTip("Claude-tan")
 		self.menu = QMenu()
 		self.menu.addAction("Ouvrir la session", self.open_session.emit)
+		self.menu.addAction("Contexte de la session", lambda: self.action_requested.emit("context"))
+		self.menu.addAction("Usage du forfait", lambda: self.action_requested.emit("plan_usage"))
+		self.menu.addSeparator()
 		self.menu.addAction("Ouvrir la config", lambda: os.startfile(USER_CONFIG))
 		self.menu.addAction("Voir le journal", lambda: os.startfile(LOG_FILE))
 		self.menu.addAction("Ouvrir le dossier", lambda: os.startfile(APP_DATA))

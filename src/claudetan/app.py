@@ -20,13 +20,14 @@ from PySide6.QtCore import QFileSystemWatcher, QObject, QPoint, QTimer, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
-from claudetan.actions import ALARMS, Action, chosen_model, route
+from claudetan.actions import ALARMS, Action, chosen_model, find, route
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
 from claudetan.mcp import ActionServer
 from claudetan.overlay.avatar import Avatar, Pill, chime
 from claudetan.overlay.bubble import plain
 from claudetan.overlay.tray import Tray
+from claudetan.services import claude
 from claudetan.session import HookServer, JsonDict, Session
 from claudetan.voice.audio import microphone
 from claudetan.voice.listener import FOLLOW_UP_S, Listener
@@ -67,6 +68,8 @@ class Assistant(QObject):
 	""" A permission request waits for a spoken answer. """
 	answer_settled = Signal()
 	""" The permission request is answered, or no longer waits. """
+	announced = Signal(str)
+	""" Something to tell the user, from a thread that had to wait for it. """
 	restart = Signal()
 	""" The session starts again: `SESSION_KEYS` settings changed while she was free, or she was told to stop everything. """
 
@@ -160,6 +163,14 @@ class Assistant(QObject):
 	def switch_model(self, model: str) -> None:
 		self.commands.append(f"/model {model}")
 		self.flush()
+
+	def announce(self, action: str) -> None:
+		""" Has her tell what the action says, carried out on a thread since the Qt one would freeze while it waits for `claude`. """
+		threading.Thread(target=lambda: self.announced.emit(find(action).run({})), daemon=True).start()
+
+	def on_announce(self, text: str) -> None:
+		self.appear("present", bubble=text)
+		self.dismiss.start(reading_ms(text))
 
 	def on_alarm(self, label: str) -> None:
 		chime(*DONE_NOTES)
@@ -401,7 +412,7 @@ def report_ready(session: Session, listener: Listener) -> None:
 	""" Tells `main`, through stdout, how the session and Whisper started. """
 	if session.started.wait(STARTUP_S):
 		stp.info(f"Claude Code session {'resumed' if session.id else 'started'}: {stp.CYAN}{session.url}")
-		stp.info(f"Plan usage: {session.plan_usage()}")
+		stp.info(f"Plan usage: {claude.plan_usage()}")
 	else:
 		stp.warning("Claude Code did not start Remote Control: run uv run claudetan-setup, then start the app again", file=sys.stdout)
 	if listener.loaded.wait(STARTUP_S):
@@ -458,6 +469,8 @@ def run() -> None:
 	session = Session(hooks.url, tools.url, config)
 	quit_app = partial(shut_down, app, tray, assistant, session)
 	tray.quit_requested.connect(quit_app)
+	assistant.announced.connect(assistant.on_announce)
+	tray.action_requested.connect(assistant.announce)
 	instance.newConnection.connect(quit_app)
 	for clicked in (avatar.clicked, pill.clicked, tray.open_session):
 		clicked.connect(session.open)

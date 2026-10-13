@@ -11,7 +11,7 @@ from PySide6.QtCore import QStandardPaths
 from PySide6.QtGui import QGuiApplication
 
 from claudetan.config import Config
-from claudetan.services import discord, programs, weather
+from claudetan.services import claude, discord, programs, weather
 from claudetan.services.alarms import Alarms
 from claudetan.voice.meeting import Meeting
 
@@ -90,6 +90,18 @@ ACTIONS: list[Action] = [
 		parameters={"model": f"One of {', '.join(MODELS)}."},
 	),
 	Action(
+		name="context",
+		description="How full the context window of this session is: its model and its tokens.",
+		phrases=r"(?:(?:quel est|montre-moi|donne-moi|affiche) )?(?:le )?contexte(?: de la session)?|context usage",
+		run=lambda _: claude.context(),
+	),
+	Action(
+		name="plan_usage",
+		description="How much of the Claude subscription's 5-hour window and weekly limit is used, and when they reset.",
+		phrases=r"(?:(?:quel est|montre-moi|donne-moi|affiche) )?(?:mon |l')?usage(?: du forfait)?|plan usage",
+		run=lambda _: claude.plan_usage(),
+	),
+	Action(
 		name="timer",
 		description="Rings after a while, with a sound and a message, and says what the timer is for when given.",
 		phrases=r"(?:(?:mets|lance|démarre|règle|programme|set|start) )?(?:un |a )?(?:minuteur|timer)(?: de| pour| of| for)?"
@@ -131,6 +143,10 @@ ACTIONS: list[Action] = [
 
 
 # Functions
+def find(name: str) -> Action:
+	return next(action for action in ACTIONS if action.name == name)
+
+
 def route(request: str) -> tuple[Action, dict[str, str | None]] | None:
 	""" The action whose phrases are the whole request, with the punctuation around it, and the arguments it gives.
 

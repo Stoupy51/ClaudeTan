@@ -54,6 +54,8 @@ A request that is exactly one of the phrases below is done by the app itself, at
 | Stop the transcription | *"arrête la transcription"* | Closes that file |
 | Stop everything | *"stop"*, *"arrête tout"*, *"annule ça"* | Kills the running request, its agents and the queued commands, then starts the session again on the same conversation. The app keeps running |
 | Switch model | *"passe en Opus"*, *"bascule en Sonnet"* | Types `/model` into the session once its current request is done |
+| Context of the session | *"le contexte"*, or the tray menu | How full the hidden session's context window is, as `/context` reports it |
+| Plan usage | *"mon usage"*, or the tray menu | Share of the 5-hour window and of the week used, as `/usage` reports it |
 | Timer | *"mets un minuteur de 10 minutes"* | Rings with a sound and a message when it is over |
 | Weather | *"la météo à Rennes"*, *"quel temps fait-il"* | Weather now and for the day, from Open-Meteo. Without a city, the `city` of the config |
 | Open a program | Any request, through the session (`launch_program` tool) | Opens the program whose Start menu shortcut matches the name |

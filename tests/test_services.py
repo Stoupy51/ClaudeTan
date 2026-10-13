@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QApplication
 from stouputils.typing import JsonDict
 
 from claudetan.actions import ALARMS, route
-from claudetan.services import programs, weather
+from claudetan.services import claude, programs, weather
 
 
 # Functions
@@ -48,4 +48,27 @@ def test_a_program_is_found_by_part_of_its_shortcut_name_closest_first(monkeypat
 	assert programs.launch("disc") == "J'ouvre Discord."
 	assert started == ["Discord"]
 	assert programs.launch("word") == "Je ne trouve pas de programme word."
+
+
+def test_the_plan_usage_and_the_context_come_from_the_slash_commands_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+	outputs = {
+		"/usage": (
+			"You are currently using your subscription\n\n"
+			"Current session: 22% used \u00b7 resets Oct 14, 1:30am (Europe/Paris)\n"
+			"Current week (all models): 27% used \u00b7 resets Oct 19, 12am (Europe/Paris)\n"
+		),
+		"/context": "## Context Usage\n\n**Model:** claude-sonnet-5-5  \n**Tokens:** 107.6k / 1m (11%)\n\n### Estimated usage\n",
+	}
+	def panel(command: str, *_options: str) -> str:
+		return outputs[command]
+	monkeypatch.setattr(claude, "panel", panel)
+	monkeypatch.setattr(claude, "SESSION_ID", tmp_path / "session_id")
+	assert claude.context() == "Il n'y a pas encore de conversation."
+
+	claude.SESSION_ID.write_text("abc")
+	assert claude.context() == "Contexte de claude-sonnet-5-5 : 107.6k / 1m (11%)."
+	assert claude.plan_usage() == (
+		"22 % de la fenêtre de 5 heures (renouvelée Oct 14, 1:30am (Europe/Paris)), "
+		"27 % de la semaine (renouvelée Oct 19, 12am (Europe/Paris))."
+	)
 

@@ -8,7 +8,7 @@ from typing import Any, override
 
 from PySide6.QtCore import QObject, Signal, SignalInstance
 
-from claudetan.actions import ACTIONS, Action
+from claudetan.actions import ACTIONS, Action, find
 from claudetan.session import JsonDict
 
 # Constants
@@ -79,7 +79,7 @@ def tool(action: Action) -> JsonDict:
 
 
 def call(params: JsonDict, relay: SignalInstance) -> JsonDict:
-	action = next(action for action in ACTIONS if action.name == params["name"])
+	action = find(params["name"])
 	arguments = {name: str(value) for name, value in params.get("arguments", {}).items()}
 	text: Future[str] = Future()
 	relay.emit(action, arguments, text)
