@@ -54,11 +54,6 @@ A request that is exactly one of the phrases below is done by the app itself, at
 | Stop the transcription | *"arrête la transcription"* | Closes that file |
 | Stop everything | *"stop"*, *"arrête tout"*, *"annule ça"* | Kills the running request, its agents and the queued commands, then starts the session again on the same conversation. The app keeps running |
 | ShadowPlay clip | *"enregistre ça"*, *"clip"* | Presses Alt+F10 |
-| Pause or resume the music | *"pause"*, *"reprends"* | Presses the media key |
-| Next track | *"musique suivante"* | Presses the media key |
-| Previous track | *"musique précédente"* | Presses the media key |
-| Volume up | *"monte le son"* | +10 % |
-| Volume down | *"baisse le son"* | -10 % |
 | Mute | *"coupe le son"*, *"remets le son"* | Toggles the mute |
 
 You may pause while you speak: she sends your request after 15 s of silence, or as soon as it ends with *"prompt done"* or *"fin du prompt"*. Ending it with *"cancel prompt"* or *"annule le prompt"* drops it.

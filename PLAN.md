@@ -33,7 +33,7 @@ Un registre d'actions Python, chacune avec un nom, une description, ses paramèt
 
 - capture de l'écran 1 ou 2 (mss), analysée par un modèle de vision local ou par Claude selon la config ;
 - raccourci clavier, par exemple Alt+F10 pour l'enregistrement instantané ShadowPlay (à tester : NVIDIA accepte-t-il une touche simulée par SendInput) ;
-- lancer une app, météo du jour (Open-Meteo, sans clé), volume et lecture média, minuteur ;
+- lancer une app, météo du jour (Open-Meteo, sans clé), minuteur ;
 - usage du forfait (fenêtre de 5 h, semaine) et tokens de la session, lus dans les données de la statusline (voir [Notes techniques](#notes-techniques)).
 
 Un routeur choisit qui répond, du moins cher au plus cher : des règles exactes pour les phrases connues, puis un petit modèle local avec appel de fonctions via Ollama (à réinstaller, il n'est plus sur le disque ; Qwen3 4B ou équivalent tient en 3 Go de VRAM environ à côté de Whisper), puis Claude pour tout le reste. Claude appelle les mêmes actions par un serveur MCP local, donc chaque outil ajouté sert aux deux.
@@ -131,9 +131,9 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 4. Actions locales
 
-- [x] Registre d'actions (`actions.py`) et routeur à règles exactes : capture de l'écran 1 à 3, Alt+F10 pour ShadowPlay, lecture, piste suivante ou précédente, volume. Une phrase d'action part sans attendre la fin de la dictée.
+- [x] Registre d'actions (`actions.py`) et routeur à règles exactes : capture de l'écran 1 à 3, Alt+F10 pour ShadowPlay, coupure du son. Une phrase d'action part sans attendre la fin de la dictée.
 - [x] Transcription de réunion jusqu'à ce qu'on l'arrête : son du PC (loopback WASAPI) et micro, chacun sur son fil, dans un fichier de `Documents\Transcriptions`.
-- [ ] Vérifier que ShadowPlay accepte le Alt+F10 simulé par `keybd_event`.
+- [x] ShadowPlay accepte le Alt+F10 simulé par `keybd_event`.
 - [ ] Autres actions : lancer une app, météo, minuteur, usage du forfait.
 - [ ] Petit modèle local via Ollama entre les règles et Claude.
 - [ ] Analyse d'une capture par un modèle de vision local ou par Claude, au choix dans la config.
@@ -143,7 +143,8 @@ Ce que montre Claude-tan à chaque étape :
 
 - [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX (à installer), bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
 - [x] Dictée : les pauses ne coupent plus la demande, envoyée après 15 s de silence ou sur "prompt done", et annulée par "cancel prompt".
-- [ ] Commandes vocales "stop" (arrêter le tour en cours), "passe en Opus" (`/model opus`).
+- [x] Action "stop" : tue le tour en cours, ses agents et la file, puis relance la session sur la même conversation.
+- [ ] Commande vocale "passe en Opus" (`/model opus`).
 - [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
 
 ### 6. Applications connectées

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QApplication
 
 import claudetan.app
 import claudetan.config
-from claudetan.actions import VK_PLAY_PAUSE
+from claudetan.actions import VK_MUTE
 from claudetan.app import Assistant
 from claudetan.config import DEFAULTS, Config
 from claudetan.overlay.avatar import Avatar, Pill
@@ -96,8 +96,8 @@ def test_local_actions_skip_the_session(assistant: Assistant, monkeypatch: pytes
 	monkeypatch.setattr(windll.user32, "keybd_event", press)
 	sent: list[str] = []
 	assistant.send.connect(sent.append)
-	assistant.on_command("Mets la musique en pause.")
-	assert keys == [VK_PLAY_PAUSE]
+	assistant.on_command("Coupe le son.")
+	assert keys == [VK_MUTE]
 	assert sent == []
 	assert assistant.avatar.expression == "present"
 

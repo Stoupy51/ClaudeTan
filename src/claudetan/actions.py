@@ -25,8 +25,7 @@ class Action:
 
 # Constants
 VK_MENU, VK_F10 = 0x12, 0x79
-VK_MUTE, VK_VOLUME_DOWN, VK_VOLUME_UP = 0xAD, 0xAE, 0xAF
-VK_NEXT_TRACK, VK_PREVIOUS_TRACK, VK_PLAY_PAUSE = 0xB0, 0xB1, 0xB3
+VK_MUTE = 0xAD
 KEY_UP: int = 0x0002
 """ `KEYEVENTF_KEYUP`, the flag of a key release for `keybd_event`. """
 CURLY_APOSTROPHE: str = chr(0x2019)
@@ -64,31 +63,6 @@ ACTIONS: list[Action] = [
 		run=lambda _: press(VK_MENU, VK_F10, said="J'ai appuyé sur Alt+F10 pour ShadowPlay."),
 	),
 	Action(
-		name="play_pause",
-		phrases=r"(?:mets |met )?(?:la musique )?(?:en )?pause|reprends(?: la musique)?|(?:play|pause|resume)(?: the music)?",
-		run=lambda _: press(VK_PLAY_PAUSE, said="C'est fait."),
-	),
-	Action(
-		name="next_track",
-		phrases=r"(?:musique |chanson |piste )?suivante|next(?: song| track)?",
-		run=lambda _: press(VK_NEXT_TRACK, said="Piste suivante."),
-	),
-	Action(
-		name="previous_track",
-		phrases=r"(?:musique |chanson |piste )?précédente|previous(?: song| track)?",
-		run=lambda _: press(VK_PREVIOUS_TRACK, said="Piste précédente."),
-	),
-	Action(
-		name="volume_up",
-		phrases=r"(?:monte|augmente) (?:le son|le volume)|(?:turn )?(?:the )?volume up|louder",
-		run=lambda _: press(VK_VOLUME_UP, said="Volume monté de 10 %.", times=5),
-	),
-	Action(
-		name="volume_down",
-		phrases=r"(?:baisse|diminue) (?:le son|le volume)|(?:turn )?(?:the )?volume down|quieter",
-		run=lambda _: press(VK_VOLUME_DOWN, said="Volume baissé de 10 %.", times=5),
-	),
-	Action(
 		name="mute",
 		phrases=r"coupe le son|(?:re)?mets le son|mute|unmute",
 		run=lambda _: press(VK_MUTE, said="C'est fait."),
@@ -103,8 +77,8 @@ def route(request: str) -> tuple[Action, re.Match[str]] | None:
 
 	>>> route("Capture l'écran 2.")[0].name, route("Capture l'écran 2.")[1]["screen"]
 	('screenshot', '2')
-	>>> route("Monte le son !")[0].name
-	'volume_up'
+	>>> route("Coupe le son !")[0].name
+	'mute'
 	>>> route("Arrête la transcription.")[0].name
 	'meeting_stop'
 	>>> route("Mets pause, puis ouvre Spotify.") is None
@@ -126,12 +100,11 @@ def screenshot(screen: int) -> str:
 	return f"Capture de l'écran {screen} enregistrée dans {folder}."
 
 
-def press(*keys: int, said: str, times: int = 1) -> str:
-	""" Presses the keys together, `times` times, and returns `said`. """
-	for _ in range(times):
-		for key in keys:
-			windll.user32.keybd_event(key, 0, 0, 0)
-		for key in reversed(keys):
-			windll.user32.keybd_event(key, 0, KEY_UP, 0)
+def press(*keys: int, said: str) -> str:
+	""" Presses the keys together and returns `said`. """
+	for key in keys:
+		windll.user32.keybd_event(key, 0, 0, 0)
+	for key in reversed(keys):
+		windll.user32.keybd_event(key, 0, KEY_UP, 0)
 	return said
 
