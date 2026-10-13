@@ -3,13 +3,13 @@
 
 <div align="center">
 
-<a href="assets/demo/demo_en.mp4"><img src="assets/demo/demo_en.jpg" alt="Demo video of Claude-tan" width="720"></a>
-
-*Watch the demo, also [in French](assets/demo/demo_fr.mp4).*
-
 *Say "Hey Claude": Claude-tan pops up on your screen while a hidden Claude Code session, running on your Claude subscription, does the work.*
 
 </div>
+
+https://github.com/user-attachments/assets/84a558a3-62a4-4e16-9a47-94099be6e3ad
+
+*The same demo [in French](https://github.com/user-attachments/assets/4ad7b61b-bd03-42bd-b620-04c7be436a48).*
 
 > [!NOTE]
 > Work in progress: the roadmap is in [PLAN.md](PLAN.md), in French.
@@ -90,6 +90,9 @@ uv run prototypes/overlay_demo.py              # plays every expression in a loo
 uv run scripts/demo_video/main.py              # renders dist/demo_en.mp4 and dist/demo_fr.mp4, a scripted run through her features (needs ffmpeg)
 uv run prototypes/voice_demo.py --wav clip.wav # prints what the listener hears, from the microphone without --wav
 ```
+
+The demo videos at the top of this file are the `_small` copies of that script's videos, uploaded with the [gh-image](https://github.com/drogers0/gh-image) extension:
+`gh image dist/demo_en_small.mp4 --repo Stoupy51/ClaudeTan` prints the link to paste in place of the old one.
 
 The sprites in `assets/claude/` come out of `tools/sprites/`, a separate uv project described in [PLAN.md](PLAN.md#sprites).
 
