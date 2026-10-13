@@ -1,5 +1,6 @@
 """ The microphone's sentences, transcribed by Whisper and reduced to the requests spoken to her. """
 # Imports
+import re
 import threading
 import time
 from collections.abc import Iterator
@@ -11,6 +12,8 @@ from claudetan.config import Config
 from claudetan.voice.audio import Audio, load_whisper, utterances
 
 # Constants
+SENTENCES: re.Pattern[str] = re.compile(r"(?<=[.!?])\s+")
+""" Whisper punctuates a pause, so a word said after one starts a sentence of its own even when the voice detector kept both. """
 FOLLOW_UP_S: float = 8.0
 """ How long a lone wake phrase keeps her listening for the command. """
 
@@ -57,15 +60,19 @@ class Listener(QObject):
 
 		command = match.group(1) if match else text
 		if ended and command and (self.request or time.monotonic() < self.awake_until):
-			self.add(command)
+			for part in SENTENCES.split(command):
+				self.add(part)
 			self.awake_until = 0.0
 
 	def add(self, sentence: str) -> None:
 		self.request.append(sentence)
 		request = " ".join(self.request)
-		if self.config.cancel.search(request):
+		if self.config.cancel_alone.fullmatch(sentence) or self.config.cancel.search(request):
 			self.request = []
 			self.cancelled.emit()
+		elif self.config.done_alone.fullmatch(sentence):
+			self.request.pop()
+			self.send()
 		elif self.config.done.search(request):
 			self.request = [self.config.done.sub("", request)]
 			self.send()

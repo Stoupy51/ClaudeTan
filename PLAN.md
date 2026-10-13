@@ -76,7 +76,7 @@ Ce que montre Claude-tan à chaque étape :
 | Événement | Retour |
 | :- | :- |
 | mot d'activation détecté | petit son et apparition en écoute, avant la fin de la phrase : son début est transcrit dès 1,3 s |
-| phrase transcrite | la demande comprise jusque-là dans la bulle, envoyée après 15 s de silence ou dès qu'elle finit par "prompt done" ("cancel prompt" l'annule). Délai et formules se règlent dans la config. |
+| phrase transcrite | la demande comprise jusque-là dans la bulle, envoyée après 15 s de silence ou dès que tu dis "fin" seul après une pause ou finis par "c'est tout" ("annule" seul l'annule). Délai et formules se règlent dans la config. |
 | action locale exécutée | `present` et le résultat |
 | `UserPromptSubmit` | `thinking` : elle réfléchit |
 | `PreToolUse` | `working` et l'action en cours dans la bulle ("écrit main.py"), sans répéter la même |
@@ -142,7 +142,7 @@ Ce que montre Claude-tan à chaque étape :
 ### 5. Voix et contrôle
 
 - [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX (à installer), bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
-- [x] Dictée : les pauses ne coupent plus la demande, envoyée après 15 s de silence ou sur "prompt done", et annulée par "cancel prompt".
+- [x] Dictée : les pauses ne coupent plus la demande, envoyée après 15 s de silence, sur "fin" dit seul ou "c'est tout" en fin de phrase, et annulée par "annule" seul. Les mots courts ne comptent que seuls : "jusqu'à la fin" ne coupe rien.
 - [x] Action "stop" : tue le tour en cours, ses agents et la file, puis relance la session sur la même conversation.
 - [ ] Commande vocale "passe en Opus" (`/model opus`).
 - [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.

@@ -66,8 +66,9 @@ class Assistant(QObject):
 	restart = Signal()
 	""" The session starts again: `SESSION_KEYS` settings changed while she was free, or she was told to stop everything. """
 
-	def __init__(self, avatar: Avatar, pill: Pill) -> None:
+	def __init__(self, avatar: Avatar, pill: Pill, config: Config) -> None:
 		super().__init__()
+		self.config = config
 		self.avatar = avatar
 		self.pill = pill
 		self.commands: deque[str] = deque()
@@ -99,7 +100,7 @@ class Assistant(QObject):
 		self.dismiss.start(round(FOLLOW_UP_S * 1000))
 
 	def on_dictation(self, text: str) -> None:
-		self.appear("idle", bubble=f"« {text} »")
+		self.appear("idle", bubble=f"« {text} » Dis « {self.config.done_hint} » pour envoyer.")
 		self.dismiss.stop()
 
 	def on_cancel(self) -> None:
@@ -109,6 +110,7 @@ class Assistant(QObject):
 
 	def on_config(self, config: Config, changed: list[str]) -> None:
 		LOG.info("Config changed: %s", ", ".join(changed))
+		self.config = config
 		if "avatar_zoom" in changed or "text_zoom" in changed:
 			self.avatar.set_zoom(config.avatar_zoom, config.text_zoom)
 			self.pill.set_zoom(config.avatar_zoom)
@@ -408,7 +410,7 @@ def run() -> None:
 	instance.listen(INSTANCE_NAME)
 	config = Config.load()
 	avatar, pill = Avatar(config.avatar_zoom, config.text_zoom), Pill(config.avatar_zoom)
-	assistant = Assistant(avatar, pill)
+	assistant = Assistant(avatar, pill, config)
 	tray = Tray()
 	tray.show()
 	hooks = HookServer()

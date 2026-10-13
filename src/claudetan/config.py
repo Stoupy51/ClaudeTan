@@ -27,8 +27,14 @@ class Config:
 	""" Silence after which a spoken request is sent. """
 	done: re.Pattern[str]
 	""" Last words that send a spoken request at once, with the punctuation around them. """
+	done_alone: re.Pattern[str]
+	""" Words that send a spoken request when they make a sentence of their own, after a pause. """
+	done_hint: str
+	""" The one of `done_alone` she tells the user to say. """
 	cancel: re.Pattern[str]
 	""" Last words that drop a spoken request, with the punctuation around them. """
+	cancel_alone: re.Pattern[str]
+	""" Words that drop a spoken request when they make a sentence of their own. """
 	prompt: str
 	""" The user's additions to the system prompt of the hidden session. """
 	model: str
@@ -52,6 +58,9 @@ class Config:
 			wake=re.compile(values["wake"], re.IGNORECASE),
 			pause_s=values["pause_s"],
 			done=re.compile(rf"\W*\b(?:{values['done']})\W*$", re.IGNORECASE),
+			done_alone=re.compile(rf"\W*(?:{values['done_alone']})\W*", re.IGNORECASE),
+			done_hint=values["done_alone"].split("|")[0],
+			cancel_alone=re.compile(rf"\W*(?:{values['cancel_alone']})\W*", re.IGNORECASE),
 			cancel=re.compile(rf"\W*\b(?:{values['cancel']})\W*$", re.IGNORECASE),
 			prompt=values["prompt"],
 			model=values["model"],

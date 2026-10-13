@@ -18,7 +18,8 @@ from claudetan.session import JsonDict
 @pytest.fixture
 def assistant(app: QApplication, monkeypatch: pytest.MonkeyPatch) -> Assistant:
 	monkeypatch.setattr(claudetan.app, "chime", mute)
-	return Assistant(Avatar(), Pill())
+	monkeypatch.setattr(claudetan.config, "USER_CONFIG", DEFAULTS)
+	return Assistant(Avatar(), Pill(), Config.load())
 
 
 def mute(*_notes: float) -> None:
@@ -117,7 +118,6 @@ def test_stopping_everything_restarts_the_session_and_forgets_the_work(assistant
 def test_settings_of_a_new_app_restart_it_once_she_is_free(assistant: Assistant, monkeypatch: pytest.MonkeyPatch) -> None:
 	restarts: list[bool] = []
 	assistant.restart.connect(lambda: restarts.append(True))
-	monkeypatch.setattr(claudetan.config, "USER_CONFIG", DEFAULTS)
 	config = Config.load()
 	assistant.on_config(config, ["wake"])
 	assistant.leave()
