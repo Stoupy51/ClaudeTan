@@ -29,8 +29,8 @@ class Config:
 	""" Last words that send a spoken request at once, with the punctuation around them. """
 	done_alone: re.Pattern[str]
 	""" Words that send a spoken request when they make a sentence of their own, after a pause. """
-	done_hint: str
-	""" The one of `done_alone` she tells the user to say. """
+	done_hints: tuple[str, str]
+	""" The words of `done_alone` she tells the user to say, in English then in French: its first and its last. """
 	cancel: re.Pattern[str]
 	""" Last words that drop a spoken request, with the punctuation around them. """
 	cancel_alone: re.Pattern[str]
@@ -67,7 +67,7 @@ class Config:
 			pause_s=values["pause_s"],
 			done=re.compile(rf"\W*\b(?:{values['done']})\W*$", re.IGNORECASE),
 			done_alone=re.compile(rf"\W*(?:{values['done_alone']})\W*", re.IGNORECASE),
-			done_hint=values["done_alone"].split("|")[0],
+			done_hints=(values["done_alone"].split("|")[0], values["done_alone"].split("|")[-1]),
 			cancel_alone=re.compile(rf"\W*(?:{values['cancel_alone']})\W*", re.IGNORECASE),
 			cancel=re.compile(rf"\W*\b(?:{values['cancel']})\W*$", re.IGNORECASE),
 			city=values["city"],

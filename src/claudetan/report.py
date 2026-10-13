@@ -2,6 +2,8 @@
 # Imports
 from dataclasses import dataclass
 
+from claudetan.i18n import tr
+
 
 # Classes
 @dataclass(frozen=True)
@@ -24,5 +26,6 @@ class Report:
 	slices: tuple[Slice, ...]
 
 	def __str__(self) -> str:
-		return "\n".join([self.title, *(f"{part.label} : {part.amount} ({part.share})" for part in self.slices)])
+		rows = (f"{part.label}{tr(': ', ' : ')}{part.amount} ({part.share})" for part in self.slices)
+		return "\n".join([self.title, *rows])
 

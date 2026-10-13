@@ -3,7 +3,9 @@
 import pytest
 
 import claudetan.config
+from claudetan import i18n
 from claudetan.config import DEFAULTS, Config
+from claudetan.i18n import tr
 from claudetan.voice.listener import Listener
 
 
@@ -40,7 +42,7 @@ def test_a_short_word_ends_a_request_only_as_a_sentence_of_its_own(monkeypatch: 
 def test_a_word_after_the_punctuation_of_a_single_utterance_ends_the_request(monkeypatch: pytest.MonkeyPatch) -> None:
 	sent: list[str] = []
 	voice = listener(sent, monkeypatch)
-	voice.hear("Hé Claude, qu'est-ce qu'il y a sur mon écran ? Terminé.", ended=True)
+	voice.hear("Hé Claude, qu'est-ce qu'il y a sur mon écran ? Terminé.", "fr", ended=True)
 	assert sent == ["qu'est-ce qu'il y a sur mon écran ?"]
 
 
@@ -49,13 +51,13 @@ def test_a_bare_yes_or_no_answers_a_permission_request_only_while_she_asks(monke
 	voice = listener(sent, monkeypatch)
 	answers: list[bool] = []
 	voice.answered.connect(answers.append)
-	voice.hear("Oui.", ended=True)
+	voice.hear("Oui.", "fr", ended=True)
 	assert answers == []
 
 	voice.asking = True
-	voice.hear("Oui.", ended=True)
-	voice.hear("Non !", ended=True)
-	voice.hear("Peut-être plus tard.", ended=True)
+	voice.hear("Oui.", "fr", ended=True)
+	voice.hear("Non !", "fr", ended=True)
+	voice.hear("Peut-être plus tard.", "fr", ended=True)
 	assert answers == [True, False]
 	assert sent == []
 
@@ -68,4 +70,14 @@ def test_a_request_is_sent_after_a_pause_or_dropped(monkeypatch: pytest.MonkeyPa
 	voice.add("Supprime le dossier.")
 	voice.add("Annule !")
 	assert sent == ["Ouvre Spotify.", "<cancelled>"]
+
+
+def test_her_lines_follow_the_language_of_what_is_said_to_her_only(monkeypatch: pytest.MonkeyPatch) -> None:
+	voice = listener([], monkeypatch)
+	voice.hear("Hé Claude, quel temps fait-il ?", "fr", ended=True)
+	voice.hear("Thank you.", "en", ended=True)
+	assert tr("Yes?", "Oui ?") == "Oui ?"
+
+	voice.hear("Hey Claude, set a timer for 5 minutes.", "en", ended=True)
+	assert i18n.heard == "en"
 

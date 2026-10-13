@@ -14,7 +14,7 @@ A voice assistant with an anime overlay (PySide6), driving a hidden Claude Code 
 
 ## Adding an action
 
-1. Add one `Action(...)` to `ACTIONS` in `actions.py`, with `name`, `description` (what the session reads to choose the tool), `phrases` (a regex matched against the whole request, its named groups being the arguments), `run` (returns what she says) and `parameters` when it takes arguments.
+1. Add one `Action(...)` to `ACTIONS` in `actions.py`, with `name`, `description` (what the session reads to choose the tool), `phrases` (a regex matched against the whole request, its named groups being the arguments), `run` (returns what she says, as `tr(english, french)` from `i18n.py`) and `parameters` when it takes arguments.
 2. The same entry is then a voice phrase and the MCP tool `mcp__claudetan__<name>`. Never list an action anywhere else.
 3. Add a `>>>` example to `route` or a test in `tests/` for the behaviour that could break. Mock only I/O (network, key presses), as `tests/test_discord.py` does.
 4. Add a row to the table in `README.md`.

@@ -41,7 +41,9 @@ SUBPIXEL_SCALE: float = 1.0001
 """ Qt draws text and unscaled pixmaps at whole pixels, so a slow scroll jumps. Any scale makes it interpolate the pixmap instead. """
 POP_S: float = 0.35
 TYPING_S: float = 1.0
-""" How long a text takes to appear, whatever its length. """
+""" The longest a text takes to appear: a long one types faster to fit. """
+TYPING_SPEED: float = 40.0
+""" Letters per second a short text types at. """
 SCROLL_DELAY_S: float = 2.5
 """ Time to read the first lines before a long text starts scrolling. """
 SCROLL_SPEED: float = 14.0
@@ -92,7 +94,8 @@ class Bubble:
 		self.text = shown
 
 	def type(self, seconds: float) -> None:
-		self.revealed = min(len(self.text) + FADE_CHARS, self.revealed + len(self.text) / TYPING_S * seconds)
+		speed = max(TYPING_SPEED, len(self.text) / TYPING_S)
+		self.revealed = min(len(self.text) + FADE_CHARS, self.revealed + speed * seconds)
 
 	def paint(self, painter: QPainter, now: float, bottom: float) -> None:
 		""" The bubble with its bottom edge at `bottom`, growing upward and popping out of its tail when its text changes. """

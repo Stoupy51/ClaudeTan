@@ -8,6 +8,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QStandardPaths
 
+from claudetan.i18n import tr
 from claudetan.voice.audio import Audio, load_whisper, microphone, pc_sound, utterances
 
 
@@ -22,20 +23,25 @@ class Meeting:
 
 	def start(self) -> str:
 		if self.running.is_set():
-			return f"Je transcris déjà dans {self.path.name}."
+			return tr(f"I'm already transcribing into {self.path.name}.", f"Je transcris déjà dans {self.path.name}.")
 		folder = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)) / "Transcriptions"
 		folder.mkdir(parents=True, exist_ok=True)
 		self.path = folder / f"Réunion {datetime.now():%Y-%m-%d %H-%M}.txt"
 		self.running.set()
 		for speaker, frames in (("Moi", microphone), ("PC", pc_sound)):
 			threading.Thread(target=self.transcribe, args=(speaker, frames()), daemon=True).start()
-		return f"Je transcris le son du PC et ton micro dans {self.path}."
+		return tr(
+			f"Transcribing the PC's sound and your microphone into {self.path}.",
+			f"Je transcris le son du PC et ton micro dans {self.path}.",
+		)
 
 	def stop(self) -> str:
 		if not self.running.is_set():
-			return "Je ne transcris rien en ce moment."
+			return tr("I'm not transcribing anything right now.", "Je ne transcris rien en ce moment.")
 		self.running.clear()
-		return f"Transcription enregistrée dans {self.path}." if self.path.exists() else "Je n'ai rien entendu."
+		if not self.path.exists():
+			return tr("I heard nothing.", "Je n'ai rien entendu.")
+		return tr(f"Transcription saved in {self.path}.", f"Transcription enregistrée dans {self.path}.")
 
 	def transcribe(self, speaker: str, frames: Iterator[Audio]) -> None:
 		whisper = load_whisper()

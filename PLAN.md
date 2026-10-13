@@ -91,7 +91,8 @@ Ce que montre Claude-tan à chaque étape :
 
 ### Priorité
 
-- [x] `scripts/demo_video.py` : une vidéo de démonstration refaisable d'une commande, où l'overlay réel joue un scénario (réveil, dictée, requête avec outils, actions locales, minuteur, permission, contexte, météo). Une horloge manuelle et un hasard fixé donnent la même vidéo à chaque fois. Rien n'est exécuté pour de vrai. Ajouter une scène au scénario quand une fonction mérite d'être montrée.
+- [x] `scripts/demo_video/` : deux vidéos de démonstration (anglais et français, 1080p 60 images/s) refaisables d'une commande. En une minute, le listener et l'`Assistant` réels jouent quatre chapitres sur un bureau dessiné : demande à voix haute, permission à la voix, travail en arrière-plan (pastille), autres langues (français dans la vidéo anglaise et inversement, puis japonais). Caméra qui suit Claude-tan, sous-titres avec la langue détectée, cartons de chapitre, intro et fin, bande son avec ses vrais carillons sur une nappe synthétisée. Une horloge manuelle et un hasard fixé donnent la même vidéo à chaque fois, rien n'est exécuté pour de vrai. `--stills` sort des images fixes en quelques secondes. Ajouter un chapitre dans `screenplay.py` et ses textes dans `words.py` quand une fonction mérite d'être montrée.
+- [x] Anglais d'abord : ses phrases passent par `tr(anglais, français)` et suivent la langue que Whisper détecte dans ce qu'on lui dit (français pour le français, anglais pour le reste). Le menu de l'icône est en anglais.
 
 ### 0. Prototypes (fait)
 

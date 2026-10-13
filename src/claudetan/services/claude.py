@@ -5,6 +5,7 @@ import re
 import subprocess
 
 from claudetan.config import ROOT
+from claudetan.i18n import tr
 from claudetan.report import Report, Slice
 from claudetan.session import NESTED_SESSION_VARS, SESSION_ID
 
@@ -23,7 +24,7 @@ CATEGORIES: dict[str, str] = {
 	"MCP server instructions": "Consignes MCP", "Memory files": "Mémoire", "Skills": "Skills", "Messages": "Messages",
 	"Autocompact buffer": "Compactage", "Free space": "Libre",
 }
-""" The categories of `/context` in French. """
+""" The categories of `/context` in French, which English shows as `/context` names them. """
 MAGNITUDES: dict[str, int] = {"k": 1000, "m": 1_000_000}
 """ What the suffix of a number of tokens multiplies it by. """
 
@@ -33,21 +34,24 @@ def plan_usage() -> str:
 	""" How much of the 5-hour window and of the week the subscription has used, one limit per line. """
 	match = PLAN_USAGE.search(panel("/usage"))
 	if not match:
-		return "Je n'ai pas réussi à lire ton usage."
-	return (
-		f"Forfait Claude\nFenêtre de 5 h : {match['window']}\u00a0% utilisés, renouvelée {without_zone(match['window_reset'])}"
-		f"\nSemaine : {match['week']}\u00a0% utilisés, renouvelée {without_zone(match['week_reset'])}"
+		return tr("I couldn't read your usage.", "Je n'ai pas réussi à lire ton usage.")
+	window_reset, week_reset = without_zone(match["window_reset"]), without_zone(match["week_reset"])
+	return tr(
+		f"Claude plan\n5-hour window: {match['window']}% used, resets {window_reset}"
+		f"\nWeek: {match['week']}% used, resets {week_reset}",
+		f"Forfait Claude\nFenêtre de 5 h : {match['window']}\u00a0% utilisés, renouvelée {window_reset}"
+		f"\nSemaine : {match['week']}\u00a0% utilisés, renouvelée {week_reset}",
 	)
 
 
 def context() -> Report:
 	""" How full the context of the hidden session is, then what fills it from the largest to the smallest, the free space last. """
 	if not SESSION_ID.exists():
-		return Report("Il n'y a pas encore de conversation.", ())
+		return Report(tr("There is no conversation yet.", "Il n'y a pas encore de conversation."), ())
 	output = panel("/context", "--resume", SESSION_ID.read_text(), "--fork-session")
 	match = CONTEXT.search(output)
 	if not match:
-		return Report("Je n'ai pas réussi à lire le contexte.", ())
+		return Report(tr("I couldn't read the context.", "Je n'ai pas réussi à lire le contexte."), ())
 	shares = output.split("### Estimated usage by category")[-1].split("###")[0]
 	rows = sorted(
 		(row for row in SHARES.finditer(shares) if "deferred" not in row["name"]),
@@ -55,12 +59,14 @@ def context() -> Report:
 	)
 	slices = tuple(
 		Slice(
-			key=row["name"], label=CATEGORIES.get(row["name"], row["name"]), amount=french(row["tokens"]), share=french(row["share"]),
+			key=row["name"], label=tr(row["name"], CATEGORIES.get(row["name"], row["name"])),
+			amount=tr(row["tokens"], french(row["tokens"])), share=tr(row["share"], french(row["share"])),
 			fraction=float(row["share"].rstrip("%")) / 100,
 		)
 		for row in rows
 	)
-	return Report(french(f"Contexte : {match['tokens']}\nModèle : {match['model']}"), slices)
+	english = f"Context: {match['tokens']}\nModel: {match['model']}"
+	return Report(tr(english, french(f"Contexte : {match['tokens']}\nModèle : {match['model']}")), slices)
 
 
 def tokens(amount: str) -> float:

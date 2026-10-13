@@ -7,6 +7,7 @@ from collections.abc import Iterator
 
 from PySide6.QtCore import QObject, Signal
 
+from claudetan import i18n
 from claudetan.actions import route
 from claudetan.config import Config
 from claudetan.voice.audio import Audio, load_whisper, utterances
@@ -50,24 +51,28 @@ class Listener(QObject):
 			if speech is None:
 				self.send()
 				continue
-			segments, _ = whisper.transcribe(
+			segments, info = whisper.transcribe(
 				speech.audio, language=self.config.language, beam_size=1, condition_on_previous_text=False,
 			)
-			self.hear(" ".join(segment.text.strip() for segment in segments), ended=speech.ended)
+			self.hear(" ".join(segment.text.strip() for segment in segments), info.language, ended=speech.ended)
 
-	def hear(self, text: str, *, ended: bool) -> None:
+	def hear(self, text: str, language: str, *, ended: bool) -> None:
+		""" Acts on a sentence Whisper heard in `language`, which her lines then follow when the sentence was meant for her. """
 		if self.asking and ended and (verdict := self.verdict(text)) is not None:
+			i18n.heard = language
 			self.answered.emit(verdict)
 			return
 
 		match = self.config.wake.match(text)
 		if match:
+			i18n.heard = language
 			if time.monotonic() > self.awake_until:
 				self.woke.emit()
 			self.awake_until = time.monotonic() + FOLLOW_UP_S
 
 		command = match.group(1) if match else text
 		if ended and command and (self.request or time.monotonic() < self.awake_until):
+			i18n.heard = language
 			for part in SENTENCES.split(command):
 				self.add(part)
 			self.awake_until = 0.0

@@ -7,6 +7,8 @@ from datetime import datetime
 
 from stouputils.typing import JsonDict, JsonList
 
+from claudetan.i18n import tr
+
 # Constants
 API: str = "https://discord.com/api/v9"
 DIRECT_MESSAGE: int = 1
@@ -24,19 +26,21 @@ def last_messages(person: str, count: int, token: str) -> str:
 			if channel["type"] == DIRECT_MESSAGE and any(wanted in names(user) for user in channel["recipients"])
 		), None)
 		if not channel:
-			return f"Je ne trouve pas de conversation privée avec {person}."
+			return tr(f"I can't find a direct conversation with {person}.", f"Je ne trouve pas de conversation privée avec {person}.")
 		messages = get(f"/channels/{channel['id']}/messages?limit={count}", token)
 	except urllib.error.HTTPError as error:
-		return "Discord a refusé le jeton de la config." if error.code == 401 else f"Discord a répondu {error.code}."
+		if error.code == 401:
+			return tr("Discord refused the token of the config.", "Discord a refusé le jeton de la config.")
+		return tr(f"Discord answered {error.code}.", f"Discord a répondu {error.code}.")
 	except urllib.error.URLError:
-		return "Je n'arrive pas à joindre Discord."
+		return tr("I can't reach Discord.", "Je n'arrive pas à joindre Discord.")
 
 	lines = [
-		f"[{datetime.fromisoformat(message['timestamp']).astimezone():%d/%m %H:%M}] {shown(message['author'])} : "
+		f"[{datetime.fromisoformat(message['timestamp']).astimezone():%d/%m %H:%M}] {shown(message['author'])}: "
 		+ " ".join([message["content"], *(file["url"] for file in message["attachments"])])
 		for message in reversed(messages)
 	]
-	return "\n".join(lines) or f"Aucun message avec {person}."
+	return "\n".join(lines) or tr(f"No messages with {person}.", f"Aucun message avec {person}.")
 
 
 def get(path: str, token: str) -> JsonList:

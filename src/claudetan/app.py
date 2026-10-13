@@ -23,6 +23,7 @@ from PySide6.QtWidgets import QApplication
 from claudetan.actions import ALARMS, Action, chosen_model, find, route
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
+from claudetan.i18n import tr
 from claudetan.mcp import ActionServer
 from claudetan.overlay.avatar import Avatar, Pill, chime
 from claudetan.overlay.bubble import plain
@@ -105,16 +106,17 @@ class Assistant(QObject):
 
 	def on_wake(self) -> None:
 		chime(*WAKE_NOTES)
-		self.appear("hello", bubble="Oui ?")
+		self.appear("hello", bubble=tr("Yes?", "Oui ?"))
 		self.dismiss.start(round(FOLLOW_UP_S * 1000))
 
 	def on_dictation(self, text: str) -> None:
-		self.appear("idle", bubble=f"« {text} » Dis « {self.config.done_hint} » pour envoyer.")
+		english_hint, french_hint = self.config.done_hints
+		self.appear("idle", bubble=tr(f'"{text}" Say "{english_hint}" to send.', f"« {text} » Dis « {french_hint} » pour envoyer."))
 		self.dismiss.stop()
 
 	def on_cancel(self) -> None:
 		LOG.info("Request cancelled")
-		self.appear("idle", bubble="D'accord, j'oublie.")
+		self.appear("idle", bubble=tr("Okay, forget it.", "D'accord, j'oublie."))
 		self.dismiss.start(HEARD_MS)
 
 	def on_config(self, config: Config, changed: list[str]) -> None:
@@ -126,13 +128,20 @@ class Assistant(QObject):
 		if "model" in changed:
 			self.switch_model(config.model)
 		self.restart_pending = self.restart_pending or not SESSION_KEYS.isdisjoint(changed)
-		later = " Je relance la session Claude pour l'appliquer dès que je n'ai plus rien en cours." if self.restart_pending else ""
-		self.appear("happy", bubble=f"J'ai relu ta config : {', '.join(changed)}.{later}")
+		later = tr(
+			" I'll restart the Claude session to apply it once I have nothing running.",
+			" Je relance la session Claude pour l'appliquer dès que je n'ai plus rien en cours.",
+		) if self.restart_pending else ""
+		names = ", ".join(changed)
+		self.appear("happy", bubble=tr(f"I reread your config: {names}.", f"J'ai relu ta config : {names}.") + later)
 		self.dismiss.start(CONFIG_NOTICE_MS)
 
 	def on_config_error(self, error: str) -> None:
 		LOG.warning("Config not applied: %s", error)
-		self.appear("sad", bubble=f"Je n'arrive pas à lire ta config, je garde l'ancienne : {error}")
+		self.appear("sad", bubble=tr(
+			f"I can't read your config, I'm keeping the old one: {error}",
+			f"Je n'arrive pas à lire ta config, je garde l'ancienne : {error}",
+		))
 		self.dismiss.start(CONFIG_NOTICE_MS)
 
 	def on_command(self, text: str) -> None:
@@ -140,11 +149,13 @@ class Assistant(QObject):
 		if routed := route(text):
 			action, arguments = routed
 			LOG.info("Local action: %s", action.name)
-			self.appear("present", bubble=self.run_action(action, arguments))
-			self.dismiss.start(HEARD_MS)
+			said = self.run_action(action, arguments)
+			self.appear("present", bubble=said)
+			self.dismiss.start(reading_ms(str(said)))
 			return
 
-		self.appear("idle", bubble=f"« {text} »" + (" Je m'en occupe juste après." if self.busy else ""))
+		later = tr(" I'll get to it right after.", " Je m'en occupe juste après.") if self.busy else ""
+		self.appear("idle", bubble=tr(f'"{text}"', f"« {text} »") + later)
 		self.dismiss.start(HEARD_MS)
 		self.commands.append(text)
 		self.flush()
@@ -175,7 +186,8 @@ class Assistant(QObject):
 
 	def on_alarm(self, label: str) -> None:
 		chime(*DONE_NOTES)
-		self.appear("present", bubble=f"Ton minuteur est terminé : {label}." if label else "Ton minuteur est terminé.")
+		done = tr(f"Your timer is done: {label}.", f"Ton minuteur est terminé : {label}.")
+		self.appear("present", bubble=done if label else tr("Your timer is done.", "Ton minuteur est terminé."))
 		self.dismiss.start(HEARD_MS)
 
 	def on_tool_call(self, action: Action, arguments: dict[str, str], text: Future[str]) -> None:
@@ -200,7 +212,7 @@ class Assistant(QObject):
 				self.on_tool(describe_tool(event["tool_name"], event["tool_input"]))
 			case "PostToolUse" if self.asking:
 				self.settle_permission()
-				self.appear("thanks", bubble="Merci !")
+				self.appear("thanks", bubble=tr("Thanks!", "Merci !"))
 			case "PermissionRequest":
 				self.on_permission(describe_tool(event["tool_name"], event["tool_input"]))
 			case "Notification" if event["notification_type"] == "permission_prompt":
@@ -250,7 +262,10 @@ class Assistant(QObject):
 		LOG.info("Permission asked: %s", request)
 		self.asking = True
 		self.long_task.stop()
-		self.appear("please", bubble=f"J'ai besoin de ton accord : {request}. Dis oui ou non, ou clique sur moi.")
+		self.appear("please", bubble=tr(
+			f"I need your OK: {request}. Say yes or no, or click on me.",
+			f"J'ai besoin de ton accord : {request}. Dis oui ou non, ou clique sur moi.",
+		))
 
 	def on_permission_asked(self, answer: Future[bool]) -> None:
 		self.pending = answer
@@ -265,9 +280,9 @@ class Assistant(QObject):
 		self.pending = None
 		self.settle_permission()
 		if allowed:
-			self.appear("thanks", bubble="Merci !")
+			self.appear("thanks", bubble=tr("Thanks!", "Merci !"))
 		else:
-			self.appear("idle", bubble="Compris, je n'y touche pas.")
+			self.appear("idle", bubble=tr("Got it, I'll leave it alone.", "Compris, je n'y touche pas."))
 		self.dismiss.start(HEARD_MS)
 
 	def settle_permission(self) -> None:
@@ -298,7 +313,7 @@ class Assistant(QObject):
 	def on_failure(self, error: str) -> None:
 		LOG.warning("Request failed: %s", error)
 		self.end_turn()
-		self.appear("sad", bubble=f"Oups, la requête a échoué ({error}).")
+		self.appear("sad", bubble=tr(f"Oops, the request failed ({error}).", f"Oups, la requête a échoué ({error})."))
 		self.dismiss.start(reading_ms(error))
 		self.flush()
 
@@ -341,7 +356,7 @@ def describe_tool(name: str, tool_input: JsonDict) -> str:
 	""" What a tool call does, in a few words for the bubble.
 
 	>>> describe_tool("Edit", {"file_path": "D:/repo/claudetan/app.py", "old_string": "a", "new_string": "b"})
-	'modifie app.py'
+	'edits app.py'
 	>>> describe_tool("Bash", {"command": "git status", "description": "Show working tree status"})
 	'Show working tree status'
 	>>> describe_tool("mcp__claudetan__screenshot", {"screen": 2})
@@ -349,21 +364,21 @@ def describe_tool(name: str, tool_input: JsonDict) -> str:
 	"""
 	match name:
 		case "Read":
-			return f"lit {Path(tool_input['file_path']).name}"
+			return tr("reads ", "lit ") + Path(tool_input["file_path"]).name
 		case "Write":
-			return f"écrit {Path(tool_input['file_path']).name}"
+			return tr("writes ", "écrit ") + Path(tool_input["file_path"]).name
 		case "Edit" | "MultiEdit":
-			return f"modifie {Path(tool_input['file_path']).name}"
+			return tr("edits ", "modifie ") + Path(tool_input["file_path"]).name
 		case "Bash" | "PowerShell":
-			return tool_input.get("description") or f"lance {tool_input['command'][:60]}"
+			return tool_input.get("description") or tr("runs ", "lance ") + tool_input["command"][:60]
 		case "Grep" | "Glob":
-			return f"cherche {tool_input['pattern']}"
+			return tr("searches ", "cherche ") + tool_input["pattern"]
 		case "WebSearch":
-			return f"cherche « {tool_input['query']} » sur le web"
+			return tr(f'searches the web for "{tool_input["query"]}"', f"cherche « {tool_input['query']} » sur le web")
 		case "WebFetch":
-			return f"lit {urlparse(str(tool_input['url'])).netloc}"
+			return tr("reads ", "lit ") + urlparse(str(tool_input["url"])).netloc
 		case "Agent" | "Task":
-			return f"confie une tâche : {tool_input['description']}"
+			return tr("hands off a task: ", "confie une tâche : ") + tool_input["description"]
 		case "AskUserQuestion":
 			return tool_input["questions"][0]["question"]
 		case _:

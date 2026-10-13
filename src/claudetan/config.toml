@@ -1,7 +1,8 @@
 # ClaudeTan settings, applied as soon as you save this file.
 # agent_model and the prompt restart the hidden Claude Code session on the same conversation, once she has nothing running.
 
-# Language of the speech recognition: "fr", "en", or "auto" to detect it on each sentence
+# Language of the speech recognition: "en", "fr", or "auto" to detect it on each sentence.
+# Her own lines follow what you speak: French to French, English to any other language. Claude answers in your language anyway.
 language = "auto"
 
 # Wake phrase, matched ignoring case at the start of each sentence as Whisper spells it ("Hé Claude" often comes out as "Et Claude").
@@ -12,17 +13,17 @@ wake = '^\W*(?:hey|hé|he|eh|et|dis|ok|okay)\W+(?:claude|clode|clod|clodo|clown)
 # or as soon as you say a `done` phrase, and drops it when you say a `cancel` phrase.
 # All are regexes matched ignoring case. Short words such as "fin" end up inside real requests ("jusqu'à la fin"),
 # so those in `done_alone` and `cancel_alone` only count when you say them as a sentence of their own, after a pause.
-# The others count at the end of the request. The first of `done_alone` is the one she reminds you of.
+# The others count at the end of the request. She reminds you of the first of `done_alone` in English, of its last in French.
 pause_s = 15.0
-done = "c'est tout|envoie|over"
-done_alone = "terminé|fin"
-cancel = "laisse tomber|cancel prompt"
-cancel_alone = "annule|cancel"
+done = "over|c'est tout|envoie"
+done_alone = "done|fin|terminé"
+cancel = "cancel prompt|laisse tomber"
+cancel_alone = "cancel|annule"
 
 # When she asks your permission, say one of these words, as a sentence of its own, to answer her.
 # Regexes matched ignoring case. Clicking on her and answering in Claude Code works as well.
-allow = "oui|ok|vas-y|d'accord|yes|go"
-deny = "non|refuse|no|pas question"
+allow = "yes|ok|go|oui|vas-y|d'accord"
+deny = "no|non|refuse|pas question"
 
 # Model of the hidden Claude session, which answers quick requests: "sonnet", "opus", "haiku", or a full model name
 model = "sonnet"

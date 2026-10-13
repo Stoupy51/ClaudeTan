@@ -23,6 +23,6 @@ def test_the_last_messages_with_a_person_are_listed_oldest_first_with_their_atta
 	monkeypatch.setattr(discord, "get", get)
 
 	lines = discord.last_messages("ARTY", 2, "token").splitlines()
-	assert [line.split("] ", 1)[1] for line in lines] == ["Artyu : Une PR ? https://cdn/x.png", "stoupy : Je regarde"]
-	assert discord.last_messages("zoe", 2, "token") == "Je ne trouve pas de conversation privée avec zoe."
+	assert [line.split("] ", 1)[1] for line in lines] == ["Artyu: Une PR ? https://cdn/x.png", "stoupy: Je regarde"]
+	assert discord.last_messages("zoe", 2, "token") == "I can't find a direct conversation with zoe."
 

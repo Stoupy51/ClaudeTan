@@ -11,6 +11,7 @@ from PySide6.QtCore import QStandardPaths
 from PySide6.QtGui import QGuiApplication
 
 from claudetan.config import Config
+from claudetan.i18n import tr
 from claudetan.report import Report
 from claudetan.services import claude, discord, programs, weather
 from claudetan.services.alarms import Alarms
@@ -75,38 +76,39 @@ ACTIONS: list[Action] = [
 		name="stop_all",
 		description="Stops the running request, its agents and the queued ones, and restarts this session. Only if the user asks.",
 		phrases=r"(?:stop|arrête|stoppe|annule)(?: (?:tout|ça|everything|it))?(?: (?:maintenant|now))?",
-		run=lambda _: "J'arrête tout, je repars de zéro.",
+		run=lambda _: tr("Stopping everything, starting over.", "J'arrête tout, je repars de zéro."),
 	),
 	Action(
 		name="clip",
 		description="Saves the last minutes of the game with ShadowPlay, by pressing Alt+F10.",
 		phrases=r"(?:enregistre|clippe|clip|save)(?: (?:ça|ca|ce moment|les dernières minutes|that|it|the replay))?",
-		run=lambda _: press(VK_MENU, VK_F10, said="J'ai appuyé sur Alt+F10 pour ShadowPlay."),
+		run=lambda _: press(VK_MENU, VK_F10, said=tr("I pressed Alt+F10 for ShadowPlay.", "J'ai appuyé sur Alt+F10 pour ShadowPlay.")),
 	),
 	Action(
 		name="model",
 		description="Switches the model this session answers with, once the current request is done.",
 		phrases=r"(?:passe|bascule|switch|mets-toi)(?: en| sur| to)?(?: mode)? (?P<model>" + "|".join(MODELS) + ")",
-		run=lambda arguments: f"Je passe en {model}." if (model := chosen_model(arguments)) else f"Choisis {', '.join(MODELS)}.",
+		run=lambda arguments: tr(f"Switching to {model}.", f"Je passe en {model}.") if (model := chosen_model(arguments))
+		else tr(f"Pick {', '.join(MODELS)}.", f"Choisis {', '.join(MODELS)}."),
 		parameters={"model": f"One of {', '.join(MODELS)}."},
 	),
 	Action(
 		name="context",
 		description="How full the context window of this session is: its model and its tokens.",
-		phrases=r"(?:(?:quel est|montre-moi|donne-moi|affiche) )?(?:le )?contexte(?: de la session)?|context usage",
+		phrases=r"(?:(?:quel est|montre-moi|donne-moi|affiche|what's|show me) )?(?:le |the )?contexte?(?: de la session| usage)?",
 		run=lambda _: claude.context(),
 	),
 	Action(
 		name="plan_usage",
 		description="How much of the Claude subscription's 5-hour window and weekly limit is used, and when they reset.",
-		phrases=r"(?:(?:quel est|montre-moi|donne-moi|affiche) )?(?:mon |l')?usage(?: du forfait)?|plan usage",
+		phrases=r"(?:(?:quel est|montre-moi|donne-moi|affiche|what's|show me) )?(?:mon |l'|my |the )?(?:plan )?usage(?: du forfait)?",
 		run=lambda _: claude.plan_usage(),
 	),
 	Action(
 		name="timer",
 		description="Rings after a while, with a sound and a message, and says what the timer is for when given.",
 		phrases=r"(?:(?:mets|lance|démarre|règle|programme|set|start) )?(?:un |a )?(?:minuteur|timer)(?: de| pour| of| for)?"
-		r" (?P<amount>\d+(?:[.,]\d+)?) ?(?P<unit>secondes?|sec|s|minutes?|min|heures?|h)?",
+		r" (?P<amount>\d+(?:[.,]\d+)?) ?(?P<unit>secondes?|seconds?|sec|s|minutes?|min|heures?|hours?|h)?",
 		run=lambda arguments: set_timer(arguments["amount"] or "0", arguments.get("unit") or "m", arguments.get("label") or ""),
 		parameters={
 			"amount": "How long, as a number.", "unit": "seconds, minutes or hours, minutes by default.", "label": "What it is for.",
@@ -115,7 +117,7 @@ ACTIONS: list[Action] = [
 	Action(
 		name="weather",
 		description="The weather now and for the day in a city, the one of the config when none is given.",
-		phrases=r"(?:(?:quelle est|donne-moi|dis-moi) )?(?:la météo|the weather|quel temps (?:fait-il|il fait))"
+		phrases=r"(?:(?:quelle est|donne-moi|dis-moi|what's|what is|tell me) )?(?:la météo|the weather|quel temps (?:fait-il|il fait))"
 		r"(?: (?:à|a|de|pour|sur|in|at) (?P<city>.+))?",
 		run=lambda arguments: forecast(arguments.get("city") or ""),
 		parameters={"city": "Name of the city, the one of the config by default."},
@@ -129,7 +131,8 @@ ACTIONS: list[Action] = [
 	Action(
 		name="discord_messages",
 		description="Reads the last direct messages the user exchanged with a person on Discord. It never sends anything.",
-		phrases=r"(?:lis|montre|affiche)(?:-moi| moi)? (?:les )?(?:derniers )?(?:messages|mp) (?:de |d'|avec )(?P<person>.+)",
+		phrases=r"(?:lis|montre|affiche|read|show)(?:-moi| moi| me)? (?:les |the )?(?:derniers |last )?(?:messages|mp|dms)"
+		r" (?:de |d'|avec |from |with )(?P<person>.+)",
 		run=lambda arguments: discord_messages(arguments["person"] or "", int(arguments.get("count") or 10)),
 		parameters={"person": "Part of the person's Discord name.", "count": "How many messages, 10 by default."},
 	),
@@ -137,7 +140,7 @@ ACTIONS: list[Action] = [
 		name="mute",
 		description="Mutes the PC's sound, or unmutes it when it is muted.",
 		phrases=r"coupe le son|(?:re)?mets le son|mute|unmute",
-		run=lambda _: press(VK_MUTE, said="C'est fait."),
+		run=lambda _: press(VK_MUTE, said=tr("Done.", "C'est fait.")),
 	),
 ]
 """ Every action, tried in order. The lambdas call functions defined below. """
@@ -181,36 +184,41 @@ def set_timer(amount: str, unit: str, label: str) -> str:
 	""" Starts a timer of `amount` of the unit starting with the letter of `unit`, and says how long it runs.
 
 	>>> set_timer("0", "s", "")
-	'Minuteur de 0 s lancé.'
+	'0 s timer started.'
 	"""
 	seconds = round(float(amount.replace(",", ".")) * UNITS[unit[0].lower()])
 	ALARMS.start(seconds, label)
 	hours, rest = divmod(seconds, 3600)
 	minutes, secs = divmod(rest, 60)
 	duration = " ".join(f"{value} {name}" for value, name in ((hours, "h"), (minutes, "min"), (secs, "s")) if value) or "0 s"
-	return f"Minuteur de {duration} lancé."
+	return tr(f"{duration} timer started.", f"Minuteur de {duration} lancé.")
 
 
 def forecast(city: str) -> str:
 	city = city or Config.load().city
-	return weather.forecast(city) if city else "Dis-moi la ville, ou mets-la dans la config (city)."
+	if not city:
+		return tr("Tell me the city, or put it in the config (city).", "Dis-moi la ville, ou mets-la dans la config (city).")
+	return weather.forecast(city)
 
 
 def discord_messages(person: str, count: int) -> str:
 	token = Config.load().discord_token
-	return discord.last_messages(person, min(count, 50), token) if token else "Mets ton jeton dans la config (discord_token)."
+	if not token:
+		return tr("Put your token in the config (discord_token).", "Mets ton jeton dans la config (discord_token).")
+	return discord.last_messages(person, min(count, 50), token)
 
 
 def screenshot(screen: int) -> str:
 	""" Saves the screen, counted from 1 as Qt orders them, in the Screenshots folder of the user's pictures. """
 	screens = QGuiApplication.screens()
 	if screen > len(screens):
-		return f"Je ne vois que {len(screens)} écran{'s' * (len(screens) > 1)}."
+		plural = "s" * (len(screens) > 1)
+		return tr(f"I only see {len(screens)} screen{plural}.", f"Je ne vois que {len(screens)} écran{plural}.")
 	folder = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation)) / "Screenshots"
 	folder.mkdir(parents=True, exist_ok=True)
 	path = folder / f"Capture {datetime.now():%Y-%m-%d %H-%M-%S}.png"
 	screens[screen - 1].grabWindow(0).save(str(path))
-	return f"Capture de l'écran {screen} enregistrée dans {folder}."
+	return tr(f"Screen {screen} captured in {folder}.", f"Capture de l'écran {screen} enregistrée dans {folder}.")
 
 
 def press(*keys: int, said: str) -> str:

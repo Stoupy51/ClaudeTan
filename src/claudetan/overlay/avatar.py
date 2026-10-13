@@ -381,11 +381,16 @@ def face(size: int) -> QPixmap:
 
 
 def chime(*notes: float) -> None:
-	""" A short bell arpeggio of the given frequencies in Hz, played without blocking. """
+	""" Plays the bell of the notes without blocking. """
+	sd.play(bell(*notes), CHIME_RATE)
+
+
+def bell(*notes: float) -> np.ndarray[tuple[int], np.dtype[np.float32]]:
+	""" A short bell arpeggio of the given frequencies in Hz, sampled at `CHIME_RATE`. """
 	t = np.arange(int(0.4 * CHIME_RATE)) / CHIME_RATE
 	step = int(0.08 * CHIME_RATE)
 	wave = np.zeros(step * (len(notes) - 1) + len(t), np.float32)
 	for i, note in enumerate(notes):
 		wave[i * step:i * step + len(t)] += np.sin(2 * np.pi * note * t) * np.exp(-8 * t)
-	sd.play(0.15 * wave, CHIME_RATE)
+	return 0.15 * wave
 

@@ -7,7 +7,8 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from stouputils.typing import JsonDict
 
-from claudetan.actions import ALARMS, route
+from claudetan import i18n
+from claudetan.actions import ALARMS, find, route
 from claudetan.services import claude, programs, weather
 
 
@@ -17,7 +18,7 @@ def test_a_timer_set_by_voice_rings_with_what_it_is_for(app: QApplication) -> No
 	assert action
 	rang: list[str] = []
 	ALARMS.rang.connect(rang.append)
-	assert action.run({**arguments, "label": "les pâtes"}) == "Minuteur de 0 s lancé."
+	assert action.run({**arguments, "label": "les pâtes"}) == "0 s timer started."
 	while not rang:
 		app.processEvents()
 	assert rang == ["les pâtes"]
@@ -33,7 +34,7 @@ def test_the_weather_of_a_city_is_told_in_words(monkeypatch: pytest.MonkeyPatch)
 		}
 	monkeypatch.setattr(weather, "get", get)
 	assert weather.forecast("Rennes") == (
-		"Rennes : pluie faible, 14 °C (ressenti 13), vent 20 km/h. Aujourd'hui entre 9 et 16 °C, 70 % de risque de pluie."
+		"Rennes: light rain, 14 °C (feels like 13), wind 20 km/h. Today between 9 and 16 °C, 70% chance of rain."
 	)
 
 
@@ -45,12 +46,13 @@ def test_a_program_is_found_by_part_of_its_shortcut_name_closest_first(monkeypat
 	def startfile(path: str) -> None:
 		started.append(Path(path).stem)
 	monkeypatch.setattr(os, "startfile", startfile)
-	assert programs.launch("disc") == "J'ouvre Discord."
+	assert programs.launch("disc") == "Opening Discord."
 	assert started == ["Discord"]
-	assert programs.launch("word") == "Je ne trouve pas de programme word."
+	assert programs.launch("word") == "I can't find a program called word."
 
 
-def test_the_plan_usage_and_the_context_are_laid_out_for_a_human(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_the_plan_usage_and_the_context_are_laid_out_for_a_human_in_french(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+	monkeypatch.setattr(i18n, "heard", "fr")
 	outputs = {
 		"/usage": (
 			"You are currently using your subscription\n\n"
@@ -91,4 +93,14 @@ def test_the_plan_usage_and_the_context_are_laid_out_for_a_human(monkeypatch: py
 		"Forfait Claude\nFenêtre de 5 h : 22\u00a0% utilisés, renouvelée Oct 14, 1:30am\n"
 		"Semaine : 27\u00a0% utilisés, renouvelée Oct 19, 12am"
 	)
+
+
+def test_english_requests_reach_the_same_actions_as_french_ones() -> None:
+	requests = {
+		"Set a timer for 8 seconds.": "timer", "Mets un minuteur de 8 secondes.": "timer",
+		"What's the weather in London?": "weather", "Quel temps fait-il à Rennes ?": "weather",
+		"Show me the context.": "context", "Quel est le contexte ?": "context",
+	}
+	routed = {request: (route(request) or (None,))[0] for request in requests}
+	assert routed == {request: find(name) for request, name in requests.items()}
 

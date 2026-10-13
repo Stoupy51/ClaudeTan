@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+from claudetan.i18n import tr
+
 # Constants
 START_MENUS: tuple[Path, ...] = (
 	Path(os.environ["PROGRAMDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs",
@@ -18,7 +20,7 @@ def launch(name: str) -> str:
 	links = (link for menu in START_MENUS for link in menu.rglob("*.lnk") if wanted in link.stem.lower())
 	shortcuts = sorted(links, key=lambda link: len(link.stem))
 	if not shortcuts:
-		return f"Je ne trouve pas de programme {name}."
+		return tr(f"I can't find a program called {name}.", f"Je ne trouve pas de programme {name}.")
 	os.startfile(shortcuts[0])
-	return f"J'ouvre {shortcuts[0].stem}."
+	return tr(f"Opening {shortcuts[0].stem}.", f"J'ouvre {shortcuts[0].stem}.")
 
