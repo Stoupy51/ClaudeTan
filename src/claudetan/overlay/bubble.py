@@ -21,12 +21,20 @@ from PySide6.QtGui import (
 )
 
 from claudetan.overlay.effects import ACCENT, halo, overshoot, star
+from claudetan.report import Report
 
 # Constants
 WIDTH: int = 250
 """ Room the bubble takes left of the sprite, its tail included. """
 TEXT_HEIGHT: float = 150.0
 """ Tallest the text area gets: a longer text scrolls inside it. """
+REPORT_HEIGHT: float = 290.0
+""" Tallest it gets for a report, which is read at a glance rather than line by line. """
+SLICE_COLORS: dict[str, str] = {
+	"Messages": "#3b82f6", "System tools": "#ea5a2b", "Memory files": "#1fa97a", "Skills": "#d99a1e", "System prompt": "#9ca3af",
+	"MCP tools": "#8b5cf6", "MCP server instructions": "#6b7280", "Autocompact buffer": "#4b5563", "Free space": "#e3dccf",
+}
+""" The color of each part of the context, in the order of the usual `/context` bar. """
 PADDING: float = 16.0
 TEXT_WIDTH: float = WIDTH - 20 - 2 * PADDING
 SUBPIXEL_SCALE: float = 1.0001
@@ -54,6 +62,7 @@ class Bubble:
 
 	def __init__(self) -> None:
 		self.text = ""
+		self.report: Report | None = None
 		self.shown_at = -1.0
 		self.revealed = 0.0
 		""" How many letters are typed so far, running `FADE_CHARS` past the end while the last ones fade in. """
@@ -67,10 +76,17 @@ class Bubble:
 		self.pixmap = QPixmap()
 		""" The text drawn once at the screen's scale, to scroll it smoothly. """
 
-	def say(self, text: str, now: float) -> None:
-		""" Shows the text, typing on from where it was when it continues the shown one, as a reply streamed in pieces does. """
-		shown = plain(text)
-		if not (self.text and shown.startswith(self.text)):
+	def say(self, text: str | Report, now: float) -> None:
+		""" Shows the text, typing on from where it was when it continues the shown one, as a reply streamed in pieces does.
+
+		A report appears at once, since it is a bar and a table rather than a text to read as it comes.
+		"""
+		self.report = text if isinstance(text, Report) else None
+		shown = plain(str(text))
+		if self.report:
+			self.revealed = len(shown) + FADE_CHARS
+			self.shown_at = now
+		elif not (self.text and shown.startswith(self.text)):
 			self.revealed = 0.0
 			self.shown_at = now
 		self.text = shown
@@ -82,7 +98,7 @@ class Bubble:
 		""" The bubble with its bottom edge at `bottom`, growing upward and popping out of its tail when its text changes. """
 		self.lay_out()
 		height = self.document.size().height()
-		visible = min(height, TEXT_HEIGHT)
+		visible = min(height, REPORT_HEIGHT if self.report else TEXT_HEIGHT)
 		scrolled = min(height - visible, SCROLL_SPEED * max(0.0, now - self.shown_at - SCROLL_DELAY_S))
 		box = QRectF(8, max(18.0, bottom - visible - 2 * PADDING), WIDTH - 20, visible + 2 * PADDING)
 		shape = outline(box)
@@ -137,28 +153,56 @@ class Bubble:
 		if self.typed == (self.text, self.revealed):
 			return
 		self.typed = (self.text, self.revealed)
+		if self.report:
+			self.document.setHtml(report_markup(self.report))
+			return
+
 		solid = max(0, math.floor(self.revealed - FADE_CHARS))
 		head = min(len(self.text), math.ceil(self.revealed))
 		ink = f"{INK.red()}, {INK.green()}, {INK.blue()}"
 		fading = "".join(
 			f'<span style="color: rgba({ink}, {round(255 * min(1.0, (self.revealed - i) / FADE_CHARS))})">'
-			f"{html.escape(self.text[i])}</span>"
+			f"{markup(self.text[i])}</span>"
 			for i in range(solid, head)
 		)
 		self.document.setHtml(
-			f'<p style="line-height: 118%; color: {INK.name()}">{html.escape(self.text[:solid])}{fading}'
-			f'<span style="color: rgba(0, 0, 0, 0)">{html.escape(self.text[head:])}</span></p>',
+			f'<p style="line-height: 118%; color: {INK.name()}">{markup(self.text[:solid])}{fading}'
+			f'<span style="color: rgba(0, 0, 0, 0)">{markup(self.text[head:])}</span></p>',
 		)
 
 
 # Functions
 def plain(text: str) -> str:
-	""" The text as the bubble shows it: Markdown marks dropped and whitespace collapsed.
+	""" The text as the bubble shows it: Markdown marks dropped, spaces collapsed, one line per line of text.
 
 	>>> plain("**Done**: edited `app.py`.\\n\\n- one\\n- two")
-	'Done: edited app.py. one two'
+	'Done: edited app.py.\\none\\ntwo'
 	"""
-	return " ".join(re.sub(r"[*`#]|^\s*[-+] ", "", text, flags=re.MULTILINE).split())
+	lines = re.sub(r"[*`#]|^\s*[-+] ", "", text, flags=re.MULTILINE).splitlines()
+	return "\n".join(" ".join(line.split()) for line in lines if line.strip())
+
+
+def report_markup(report: Report) -> str:
+	""" The title, a bar of the colored slices, and a table of them, each part in the color of its slice. """
+	title = markup(report.title)
+	bar = "".join(
+		f'<td width="{100 * part.fraction:.1f}%" bgcolor="{SLICE_COLORS.get(part.key, "#9ca3af")}" style="font-size: 9pt">&nbsp;</td>'
+		for part in report.slices if part.fraction >= 0.005
+	)
+	rows = "".join(
+		f'<tr><td><span style="color: {SLICE_COLORS.get(part.key, "#9ca3af")}">&#9632;</span> {markup(part.label)}</td>'
+		f'<td align="right">{markup(part.amount)}</td><td align="right">{markup(part.share)}</td></tr>'
+		for part in report.slices
+	)
+	return (
+		f'<p style="line-height: 118%; color: {INK.name()}">{title}</p>'
+		f'<table width="100%" cellspacing="0" cellpadding="0"><tr>{bar}</tr></table>'
+		f'<table width="100%" cellspacing="0" cellpadding="2" style="font-size: 10pt; color: {INK.name()}">{rows}</table>'
+	)
+
+
+def markup(text: str) -> str:
+	return html.escape(text).replace("\n", "<br>")
 
 
 def outline(box: QRectF) -> QPainterPath:

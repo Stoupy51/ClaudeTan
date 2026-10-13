@@ -27,6 +27,7 @@ from claudetan.mcp import ActionServer
 from claudetan.overlay.avatar import Avatar, Pill, chime
 from claudetan.overlay.bubble import plain
 from claudetan.overlay.tray import Tray
+from claudetan.report import Report
 from claudetan.services import claude
 from claudetan.session import HookServer, JsonDict, Session
 from claudetan.voice.audio import microphone
@@ -68,7 +69,7 @@ class Assistant(QObject):
 	""" A permission request waits for a spoken answer. """
 	answer_settled = Signal()
 	""" The permission request is answered, or no longer waits. """
-	announced = Signal(str)
+	announced = Signal(object)
 	""" Something to tell the user, from a thread that had to wait for it. """
 	restart = Signal()
 	""" The session starts again: `SESSION_KEYS` settings changed while she was free, or she was told to stop everything. """
@@ -148,7 +149,7 @@ class Assistant(QObject):
 		self.commands.append(text)
 		self.flush()
 
-	def run_action(self, action: Action, arguments: Mapping[str, str | None]) -> str:
+	def run_action(self, action: Action, arguments: Mapping[str, str | None]) -> str | Report:
 		""" Carries the action out, whoever asked, and returns what it says about it. """
 		text = action.run(arguments)
 		match action.name:
@@ -168,9 +169,9 @@ class Assistant(QObject):
 		""" Has her tell what the action says, carried out on a thread since the Qt one would freeze while it waits for `claude`. """
 		threading.Thread(target=lambda: self.announced.emit(find(action).run({})), daemon=True).start()
 
-	def on_announce(self, text: str) -> None:
+	def on_announce(self, text: str | Report) -> None:
 		self.appear("present", bubble=text)
-		self.dismiss.start(reading_ms(text))
+		self.dismiss.start(reading_ms(str(text)))
 
 	def on_alarm(self, label: str) -> None:
 		chime(*DONE_NOTES)
@@ -180,7 +181,7 @@ class Assistant(QObject):
 	def on_tool_call(self, action: Action, arguments: dict[str, str], text: Future[str]) -> None:
 		""" The session called the action as a tool: she does it without interrupting what she shows. """
 		LOG.info("Tool called: %s", action.name)
-		text.set_result(self.run_action(action, arguments))
+		text.set_result(str(self.run_action(action, arguments)))
 
 	def stop_all(self) -> None:
 		""" Drops the queued commands and what the session runs, its agents included, by starting it again. """
@@ -310,7 +311,7 @@ class Assistant(QObject):
 		if self.commands and not self.busy:
 			self.send.emit(self.commands.popleft())
 
-	def appear(self, expression: str, bubble: str, *, talking: bool = False) -> None:
+	def appear(self, expression: str, bubble: str | Report, *, talking: bool = False) -> None:
 		self.pill.hide()
 		self.avatar.set_expression(expression, talking=talking, bubble=bubble)
 		self.avatar.pop_in()

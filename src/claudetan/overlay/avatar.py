@@ -43,6 +43,7 @@ from PySide6.QtWidgets import QWidget
 from claudetan.config import ROOT
 from claudetan.overlay.bubble import WIDTH as BUBBLE_WIDTH, Bubble
 from claudetan.overlay.effects import ACCENT, Spark, burst, glow, mote, overshoot
+from claudetan.report import Report
 
 # Constants
 ASSETS: Path = ROOT / "assets" / "claude"
@@ -147,7 +148,7 @@ class Avatar(QWidget):
 		if self.isVisible():
 			self.move(self.home())
 
-	def set_expression(self, expression: str, *, talking: bool = False, bubble: str = "") -> None:
+	def set_expression(self, expression: str, *, talking: bool = False, bubble: str | Report = "") -> None:
 		now = self.now()
 		if expression != self.expression:
 			self.previous_frame = self.frame

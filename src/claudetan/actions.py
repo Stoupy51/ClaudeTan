@@ -11,6 +11,7 @@ from PySide6.QtCore import QStandardPaths
 from PySide6.QtGui import QGuiApplication
 
 from claudetan.config import Config
+from claudetan.report import Report
 from claudetan.services import claude, discord, programs, weather
 from claudetan.services.alarms import Alarms
 from claudetan.voice.meeting import Meeting
@@ -23,7 +24,7 @@ class Action:
 	name: str
 	description: str
 	""" What the session reads to choose the tool. """
-	run: Callable[[Mapping[str, str | None]], str]
+	run: Callable[[Mapping[str, str | None]], str | Report]
 	""" Carries the action out and returns what she says about it. """
 	phrases: str = ""
 	""" Its named groups are the arguments the request gives. Empty for a tool only the session calls. """

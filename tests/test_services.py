@@ -50,25 +50,45 @@ def test_a_program_is_found_by_part_of_its_shortcut_name_closest_first(monkeypat
 	assert programs.launch("word") == "Je ne trouve pas de programme word."
 
 
-def test_the_plan_usage_and_the_context_come_from_the_slash_commands_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_the_plan_usage_and_the_context_are_laid_out_for_a_human(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 	outputs = {
 		"/usage": (
 			"You are currently using your subscription\n\n"
-			"Current session: 22% used \u00b7 resets Oct 14, 1:30am (Europe/Paris)\n"
-			"Current week (all models): 27% used \u00b7 resets Oct 19, 12am (Europe/Paris)\n"
+			"Current session: 22% used · resets Oct 14, 1:30am (Europe/Paris)\n"
+			"Current week (all models): 27% used · resets Oct 19, 12am (Europe/Paris)\n"
 		),
-		"/context": "## Context Usage\n\n**Model:** claude-sonnet-5-5  \n**Tokens:** 107.6k / 1m (11%)\n\n### Estimated usage\n",
+		"/context": (
+			"## Context Usage\n\n**Model:** claude-sonnet-5-5  \n**Tokens:** 330.3k / 1m (33%)\n\n### Estimated usage by category\n\n"
+			"| Category | Tokens | Percentage |\n|----------|--------|------------|\n"
+			"| System prompt | 3.4k | 0.3% |\n| System tools | 20.6k | 2.1% |\n| MCP server instructions | 717 | 0.1% |\n"
+			"| MCP tools (deferred) | 2.4k | 0.2% |\n| Memory files | 8.6k | 0.9% |\n| Skills | 6.4k | 0.6% |\n"
+			"| Messages | 290.6k | 29.1% |\n| Free space | 636.7k | 63.7% |\n\n### MCP Tools\n\n| Tool | Server | Tokens |\n"
+			"| mcp__x | x | 162 |\n"
+		),
 	}
 	def panel(command: str, *_options: str) -> str:
 		return outputs[command]
 	monkeypatch.setattr(claude, "panel", panel)
 	monkeypatch.setattr(claude, "SESSION_ID", tmp_path / "session_id")
-	assert claude.context() == "Il n'y a pas encore de conversation."
+	assert str(claude.context()) == "Il n'y a pas encore de conversation."
+
 
 	claude.SESSION_ID.write_text("abc")
-	assert claude.context() == "Contexte de claude-sonnet-5-5 : 107.6k / 1m (11%)."
+	report = claude.context()
+	assert [part.key for part in report.slices][:2] == ["Messages", "System tools"]
+	assert str(report) == (
+		"Contexte : 330,3k / 1m (33\u00a0%)\n"
+		"Modèle : claude-sonnet-5-5\n"
+		"Messages : 290,6k (29,1\u00a0%)\n"
+		"Outils : 20,6k (2,1\u00a0%)\n"
+		"Mémoire : 8,6k (0,9\u00a0%)\n"
+		"Skills : 6,4k (0,6\u00a0%)\n"
+		"Prompt : 3,4k (0,3\u00a0%)\n"
+		"Consignes MCP : 717 (0,1\u00a0%)\n"
+		"Libre : 636,7k (63,7\u00a0%)"
+	)
 	assert claude.plan_usage() == (
-		"22 % de la fenêtre de 5 heures (renouvelée Oct 14, 1:30am (Europe/Paris)), "
-		"27 % de la semaine (renouvelée Oct 19, 12am (Europe/Paris))."
+		"Forfait Claude\nFenêtre de 5 h : 22\u00a0% utilisés, renouvelée Oct 14, 1:30am\n"
+		"Semaine : 27\u00a0% utilisés, renouvelée Oct 19, 12am"
 	)
 
