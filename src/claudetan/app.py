@@ -25,7 +25,7 @@ from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
 from claudetan.mcp import ActionServer
 from claudetan.overlay.avatar import Avatar, Pill, chime
-from claudetan.overlay.bubble import shorten
+from claudetan.overlay.bubble import plain
 from claudetan.overlay.tray import Tray
 from claudetan.session import HookServer, JsonDict, Session
 from claudetan.voice.audio import microphone
@@ -319,8 +319,8 @@ def describe_tool(name: str, tool_input: JsonDict) -> str:
 
 
 def reading_ms(text: str) -> int:
-	""" How long a text stays up: 4 s, plus 50 ms per character the bubble shows, 20 s at most. """
-	return min(4000 + 50 * len(shorten(text)), 20_000)
+	""" How long a text stays up: 4 s, plus 50 ms per character, which the bubble scrolls through at that pace, 60 s at most. """
+	return min(4000 + 50 * len(plain(text)), 60_000)
 
 
 def main() -> None:

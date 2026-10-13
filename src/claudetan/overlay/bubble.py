@@ -23,12 +23,16 @@ from claudetan.overlay.effects import ACCENT, halo, overshoot, star
 # Constants
 WIDTH: int = 250
 """ Room the bubble takes left of the sprite, its tail included. """
-CHARS: int = 220
-""" Longest text the bubble shows, the full reply staying readable in the session. """
+TEXT_HEIGHT: float = 150.0
+""" Tallest the text area gets: a longer text scrolls inside it. """
 PADDING: float = 16.0
 POP_S: float = 0.35
-TYPING_SPEED: float = 70.0
-""" Characters per second the text appears at. """
+TYPING_S: float = 1.0
+""" How long a text takes to appear, whatever its length. """
+SCROLL_DELAY_S: float = 2.5
+""" Time to read the first lines before a long text starts scrolling. """
+SCROLL_SPEED: float = 14.0
+""" Pixels per second a long text scrolls at, about the pace of reading it. """
 FADE_CHARS: float = 6.0
 """ How many letters behind the typing head are still fading in. """
 INK: QColor = QColor(61, 57, 41)
@@ -57,20 +61,22 @@ class Bubble:
 
 	def say(self, text: str, now: float) -> None:
 		""" Shows the text, typing on from where it was when it continues the shown one, as a reply streamed in pieces does. """
-		shown = shorten(text)
+		shown = plain(text)
 		if not (self.text and shown.startswith(self.text)):
 			self.revealed = 0.0
 			self.shown_at = now
 		self.text = shown
 
 	def type(self, seconds: float) -> None:
-		self.revealed = min(len(self.text) + FADE_CHARS, self.revealed + TYPING_SPEED * seconds)
+		self.revealed = min(len(self.text) + FADE_CHARS, self.revealed + len(self.text) / TYPING_S * seconds)
 
 	def paint(self, painter: QPainter, now: float, bottom: float) -> None:
 		""" The bubble with its bottom edge at `bottom`, growing upward and popping out of its tail when its text changes. """
 		self.lay_out()
 		height = self.document.size().height()
-		box = QRectF(8, max(18.0, bottom - height - 2 * PADDING), WIDTH - 20, height + 2 * PADDING)
+		visible = min(height, TEXT_HEIGHT)
+		scrolled = min(height - visible, SCROLL_SPEED * max(0.0, now - self.shown_at - SCROLL_DELAY_S))
+		box = QRectF(8, max(18.0, bottom - visible - 2 * PADDING), WIDTH - 20, visible + 2 * PADDING)
 		shape = outline(box)
 		tip = QPointF(box.right() + 18, box.bottom() - 14)
 		appeared = min(1.0, (now - self.shown_at) / POP_S)
@@ -87,7 +93,8 @@ class Bubble:
 		paint_tag(painter, box, now)
 		if self.revealed >= len(self.text) + FADE_CHARS:
 			paint_next_mark(painter, box, now)
-		painter.translate(box.left() + PADDING, box.top() + PADDING)
+		painter.setClipRect(box.adjusted(PADDING, PADDING, -PADDING, -PADDING))
+		painter.translate(box.left() + PADDING, box.top() + PADDING - scrolled)
 		self.document.drawContents(painter)
 		painter.restore()
 
@@ -111,16 +118,13 @@ class Bubble:
 
 
 # Functions
-def shorten(text: str) -> str:
-	""" The text as the bubble shows it: Markdown marks dropped, whitespace collapsed, cut at a word past `CHARS`.
+def plain(text: str) -> str:
+	""" The text as the bubble shows it: Markdown marks dropped and whitespace collapsed.
 
-	>>> shorten("**Done**: edited `app.py`.\\n\\n- one\\n- two")
+	>>> plain("**Done**: edited `app.py`.\\n\\n- one\\n- two")
 	'Done: edited app.py. one two'
-	>>> shorten("word " * 100)[-12:]
-	'word word...'
 	"""
-	plain = " ".join(re.sub(r"[*`#]|^\s*[-+] ", "", text, flags=re.MULTILINE).split())
-	return plain if len(plain) <= CHARS else plain[:CHARS].rsplit(" ", 1)[0] + "..."
+	return " ".join(re.sub(r"[*`#]|^\s*[-+] ", "", text, flags=re.MULTILINE).split())
 
 
 def outline(box: QRectF) -> QPainterPath:
