@@ -63,6 +63,10 @@ class Assistant(QObject):
 	""" A command to type, emitted only between turns: keys typed while a dialog is open would answer it. """
 	idle = Signal()
 	""" No hook for `COMPACT_IDLE_MS` and no turn running. """
+	listening_for_answer = Signal()
+	""" A permission request waits for a spoken answer. """
+	answer_settled = Signal()
+	""" The permission request is answered, or no longer waits. """
 	restart = Signal()
 	""" The session starts again: `SESSION_KEYS` settings changed while she was free, or she was told to stop everything. """
 
@@ -75,6 +79,7 @@ class Assistant(QObject):
 		self.busy = False
 		self.agents: set[str] = set()
 		self.asking = False
+		self.pending: Future[bool] | None = None
 		self.worked = False
 		""" Whether the turn used a tool, which makes her present the result rather than smile. """
 		self.restart_pending = False
@@ -228,13 +233,35 @@ class Assistant(QObject):
 		LOG.info("Permission asked: %s", request)
 		self.asking = True
 		self.long_task.stop()
-		self.appear("please", bubble=f"J'ai besoin de ton accord : {request}. Clique sur moi pour répondre.")
+		self.appear("please", bubble=f"J'ai besoin de ton accord : {request}. Dis oui ou non, ou clique sur moi.")
+
+	def on_permission_asked(self, answer: Future[bool]) -> None:
+		self.pending = answer
+		self.listening_for_answer.emit()
+
+	def on_verdict(self, allowed: bool) -> None:
+		""" The user said yes or no to the pending permission request. """
+		LOG.info("Permission answered: %s", "allowed" if allowed else "refused")
+		if not self.pending:
+			return
+		self.pending.set_result(allowed)
+		self.pending = None
+		self.settle_permission()
+		if allowed:
+			self.appear("thanks", bubble="Merci !")
+		else:
+			self.appear("idle", bubble="Compris, je n'y touche pas.")
+		self.dismiss.start(HEARD_MS)
 
 	def settle_permission(self) -> None:
 		""" Closes a pending permission prompt, allowed or not, and restarts the countdown to the pill. """
+		if self.pending:
+			self.pending.cancel()
+			self.pending = None
 		if self.asking:
 			self.asking = False
 			self.long_task.start()
+			self.answer_settled.emit()
 
 	def on_text(self, message_id: str, delta: str, *, streaming: bool) -> None:
 		self.message = self.message + delta if message_id == self.message_id else delta
@@ -431,6 +458,7 @@ def run() -> None:
 		clicked.connect(session.open)
 	hooks.posted.connect(session.on_hook)
 	hooks.posted.connect(assistant.on_hook)
+	hooks.asked.connect(assistant.on_permission_asked)
 	tools.called.connect(assistant.on_tool_call)
 	assistant.send.connect(session.send)
 	assistant.idle.connect(session.compact)
@@ -439,6 +467,9 @@ def run() -> None:
 	listener.woke.connect(assistant.on_wake)
 	listener.dictated.connect(assistant.on_dictation)
 	listener.cancelled.connect(assistant.on_cancel)
+	listener.answered.connect(assistant.on_verdict)
+	assistant.listening_for_answer.connect(lambda: setattr(listener, "asking", True))
+	assistant.answer_settled.connect(lambda: setattr(listener, "asking", False))
 	listener.heard.connect(assistant.on_command)
 	assistant.restart.connect(lambda: session.restart(listener.config))
 	watcher = QFileSystemWatcher([str(USER_CONFIG)])

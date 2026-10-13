@@ -60,6 +60,7 @@ A request that is exactly one of the phrases below is done by the app itself, at
 
 You may pause while you speak: she sends your request after 15 s of silence, or as soon as you say *"fin"* (or *"terminé"*) as a sentence of its own after a pause, or end it with *"c'est tout"*, *"envoie"* or *"over"*. *"Annule"* said alone, or *"laisse tomber"* at the end, drops it. The bubble reminds you of the word.
 
+- When she asks your permission, say *"oui"* or *"non"* as a sentence of its own, within 60 s. Otherwise answer in Claude Code or on claude.ai as usual.
 - A click on her opens Claude Code's Remote Control on claude.ai, a long press lets you drag her.
 - Dropped on a second screen, she comes back there, and shows up on the main screen while it is unplugged.
 - Her tray icon, with a left or a right click, opens the session, the config or the log of what she heard and did, toggles the start with Windows, and quits.

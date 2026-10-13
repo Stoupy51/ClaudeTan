@@ -44,6 +44,22 @@ def test_a_word_after_the_punctuation_of_a_single_utterance_ends_the_request(mon
 	assert sent == ["qu'est-ce qu'il y a sur mon écran ?"]
 
 
+def test_a_bare_yes_or_no_answers_a_permission_request_only_while_she_asks(monkeypatch: pytest.MonkeyPatch) -> None:
+	sent: list[str] = []
+	voice = listener(sent, monkeypatch)
+	answers: list[bool] = []
+	voice.answered.connect(answers.append)
+	voice.hear("Oui.", ended=True)
+	assert answers == []
+
+	voice.asking = True
+	voice.hear("Oui.", ended=True)
+	voice.hear("Non !", ended=True)
+	voice.hear("Peut-être plus tard.", ended=True)
+	assert answers == [True, False]
+	assert sent == []
+
+
 def test_a_request_is_sent_after_a_pause_or_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
 	sent: list[str] = []
 	voice = listener(sent, monkeypatch)

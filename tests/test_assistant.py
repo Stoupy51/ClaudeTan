@@ -1,5 +1,6 @@
 """ Claude-tan's reactions to the session's hook events, and the queue that keeps commands from being typed during a turn. """
 # Imports
+from concurrent.futures import Future
 from ctypes import windll
 
 import pytest
@@ -120,6 +121,19 @@ def test_switching_model_by_voice_types_it_into_the_session(assistant: Assistant
 	assistant.send.connect(sent.append)
 	assistant.on_command("Passe en Opus.")
 	assert sent == ["/model opus"]
+
+
+def test_a_spoken_verdict_answers_the_pending_permission_request(assistant: Assistant) -> None:
+	answer: Future[bool] = Future()
+	asking: list[str] = []
+	assistant.listening_for_answer.connect(lambda: asking.append("asking"))
+	assistant.answer_settled.connect(lambda: asking.append("settled"))
+	assistant.on_hook(hook("PermissionRequest", tool_name="Bash", tool_input={"command": "git status"}))
+	assistant.on_permission_asked(answer)
+	assistant.on_verdict(allowed=True)
+	assert answer.result() is True
+	assert asking == ["asking", "settled"]
+	assert assistant.avatar.expression == "thanks"
 
 
 def test_settings_of_a_new_app_restart_it_once_she_is_free(assistant: Assistant, monkeypatch: pytest.MonkeyPatch) -> None:

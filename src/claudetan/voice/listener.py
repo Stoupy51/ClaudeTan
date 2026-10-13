@@ -30,12 +30,16 @@ class Listener(QObject):
 	It ends with its done phrase, a pause, or at once when it is the phrase of a local action.
 	"""
 	cancelled = Signal()
+	answered = Signal(bool)
+	""" The user allowed (True) or refused (False) the permission request she is asking about. """
 
 	def __init__(self, config: Config) -> None:
 		super().__init__()
 		self.config = config
 		self.loaded = threading.Event()
 		self.awake_until = 0.0
+		self.asking = False
+		""" Set from the Qt thread while a permission request waits: a bare yes or no then answers it. """
 		self.request: list[str] = []
 		""" Sentences of the request being dictated. Both are touched only by the microphone thread. """
 
@@ -52,6 +56,10 @@ class Listener(QObject):
 			self.hear(" ".join(segment.text.strip() for segment in segments), ended=speech.ended)
 
 	def hear(self, text: str, *, ended: bool) -> None:
+		if self.asking and ended and (verdict := self.verdict(text)) is not None:
+			self.answered.emit(verdict)
+			return
+
 		match = self.config.wake.match(text)
 		if match:
 			if time.monotonic() > self.awake_until:
@@ -63,6 +71,11 @@ class Listener(QObject):
 			for part in SENTENCES.split(command):
 				self.add(part)
 			self.awake_until = 0.0
+
+	def verdict(self, text: str) -> bool | None:
+		if self.config.allow.fullmatch(text):
+			return True
+		return False if self.config.deny.fullmatch(text) else None
 
 	def add(self, sentence: str) -> None:
 		self.request.append(sentence)

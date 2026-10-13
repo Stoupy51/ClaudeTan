@@ -123,7 +123,7 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 3. Auto-amélioration
 
-- [ ] `CLAUDE.md` du repo qui explique à la session comment ajouter une action, avec son test et les contrôles.
+- [x] `CLAUDE.md` du repo : la disposition, comment ajouter une action avec son test, les contrôles.
 - [x] Config rechargée dès qu'elle est enregistrée, avec une réaction de Claude-tan : la voix et la taille tout de suite, le modèle par `/model`, le modèle du sous-agent et le prompt, que Claude Code ne lit qu'au démarrage, par une relance de la seule session sur la même conversation dès qu'elle n'a plus rien en cours.
 - [ ] Rechargement à chaud du registre, et relance de l'app avec reprise de la session quand son cœur change.
 - [ ] Lanceur qui annule le dernier changement et relance l'app quand elle plante juste après.
@@ -145,12 +145,13 @@ Ce que montre Claude-tan à chaque étape :
 - [x] Dictée : les pauses ne coupent plus la demande, envoyée après 15 s de silence, sur "fin" dit seul ou "c'est tout" en fin de phrase, et annulée par "annule" seul. Les mots courts ne comptent que seuls : "jusqu'à la fin" ne coupe rien.
 - [x] Action "stop" : tue le tour en cours, ses agents et la file, puis relance la session sur la même conversation.
 - [x] Action "model" ("passe en Opus", `/model` tapé entre deux tours), aussi outil MCP.
-- [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
+- [x] Permission à la voix : le hook `PermissionRequest` attend (60 s) un "oui" ou "non" seul, puis renvoie allow ou deny ; sans réponse, le dialogue reste à l'utilisateur. Mots dans la config (`allow`, `deny`).
 
 ### 6. Applications connectées
 
 - [x] Action `discord_messages` (`discord.py`) : les derniers MP avec une personne, lus avec `discord_token` de la config, jamais envoyés.
 - [ ] Donner à la session cachée l'accès au navigateur de l'utilisateur (Claude in Chrome) pour lire les pages qui demandent une connexion, comme le portail de Survisland, au lieu de s'arrêter devant la page de connexion.
+- [ ] Piloter une application sans API, en dernier recours : capture et clics par vision, ou arbre d'accessibilité Windows (UI Automation, pauvre sur Electron). À décider avant : clics autorisés à chaque fois ou limités à certaines applications, car un mauvais clic peut envoyer ou supprimer.
 
 ### 7. Plus tard
 

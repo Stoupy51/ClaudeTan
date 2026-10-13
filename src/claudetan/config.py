@@ -35,6 +35,10 @@ class Config:
 	""" Last words that drop a spoken request, with the punctuation around them. """
 	cancel_alone: re.Pattern[str]
 	""" Words that drop a spoken request when they make a sentence of their own. """
+	allow: re.Pattern[str]
+	""" Whole sentences that allow a permission request she asks about. """
+	deny: re.Pattern[str]
+	""" Whole sentences that refuse it. """
 	discord_token: str
 	""" Token of the user's Discord account, empty until they put it there. """
 	prompt: str
@@ -64,6 +68,8 @@ class Config:
 			done_hint=values["done_alone"].split("|")[0],
 			cancel_alone=re.compile(rf"\W*(?:{values['cancel_alone']})\W*", re.IGNORECASE),
 			cancel=re.compile(rf"\W*\b(?:{values['cancel']})\W*$", re.IGNORECASE),
+			allow=re.compile(rf"\W*(?:{values['allow']})\W*", re.IGNORECASE),
+			deny=re.compile(rf"\W*(?:{values['deny']})\W*", re.IGNORECASE),
 			discord_token=values["discord_token"],
 			prompt=values["prompt"],
 			model=values["model"],

@@ -8,13 +8,14 @@ import threading
 import time
 import uuid
 import webbrowser
+from concurrent.futures import CancelledError, Future
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, override
 
 import pyte
-from PySide6.QtCore import QObject, QTimer, Signal
+from PySide6.QtCore import QObject, QTimer, Signal, SignalInstance
 from winpty import PtyProcess
 
 from claudetan.config import APP_DATA, ROOT, USER_CONFIG, Config
@@ -63,6 +64,8 @@ NESTED_SESSION_VARS: tuple[str, ...] = (
 	"CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN", "CLAUDE_PID",
 )
 """ Set when the app runs inside another Claude Code session; the hosted `claude` refuses to start nested while they are present. """
+ANSWER_WAIT_S: float = 60.0
+""" How long a permission request waits for the user's spoken answer before the dialog is left to them. """
 PASTE_DELAY_MS: int = 400
 """ Pause between the text and Enter, so the TUI takes the text as one paste before submitting it. """
 
@@ -71,16 +74,22 @@ PASTE_DELAY_MS: int = 400
 class HookServer(QObject):
 	""" Local endpoint for the session's `type: "http"` hooks, relaying each payload to the Qt thread. """
 	posted = Signal(dict)
+	asked = Signal(Future)
+	""" A permission request waiting for the user's answer: its future gets True to allow it and False to deny it. """
 
 	def __init__(self) -> None:
 		super().__init__()
-		relay = self.posted
+		relay, ask = self.posted, self.asked
 
 		class Handler(BaseHTTPRequestHandler):
 			def do_POST(self) -> None:
-				relay.emit(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+				event = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+				relay.emit(event)
+				body = wait_for_answer(ask) if event["hook_event_name"] == "PermissionRequest" else b""
 				self.send_response(200)
+				self.send_header("Content-Length", str(len(body)))
 				self.end_headers()
+				self.wfile.write(body)
 
 			@override
 			def log_message(self, format: str, *args: Any) -> None:
@@ -98,7 +107,8 @@ class Session(QObject):
 	def __init__(self, hooks_url: str, tools_url: str, config: Config) -> None:
 		super().__init__()
 		self.settings = APP_DATA / "session_settings.json"
-		hooks = {name: [{"hooks": [{"type": "http", "url": hooks_url, "timeout": 5}]}] for name in HOOK_EVENTS}
+		waits = {"PermissionRequest": ANSWER_WAIT_S + 10}
+		hooks = {name: [{"hooks": [{"type": "http", "url": hooks_url, "timeout": waits.get(name, 5)}]}] for name in HOOK_EVENTS}
 		self.settings.write_text(json.dumps({"hooks": hooks, "inputNeededNotifEnabled": True}), encoding="utf-8")
 		self.id = SESSION_ID.read_text() if SESSION_ID.exists() else ""
 		self.transcript = ""
@@ -203,6 +213,18 @@ class Session(QObject):
 
 
 # Functions
+def wait_for_answer(ask: SignalInstance) -> bytes:
+	""" The hook's reply to a permission request: the user's spoken decision, or nothing so that the dialog stays as it is. """
+	answer: Future[bool] = Future()
+	ask.emit(answer)
+	try:
+		allowed = answer.result(ANSWER_WAIT_S)
+	except (TimeoutError, CancelledError):
+		return b"{}"
+	decision = {"behavior": "allow"} if allowed else {"behavior": "deny", "message": "The user refused it by voice."}
+	return json.dumps({"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": decision}}).encode()
+
+
 def system_prompt(additions: str) -> str:
 	""" Text for `--append-system-prompt-file`: `SYSTEM_PROMPT`, then the user's additions when there are any.
 

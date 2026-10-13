@@ -19,6 +19,11 @@ done_alone = "terminé|fin"
 cancel = "laisse tomber|cancel prompt"
 cancel_alone = "annule|cancel"
 
+# When she asks your permission, say one of these words, as a sentence of its own, to answer her.
+# Regexes matched ignoring case. Clicking on her and answering in Claude Code works as well.
+allow = "oui|ok|vas-y|d'accord|yes|go"
+deny = "non|refuse|no|pas question"
+
 # Model of the hidden Claude session, which answers quick requests: "sonnet", "opus", "haiku", or a full model name
 model = "sonnet"
 
