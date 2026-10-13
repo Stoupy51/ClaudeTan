@@ -54,6 +54,9 @@ A request that is exactly one of the phrases below is done by the app itself, at
 | Stop the transcription | *"arrête la transcription"* | Closes that file |
 | Stop everything | *"stop"*, *"arrête tout"*, *"annule ça"* | Kills the running request, its agents and the queued commands, then starts the session again on the same conversation. The app keeps running |
 | Switch model | *"passe en Opus"*, *"bascule en Sonnet"* | Types `/model` into the session once its current request is done |
+| Timer | *"mets un minuteur de 10 minutes"* | Rings with a sound and a message when it is over |
+| Weather | *"la météo à Rennes"*, *"quel temps fait-il"* | Weather now and for the day, from Open-Meteo. Without a city, the `city` of the config |
+| Open a program | Any request, through the session (`launch_program` tool) | Opens the program whose Start menu shortcut matches the name |
 | Read Discord messages | *"lis les messages de Artyu"* | Shows the last direct messages with that person, read with the `discord_token` of the config. It never sends anything |
 | ShadowPlay clip | *"enregistre ça"*, *"clip"* | Presses Alt+F10 |
 | Mute | *"coupe le son"*, *"remets le son"* | Toggles the mute |

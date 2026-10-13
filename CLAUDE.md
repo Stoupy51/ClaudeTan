@@ -8,6 +8,7 @@ A voice assistant with an anime overlay (PySide6), driving a hidden Claude Code 
 - `src/claudetan/app.py`: the Qt app and `Assistant`, which turns hook events and heard requests into what Claude-tan shows.
 - `src/claudetan/session.py`: the hidden `claude` process in a pseudo-terminal, and the hook server.
 - `src/claudetan/actions.py`: `ACTIONS`, what she does on the computer. `mcp.py` offers the same list to the session as tools.
+- `src/claudetan/services/`: what the actions call (Discord, weather, programs, timers). Put the code of a new action there when it is more than a few lines.
 - `src/claudetan/voice/`: microphone, Whisper, wake and end phrases, meeting transcription. `overlay/`: avatar, bubble, tray.
 - `tools/sprites/`: a separate uv project that draws `assets/claude/`. Leave it alone unless asked about sprites.
 

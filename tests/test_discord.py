@@ -3,7 +3,7 @@
 import pytest
 from stouputils.typing import JsonList
 
-from claudetan import discord
+from claudetan.services import discord
 
 
 # Functions

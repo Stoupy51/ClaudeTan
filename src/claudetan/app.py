@@ -20,7 +20,7 @@ from PySide6.QtCore import QFileSystemWatcher, QObject, QPoint, QTimer, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
-from claudetan.actions import Action, chosen_model, route
+from claudetan.actions import ALARMS, Action, chosen_model, route
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
 from claudetan.mcp import ActionServer
@@ -160,6 +160,11 @@ class Assistant(QObject):
 	def switch_model(self, model: str) -> None:
 		self.commands.append(f"/model {model}")
 		self.flush()
+
+	def on_alarm(self, label: str) -> None:
+		chime(*DONE_NOTES)
+		self.appear("present", bubble=f"Ton minuteur est terminé : {label}." if label else "Ton minuteur est terminé.")
+		self.dismiss.start(HEARD_MS)
 
 	def on_tool_call(self, action: Action, arguments: dict[str, str], text: Future[str]) -> None:
 		""" The session called the action as a tool: she does it without interrupting what she shows. """
@@ -459,6 +464,7 @@ def run() -> None:
 	hooks.posted.connect(session.on_hook)
 	hooks.posted.connect(assistant.on_hook)
 	hooks.asked.connect(assistant.on_permission_asked)
+	ALARMS.rang.connect(assistant.on_alarm)
 	tools.called.connect(assistant.on_tool_call)
 	assistant.send.connect(session.send)
 	assistant.idle.connect(session.compact)
