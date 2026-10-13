@@ -4,16 +4,18 @@ import html
 import math
 import re
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import (
 	QBrush,
 	QColor,
 	QConicalGradient,
 	QFont,
+	QImage,
 	QLinearGradient,
 	QPainter,
 	QPainterPath,
 	QPen,
+	QPixmap,
 	QRadialGradient,
 	QTextDocument,
 )
@@ -26,6 +28,9 @@ WIDTH: int = 250
 TEXT_HEIGHT: float = 150.0
 """ Tallest the text area gets: a longer text scrolls inside it. """
 PADDING: float = 16.0
+TEXT_WIDTH: float = WIDTH - 20 - 2 * PADDING
+SUBPIXEL_SCALE: float = 1.0001
+""" Qt draws text and unscaled pixmaps at whole pixels, so a slow scroll jumps. Any scale makes it interpolate the pixmap instead. """
 POP_S: float = 0.35
 TYPING_S: float = 1.0
 """ How long a text takes to appear, whatever its length. """
@@ -56,8 +61,11 @@ class Bubble:
 		""" The text laid out, kept between frames while `typed` is unchanged. """
 		self.document.setDefaultFont(QFont("Segoe UI", 11))
 		self.document.setDocumentMargin(0)
-		self.document.setTextWidth(WIDTH - 20 - 2 * PADDING)
+		self.document.setTextWidth(TEXT_WIDTH)
 		self.typed = ("", -1.0)
+		self.pixmap_key: tuple[tuple[str, float], float] = (("", -1.0), 0.0)
+		self.pixmap = QPixmap()
+		""" The text drawn once at the screen's scale, to scroll it smoothly. """
 
 	def say(self, text: str, now: float) -> None:
 		""" Shows the text, typing on from where it was when it continues the shown one, as a reply streamed in pieces does. """
@@ -93,10 +101,36 @@ class Bubble:
 		paint_tag(painter, box, now)
 		if self.revealed >= len(self.text) + FADE_CHARS:
 			paint_next_mark(painter, box, now)
-		painter.setClipRect(box.adjusted(PADDING, PADDING, -PADDING, -PADDING))
-		painter.translate(box.left() + PADDING, box.top() + PADDING - scrolled)
-		self.document.drawContents(painter)
+		self.paint_text(painter, box.adjusted(PADDING, PADDING, -PADDING, -PADDING), scrolled)
 		painter.restore()
+
+	def paint_text(self, painter: QPainter, area: QRectF, scrolled: float) -> None:
+		""" The text clipped to `area`, `scrolled` pixels up. """
+		painter.setClipRect(area)
+		if not scrolled:
+			painter.translate(area.topLeft())
+			self.document.drawContents(painter)
+			return
+
+		painter.scale(SUBPIXEL_SCALE, SUBPIXEL_SCALE)
+		painter.drawPixmap(QPointF(area.left(), area.top() - scrolled), self.text_pixmap(painter.deviceTransform().m11()))
+
+	def text_pixmap(self, device_scale: float) -> QPixmap:
+		scale = round(device_scale, 2)
+		key = (self.typed, scale)
+		if self.pixmap_key != key:
+			self.pixmap_key = key
+			size = QSize(math.ceil(TEXT_WIDTH * scale), math.ceil(self.document.size().height() * scale))
+			image = QImage(size, QImage.Format.Format_ARGB32_Premultiplied)
+			image.fill(0)
+			painter = QPainter(image)
+			painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+			painter.scale(scale, scale)
+			self.document.drawContents(painter)
+			painter.end()
+			image.setDevicePixelRatio(scale)
+			self.pixmap = QPixmap.fromImage(image)
+		return self.pixmap
 
 	def lay_out(self) -> None:
 		""" Sets the document to the whole text: typed letters in ink, the latest ones fading in, the rest transparent. """
