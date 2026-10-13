@@ -19,14 +19,14 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
 from claudetan.actions import route
-from claudetan.audio import microphone
-from claudetan.avatar import Avatar, Pill, chime
-from claudetan.bubble import shorten
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
+from claudetan.overlay.avatar import Avatar, Pill, chime
+from claudetan.overlay.bubble import shorten
+from claudetan.overlay.tray import Tray
 from claudetan.session import HookServer, JsonDict, Session
-from claudetan.tray import Tray
-from claudetan.voice import FOLLOW_UP_S, Listener
+from claudetan.voice.audio import microphone
+from claudetan.voice.listener import FOLLOW_UP_S, Listener
 
 # Constants
 LOG: logging.Logger = logging.getLogger("claudetan")

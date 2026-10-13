@@ -28,8 +28,6 @@ uv run claudetan-setup
 ```
 
 The setup installs the dependencies, downloads Whisper (1.6 GB) and runs it once on the GPU.
-It then has you read a few sentences aloud (about 15 s) to record your voice: only that voice can wake her and ask her something.
-To record it again, delete `%APPDATA%\ClaudeTan\voiceprint.npy` and run the setup again.
 Then, only when needed, it opens Claude Code's sign-in page, and Claude Code itself in this folder so that you trust it:
 pick *Yes, I trust this folder*, then type `/exit`. This dialog is Claude Code's safety check before it works in a folder, so the app never answers it for you.
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from PySide6.QtCore import QStandardPaths
 from PySide6.QtGui import QGuiApplication
 
-from claudetan.meeting import Meeting
+from claudetan.voice.meeting import Meeting
 
 
 # Classes

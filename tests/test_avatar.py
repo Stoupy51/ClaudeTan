@@ -6,7 +6,7 @@ from PySide6.QtCore import QPoint, QSettings
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication
 
-from claudetan.avatar import Avatar
+from claudetan.overlay.avatar import Avatar
 
 
 # Functions

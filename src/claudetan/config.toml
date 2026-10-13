@@ -8,10 +8,6 @@ language = "auto"
 # Its first group is the command said in the same breath.
 wake = '^\W*(?:hey|hé|he|eh|et|dis|ok|okay)\W+(?:claude|clode|clod|clodo|clown)\b[\s,.!?]*(.*)'
 
-# How close a voice must be to yours, recorded by `uv run claudetan-setup`, to wake her or ask her something:
-# from 0 (anyone) to 1 (never). The log shows the similarity of each sentence, to adjust it.
-voice_match = 0.5
-
 # You may pause while you speak: she sends your request after this many seconds of silence,
 # or as soon as it ends with one of the `done` phrases. Ending it with one of the `cancel` phrases drops it.
 # Both are regexes matched ignoring case, and only count as the last words of the request.

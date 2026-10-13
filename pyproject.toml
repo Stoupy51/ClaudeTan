@@ -21,7 +21,6 @@ dependencies = [
 	"pyside6>=6.9",
 	"pyte>=0.8.2",
 	"pywinpty>=2.0",
-	"sherpa-onnx>=1.13.8",
 	"soundcard>=0.4.6",
 	"sounddevice",
 	"soundfile",

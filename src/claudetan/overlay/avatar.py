@@ -40,9 +40,9 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget
 
-from claudetan.bubble import WIDTH as BUBBLE_WIDTH, Bubble
 from claudetan.config import ROOT
-from claudetan.effects import ACCENT, Spark, burst, glow, mote, overshoot
+from claudetan.overlay.bubble import WIDTH as BUBBLE_WIDTH, Bubble
+from claudetan.overlay.effects import ACCENT, Spark, burst, glow, mote, overshoot
 
 # Constants
 ASSETS: Path = ROOT / "assets" / "claude"

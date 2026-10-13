@@ -4,7 +4,7 @@ import pytest
 
 import claudetan.config
 from claudetan.config import DEFAULTS, Config
-from claudetan.voice import Listener
+from claudetan.voice.listener import Listener
 
 
 # Functions

@@ -143,7 +143,6 @@ Ce que montre Claude-tan à chaque étape :
 
 - [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX (à installer), bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
 - [x] Dictée : les pauses ne coupent plus la demande, envoyée après 15 s de silence ou sur "prompt done", et annulée par "cancel prompt".
-- [x] Seule la voix du propriétaire, enregistrée par `claudetan-setup`, réveille Claude-tan et lui demande quelque chose : empreinte WeSpeaker (sherpa-onnx, sur le CPU) comparée à chaque phrase avant Whisper, seuil `voice_match` dans la config.
 - [ ] Commandes vocales "stop" (arrêter le tour en cours), "passe en Opus" (`/model opus`).
 - [ ] Accepter ou refuser une permission à la voix, en répondant au hook `PermissionRequest`.
 

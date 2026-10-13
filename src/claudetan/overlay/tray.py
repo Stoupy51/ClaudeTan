@@ -9,8 +9,8 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QCursor, QIcon
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
-from claudetan.avatar import face
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG
+from claudetan.overlay.avatar import face
 
 # Constants
 RUN_KEY: str = r"Software\Microsoft\Windows\CurrentVersion\Run"

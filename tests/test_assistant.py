@@ -9,8 +9,8 @@ import claudetan.app
 import claudetan.config
 from claudetan.actions import VK_PLAY_PAUSE
 from claudetan.app import Assistant
-from claudetan.avatar import Avatar, Pill
 from claudetan.config import DEFAULTS, Config
+from claudetan.overlay.avatar import Avatar, Pill
 from claudetan.session import JsonDict
 
 

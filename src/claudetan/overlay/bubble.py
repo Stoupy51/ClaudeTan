@@ -18,7 +18,7 @@ from PySide6.QtGui import (
 	QTextDocument,
 )
 
-from claudetan.effects import ACCENT, halo, overshoot, star
+from claudetan.overlay.effects import ACCENT, halo, overshoot, star
 
 # Constants
 WIDTH: int = 250

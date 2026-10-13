@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QStandardPaths
 
-from claudetan.audio import Audio, load_whisper, microphone, pc_sound, utterances
+from claudetan.voice.audio import Audio, load_whisper, microphone, pc_sound, utterances
 
 
 # Classes

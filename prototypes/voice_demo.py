@@ -11,7 +11,8 @@ import numpy as np
 import soundfile as sf
 
 from claudetan.config import Config
-from claudetan.voice import FRAME, RATE, Audio, Listener, microphone
+from claudetan.voice.audio import FRAME, RATE, Audio, microphone
+from claudetan.voice.listener import Listener
 
 
 # Functions
@@ -39,7 +40,7 @@ def main() -> None:
 	def heard(text: str) -> None:
 		print(f"{clock[0]:6.2f}s heard: {text}", flush=True)
 
-	listener = Listener(config.language, config.wake)
+	listener = Listener(config)
 	listener.woke.connect(lambda: print(f"{clock[0]:6.2f}s woke", flush=True))
 	listener.heard.connect(heard)
 	print("Listening... say « Hey Claude, ... »", flush=True)
