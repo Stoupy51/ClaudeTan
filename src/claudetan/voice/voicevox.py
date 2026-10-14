@@ -16,6 +16,7 @@ import time
 import urllib.parse
 import urllib.request
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import sounddevice as sd
@@ -48,6 +49,8 @@ LONGEST_LINE: int = 600
 KANA: re.Pattern[str] = re.compile(r"[぀-ヿ]")
 """ Hiragana or katakana, in a line already in Japanese. """
 CODE: re.Pattern[str] = re.compile(r"```.*?```", re.DOTALL)
+SENTENCE: re.Pattern[str] = re.compile(r"[^。\uff01\uff1f!?\s][^。\uff01\uff1f!?]*[。\uff01\uff1f!?]*")
+""" A sentence of a Japanese line, ended by 。 or a full-width or plain ! or ?, synthesized on its own to be said sooner. """
 CHUNK_S: float = 0.05
 """ Sound written at a time, so that `Voice.hush` cuts a line within that much. """
 
@@ -111,17 +114,21 @@ class Voice(QObject):
 		return next((event["result"] for event in results if event["type"] == "result"), "")
 
 	def speak(self, japanese: str, style: int) -> None:
+		""" Says each sentence once it is synthesized, the next one being synthesized while it plays. """
 		if not self.engine and not engine_answers():
 			self.engine = start_engine()
-		query = post(f"/audio_query?{urllib.parse.urlencode({'text': japanese, 'speaker': style})}")
-		sound, rate = sf.read(io.BytesIO(post(f"/synthesis?speaker={style}", query)), dtype="float32")
-		chunk = round(CHUNK_S * rate)
-		with sd.OutputStream(samplerate=rate, channels=1, dtype="float32") as stream:
-			self.started.emit(vowels(json.loads(query)))
-			for start in range(0, len(sound), chunk):
-				if self.hushed.is_set():
-					return
-				stream.write(sound[start:start + chunk])
+		with ThreadPoolExecutor(max_workers=1) as synthesizer:
+			for sentence in [synthesizer.submit(synthesize, text, style) for text in SENTENCE.findall(japanese)]:
+				timing, wav = sentence.result()
+				sound, rate = sf.read(io.BytesIO(wav), dtype="float32")
+				chunk = round(CHUNK_S * rate)
+				with sd.OutputStream(samplerate=rate, channels=1, dtype="float32") as stream:
+					self.started.emit(timing)
+					for start in range(0, len(sound), chunk):
+						if self.hushed.is_set():
+							synthesizer.shutdown(cancel_futures=True)
+							return
+						stream.write(sound[start:start + chunk])
 
 
 # Functions
@@ -143,6 +150,12 @@ def vowels(query: JsonDict) -> Vowels:
 			timed.append((round(at / query["speedScale"], 3), mora["vowel"]))
 			at += mora["vowel_length"]
 	return (*timed, (round(at / query["speedScale"], 3), ""))
+
+
+def synthesize(japanese: str, style: int) -> tuple[Vowels, bytes]:
+	""" The vowels and the WAV sound of the text said in the VOICEVOX style. """
+	query = post(f"/audio_query?{urllib.parse.urlencode({'text': japanese, 'speaker': style})}")
+	return vowels(json.loads(query)), post(f"/synthesis?speaker={style}", query)
 
 
 def post(path: str, body: bytes = b"") -> bytes:
