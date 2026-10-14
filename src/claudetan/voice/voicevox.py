@@ -54,18 +54,19 @@ CHUNK_S: float = 0.05
 
 # Classes
 class Voice(QObject):
-	""" Says her lines one at a time on a thread of its own, the engine and the translator started on the first one. """
+	""" Says her lines one at a time on a thread of its own. """
 	started = Signal(object)
 	""" The `Vowels` of the line her voice starts saying. """
 
-	def __init__(self) -> None:
+	def __init__(self, style: int | None) -> None:
+		""" Readies the engine with the voice of `style` and the translator, or leaves them to her first line when None. """
 		super().__init__()
 		self.lines: queue.Queue[tuple[str, int]] = queue.Queue()
 		self.hushed = threading.Event()
 		self.engine: subprocess.Popen[bytes] | None = None
 		self.translator: subprocess.Popen[str] | None = None
 		self.translated = 0
-		threading.Thread(target=self.run, daemon=True).start()
+		threading.Thread(target=self.run, args=(style,), daemon=True).start()
 
 	def say(self, text: str, style: int) -> None:
 		""" Says the text in the VOICEVOX style, once the line before it is said. A line still waiting is dropped for it. """
@@ -82,7 +83,11 @@ class Voice(QObject):
 			if process:
 				process.kill()
 
-	def run(self) -> None:
+	def run(self, style: int | None) -> None:
+		if style is not None:
+			self.engine = None if engine_answers() else start_engine()
+			post(f"/initialize_speaker?speaker={style}")
+			self.translator = start_translator()
 		while True:
 			text, style = self.lines.get()
 			if not self.lines.empty():

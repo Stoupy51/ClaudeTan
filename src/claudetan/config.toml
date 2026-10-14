@@ -46,9 +46,10 @@ typing_speed = 80.0
 # false keeps her silent.
 voice = true
 
-# Her VOICEVOX voice, by its style id: 8 Kasukabe Tsumugi, 2 Shikoku Metan, 14 Meimei Himari, 3 Zundamon, 16 Kyushu Sora, 20 Mochiko-san.
-# http://127.0.0.1:50021/speakers lists them all while she speaks. Credit the voice (such as "VOICEVOX:春日部つむぎ") if you share her audio.
-voice_style = 8
+# Her VOICEVOX voice, by its style id: 114 Ankomon, 8 Kasukabe Tsumugi, 2 Shikoku Metan, 14 Meimei Himari, 3 Zundamon, 16 Kyushu Sora, 20 Mochiko-san.
+# Try 36, Shikoku Metan whispering every line, for a laugh.
+# http://127.0.0.1:50021/speakers lists them all while she speaks. Credit the voice (such as "VOICEVOX:あんこもん") if you share her audio.
+voice_style = 114
 
 # The city she gives the weather of when you do not name one
 city = ""

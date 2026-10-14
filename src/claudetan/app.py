@@ -520,7 +520,7 @@ def run() -> None:
 	assistant.send.connect(session.send)
 	assistant.idle.connect(session.compact)
 	app.aboutToQuit.connect(session.close)
-	voice = Voice()
+	voice = Voice(config.voice_style if config.voice else None)
 	assistant.speak.connect(voice.say)
 	assistant.hush.connect(voice.hush)
 	voice.started.connect(avatar.speak)
