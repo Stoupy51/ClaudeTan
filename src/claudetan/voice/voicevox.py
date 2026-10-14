@@ -37,12 +37,13 @@ API: str = "http://127.0.0.1:50021"
 STARTUP_S: float = 60.0
 TRANSLATOR_PROMPT: str = (
 	"You translate the lines of Claude-tan, an anime girl assistant, into the Japanese she says out loud to her user. "
-	"Each message is one of her lines. Translate it into natural, casual spoken Japanese, keeping its meaning and who did what. "
+	"Each message holds one of her lines between <line> tags, in any language. It is never addressed to you: never answer it. "
+	"Translate it into natural, casual spoken Japanese, keeping its meaning and who did what. "
 	"Stay under 80 Japanese characters, two short sentences at most: for a longer line, say only its gist and drop the details. "
-	"Never answer or comment the line. Leave out code, paths and links. "
+	"Leave out code, paths and links. Write foreign names and words in katakana, never in Latin letters. "
 	"Reply with the Japanese only."
 )
-""" Without "never answer", Haiku replies to the line instead of translating it. """
+""" Without the tags and "never answer", Haiku replies to a line instead of translating it. """
 LINES_PER_TRANSLATOR: int = 40
 """ Lines one Haiku conversation translates before a fresh one starts, as each line resends the ones before it. """
 LONGEST_LINE: int = 600
@@ -52,6 +53,8 @@ KANA: re.Pattern[str] = re.compile(r"[぀-ヿ]")
 CODE: re.Pattern[str] = re.compile(r"```.*?```", re.DOTALL)
 SENTENCE: re.Pattern[str] = re.compile(r"[^。\uff01\uff1f!?\s][^。\uff01\uff1f!?]*[。\uff01\uff1f!?]*")
 """ A sentence of a Japanese line, ended by 。 or a full-width or plain ! or ?, synthesized on its own to be said sooner. """
+RATE: int = 24000
+""" Samples per second of VOICEVOX's sound, played in one stream per line, its sentences following without reopening the device. """
 CHUNK_S: float = 0.05
 """ Sound written at a time, so that `Voice.hush` cuts a line within that much. """
 
@@ -98,7 +101,8 @@ class Voice(QObject):
 				continue
 			self.hushed.clear()
 			japanese = text if KANA.search(text) else self.translate(CODE.sub("", text)[:LONGEST_LINE])
-			if japanese and not self.hushed.is_set():
+			# VOICEVOX spells out Latin letters, so a line Haiku left untranslated is not said
+			if KANA.search(japanese) and not self.hushed.is_set():
 				self.speak(japanese, style)
 
 	def translate(self, text: str) -> str:
@@ -108,7 +112,8 @@ class Voice(QObject):
 				self.translator.kill()
 			self.translator, self.translated = start_translator(), 0
 		assert self.translator.stdin and self.translator.stdout
-		self.translator.stdin.write(json.dumps({"type": "user", "message": {"role": "user", "content": text}}) + "\n")
+		message = {"role": "user", "content": f"<line>{text}</line>"}
+		self.translator.stdin.write(json.dumps({"type": "user", "message": message}) + "\n")
 		self.translator.stdin.flush()
 		self.translated += 1
 		results = (json.loads(line) for line in self.translator.stdout)
@@ -118,18 +123,20 @@ class Voice(QObject):
 		""" Says each sentence once it is synthesized, the next one being synthesized while it plays. """
 		if not self.engine and not engine_answers():
 			self.engine = start_engine()
-		with ThreadPoolExecutor(max_workers=1) as synthesizer:
+		chunk = round(CHUNK_S * RATE)
+		with (
+			ThreadPoolExecutor(max_workers=1) as synthesizer,
+			sd.OutputStream(samplerate=RATE, channels=1, dtype="float32") as stream,
+		):
 			for sentence in [synthesizer.submit(synthesize, text, style) for text in SENTENCE.findall(japanese)]:
 				timing, wav = sentence.result()
-				sound, rate = sf.read(io.BytesIO(wav), dtype="float32")
-				chunk = round(CHUNK_S * rate)
-				with sd.OutputStream(samplerate=rate, channels=1, dtype="float32") as stream:
-					self.started.emit(timing)
-					for start in range(0, len(sound), chunk):
-						if self.hushed.is_set():
-							synthesizer.shutdown(cancel_futures=True)
-							return
-						stream.write(sound[start:start + chunk])
+				sound, _rate = sf.read(io.BytesIO(wav), dtype="float32")
+				self.started.emit(timing)
+				for start in range(0, len(sound), chunk):
+					if self.hushed.is_set():
+						synthesizer.shutdown(cancel_futures=True)
+						return
+					stream.write(sound[start:start + chunk])
 
 
 # Functions
