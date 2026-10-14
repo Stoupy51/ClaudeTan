@@ -1,11 +1,14 @@
 """ A spoken request kept open across pauses until its closing words or a long silence. """
 # Imports
+import numpy as np
 import pytest
 
 import claudetan.config
 from claudetan import i18n
 from claudetan.config import DEFAULTS, Config
 from claudetan.i18n import tr
+from claudetan.voice import listener as listener_module
+from claudetan.voice.audio import RATE, Speech
 from claudetan.voice.listener import Listener
 
 
@@ -80,4 +83,15 @@ def test_her_lines_follow_the_language_of_what_is_said_to_her_only(monkeypatch: 
 
 	voice.hear("Hey Claude, set a timer for 5 minutes.", "en", ended=True)
 	assert i18n.heard == "en"
+
+
+def test_on_the_cpu_whisper_hears_only_the_sentences_she_listens_to(monkeypatch: pytest.MonkeyPatch) -> None:
+	monkeypatch.setattr(listener_module, "GPU", False)
+	voice = listener([], monkeypatch)
+	sentence = np.zeros(2 * RATE, np.float32)
+	assert not voice.transcribes(Speech(audio=sentence, ended=True))
+
+	voice.wake()
+	assert voice.transcribes(Speech(audio=sentence, ended=True))
+	assert not voice.transcribes(Speech(audio=sentence, ended=False))
 

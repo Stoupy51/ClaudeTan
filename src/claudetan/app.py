@@ -31,7 +31,7 @@ from claudetan.overlay.tray import Tray
 from claudetan.report import Report
 from claudetan.services import claude
 from claudetan.session import HookServer, JsonDict, Session
-from claudetan.voice.audio import microphone
+from claudetan.voice.audio import GPU, microphone
 from claudetan.voice.listener import FOLLOW_UP_S, Listener
 
 # Constants
@@ -434,7 +434,7 @@ def report_ready(session: Session, listener: Listener) -> None:
 	else:
 		stp.warning("Claude Code did not start Remote Control: run uv run claudetan-setup, then start the app again", file=sys.stdout)
 	if listener.loaded.wait(STARTUP_S):
-		stp.info("Whisper runs on the GPU")
+		stp.info("Whisper runs on the GPU" if GPU else "Whisper runs on the CPU, after the wake phrase only")
 	else:
 		stp.warning("Whisper did not load", file=sys.stdout)
 	stp.info(f"Log: {stp.CYAN}{LOG_FILE}")

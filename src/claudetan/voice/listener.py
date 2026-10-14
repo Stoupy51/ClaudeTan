@@ -10,7 +10,8 @@ from PySide6.QtCore import QObject, Signal
 from claudetan import i18n
 from claudetan.actions import route
 from claudetan.config import Config
-from claudetan.voice.audio import Audio, load_whisper, utterances
+from claudetan.voice.audio import GPU, RATE, Audio, Speech, load_whisper, utterances
+from claudetan.voice.wake import spot_wake
 
 # Constants
 SENTENCES: re.Pattern[str] = re.compile(r"(?<=[.!?])\s+")
@@ -46,10 +47,14 @@ class Listener(QObject):
 
 	def run(self, frames: Iterator[Audio]) -> None:
 		whisper = load_whisper()
+		if not GPU:
+			frames = spot_wake(frames, self.wake)
 		self.loaded.set()
 		for speech in utterances(frames, self.config.pause_s):
 			if speech is None:
 				self.send()
+				continue
+			if not self.transcribes(speech):
 				continue
 			segments, info = whisper.transcribe(
 				speech.audio, language=self.config.language, beam_size=1, condition_on_previous_text=False,
@@ -66,9 +71,7 @@ class Listener(QObject):
 		match = self.config.wake.match(text)
 		if match:
 			i18n.heard = language
-			if time.monotonic() > self.awake_until:
-				self.woke.emit()
-			self.awake_until = time.monotonic() + FOLLOW_UP_S
+			self.wake()
 
 		command = match.group(1) if match else text
 		if ended and command and (self.request or time.monotonic() < self.awake_until):
@@ -76,6 +79,19 @@ class Listener(QObject):
 			for part in SENTENCES.split(command):
 				self.add(part)
 			self.awake_until = 0.0
+
+	def wake(self) -> None:
+		""" She is called, by the wake phrase Whisper heard or the one `spot_wake` caught in the sound before Whisper had it. """
+		if time.monotonic() > self.awake_until:
+			self.woke.emit()
+		self.awake_until = time.monotonic() + FOLLOW_UP_S
+
+	def transcribes(self, speech: Speech) -> bool:
+		""" Whether Whisper hears the sentence: any on the GPU, only the ended ones that start while she listens on the CPU. """
+		if GPU:
+			return True
+		started = time.monotonic() - len(speech.audio) / RATE
+		return speech.ended and (self.asking or bool(self.request) or started < self.awake_until)
 
 	def verdict(self, text: str) -> bool | None:
 		if self.config.allow.fullmatch(text):

@@ -5,6 +5,7 @@ import queue
 from collections.abc import Iterator
 from dataclasses import dataclass
 
+import ctranslate2
 import numpy as np
 import soundcard as sc
 import sounddevice as sd
@@ -18,6 +19,8 @@ FRAME: int = 512
 """ Samples per VAD step, the window Silero expects at 16 kHz (32 ms). """
 EARLY_CHECK_FRAMES: int = 40
 """ Length (1.3 s) at which a sentence still being spoken is transcribed once, so she reacts to the wake phrase before it ends. """
+GPU: bool = ctranslate2.get_cuda_device_count() > 0
+""" Whether an NVIDIA GPU runs Whisper. The CPU, 30 times slower, runs a smaller model, and only after the wake phrase. """
 
 
 # Classes
@@ -31,8 +34,13 @@ class Speech:
 # Functions
 @functools.cache
 def load_whisper() -> WhisperModel:
-	""" Whisper on the GPU, shared by every caller and downloaded from Hugging Face on the first call (1.6 GB). """
-	return WhisperModel("large-v3-turbo", device="cuda", compute_type="int8_float16")
+	""" Whisper, shared by every caller and downloaded from Hugging Face on the first call: 1.6 GB on the GPU, 0.5 GB on the CPU.
+
+	On the CPU, `small` takes 4 s a sentence where `large-v3-turbo` takes 20, and `base` mistakes French for other languages.
+	"""
+	if GPU:
+		return WhisperModel("large-v3-turbo", device="cuda", compute_type="int8_float16")
+	return WhisperModel("small", device="cpu", compute_type="int8")
 
 
 def microphone() -> Iterator[Audio]:

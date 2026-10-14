@@ -7,6 +7,7 @@ language = "auto"
 
 # Wake phrase, matched ignoring case at the start of each sentence as Whisper spells it ("Hé Claude" often comes out as "Et Claude").
 # Its first group is the command said in the same breath.
+# Without an NVIDIA GPU, a small model listens for "Hey Claude" before Whisper hears anything, so changing this key does not change what wakes her.
 wake = '^\W*(?:hey|hé|he|eh|et|dis|ok|okay)\W+(?:claude|clode|clod|clodo|clown)\b[\s,.!?]*(.*)'
 
 # You may pause while you speak: she sends your request after this many seconds of silence,

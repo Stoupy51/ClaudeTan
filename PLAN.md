@@ -9,7 +9,7 @@ Personnage tiré de la vidéo https://www.youtube.com/watch?v=_m38WbRlzv0 (Brigh
 
 | Sujet | Choix |
 | :- | :- |
-| Mot d'activation | Whisper transcrit chaque phrase et une regex repère "Hey Claude" (FR et EN). Un vrai modèle de mot d'activation viendra plus tard. Le GPU travaille dès que quelqu'un parle près du micro, vidéos comprises. |
+| Mot d'activation | Sur GPU, Whisper transcrit chaque phrase et une regex repère "Hey Claude" (FR et EN) : le GPU travaille dès que quelqu'un parle près du micro, vidéos comprises. Sans GPU NVIDIA, le détecteur de mots-clés de sherpa-onnx repère "Hey Claude" et Whisper `small` ne transcrit que ce qui suit. |
 | Réponse | Bulle de texte et voix (TTS). La voix parle japonais par défaut, sous-titrée par la bulle. Sa langue se règle dans la config, où elle se coupe aussi. Voir [Voix japonaise](#voix-japonaise). |
 | Permissions | Session en `--permission-mode auto`. Ce que le classifieur bloque passe par Claude-tan ou par le Remote Control. |
 | Conversation | Persistante (`--resume` de la conversation dont l'app garde l'id), compactée (`/compact`) à l'arrêt de l'app et après 55 min sans activité. |
@@ -64,7 +64,7 @@ En japonais, la voix vient de VOICEVOX, un moteur local aux voix d'anime piloté
 
 Une seule app Python (PySide6) en six parties :
 
-- **voice** : micro, Silero VAD, faster-whisper sur le GPU, regex du mot d'activation. Produit une commande texte.
+- **voice** : micro, Silero VAD, faster-whisper sur le GPU (ou `small` sur le CPU derrière le détecteur de `wake.py`), regex du mot d'activation. Produit une commande texte.
 - **router** : décide si la commande est une action locale ou part dans la session (règles exactes, puis petit modèle local).
 - **actions** : le registre d'actions, utilisé par le routeur et, via MCP, par Claude.
 - **session** : Claude Code dans un pseudo-terminal caché (pywinpty) avec `--remote-control` et des hooks HTTP vers l'app. Les commandes y sont tapées comme au clavier.
@@ -116,7 +116,8 @@ Ce que montre Claude-tan à chaque étape :
 - [x] Config TOML dans `%APPDATA%\ClaudeTan\config.toml`, copiée au premier lancement : langue et regex d'activation. Les modèles y entrent avec la session, la voix avec le TTS.
 - [x] Claude-tan revient où on l'a déposée. Si cet écran est débranché, elle apparaît sur l'écran principal sans oublier sa place, et y retourne quand il est rebranché.
 - [x] Icône de notification, avec le même menu au clic gauche et au clic droit, et démarrage avec Windows.
-- [x] README et `uv run claudetan-setup` : Whisper téléchargé et testé sur le GPU, puis, au besoin, connexion à Claude Code et dialogue de confiance du dossier, que le script ouvre et où l'utilisateur répond.
+- [x] Sans GPU NVIDIA : `large-v3-turbo` prend 20 s par phrase sur un Ryzen 5 3600, contre 0,6 s sur GPU. L'app passe alors à Whisper `small` (3,7 s) et ne le lance qu'après "Hey Claude", repéré pendant la phrase par le détecteur de mots-clés de sherpa-onnx (modèle anglais de 3,3 M paramètres, 2,5 % d'un cœur, sans entraînement). Les prononciations sont écrites dans ses jetons dans `wake.py`, dont "a clode", seule façon pour ce modèle anglais d'entendre le "Hé Claude" d'une voix française. Sur des voix de synthèse : 6 réveils sur 7 et aucune fausse alerte sur 6 phrases. Reste à mesurer sur une vraie voix et sur une heure de vidéo pour les fausses alertes.
+- [x] README et `uv run claudetan-setup` : Whisper téléchargé et testé sur le GPU (ou sur le CPU avec le détecteur), puis, au besoin, connexion à Claude Code et dialogue de confiance du dossier, que le script ouvre et où l'utilisateur répond.
 
 ### 2. Avatar
 
@@ -163,7 +164,7 @@ Ce que montre Claude-tan à chaque étape :
 
 - [ ] Page web pour parler à Claude-tan depuis l'iPhone (voix et avatar), joignable via Tailscale.
 - [ ] Channels (serveur MCP) quand la fonction sortira de la research preview, pour ne plus taper dans le terminal.
-- [ ] Modèle de mot d'activation dédié en FR (livekit-wakeword), pour ne plus réveiller Whisper à chaque phrase.
+- [ ] Sur GPU aussi, le détecteur de `wake.py` devant Whisper, pour ne plus le réveiller à chaque phrase, une fois mesuré sur une vraie voix.
 
 ## Sprites
 
@@ -232,7 +233,7 @@ Les quatre acceptent le mode `auto`. Les demandes simples ne consomment rien : l
 - `--agents` passe par `cmd.exe` avec le reste de la commande : le texte de l'agent ne doit contenir aucun de `& | < > ^ % ( )`.
 - Un `/compact` tapé ne déclenche pas `UserPromptSubmit` : seulement `PreCompact` et `PostCompact` (`trigger: manual`), avec un `SubagentStop` sans `SubagentStart` pour l'agent qui résume. Claude Code compacte aussi seul pendant un tour (`trigger: auto`).
 - Channels exige `--dangerously-load-development-channels`, qui pose une question interactive : inutilisable en session cachée pour l'instant.
-- Whisper : `large-v3-turbo` (0,5 s) ou `small` (0,2 s) en `int8_float16` sur CUDA, `beam_size=1`, `condition_on_previous_text=False`, audio passé en numpy (le décodage par PyAV plante). cuDNN vient de la roue de ctranslate2, cuBLAS du CUDA Toolkit 12 sur le PATH.
+- Whisper : `large-v3-turbo` (0,5 s) ou `small` (0,2 s) en `int8_float16` sur CUDA, 20 s et 3,7 s en `int8` sur le CPU (`base`, 1,2 s, y prend du français pour de l'hébreu), `beam_size=1`, `condition_on_previous_text=False`, audio passé en numpy (le décodage par PyAV plante). cuDNN vient de la roue de ctranslate2, cuBLAS du CUDA Toolkit 12 sur le PATH.
 - Silero VAD : trames de 512 échantillons à 16 kHz, sortie 1-D.
 - Picovoice n'a plus d'offre gratuite et le modèle openWakeWord "hey claude" n'existe qu'en anglais.
 - Mesuré : démarrage de session 5,5 s, réponse simple 2,3 s, tour avec un outil 8,5 s.

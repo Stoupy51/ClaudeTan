@@ -15,7 +15,7 @@ https://github.com/user-attachments/assets/84a558a3-62a4-4e16-9a47-94099be6e3ad
 ## 📋 Requirements
 
 - Windows 10 or 11 and a microphone.
-- An NVIDIA GPU with the CUDA 12 runtime, which the [CUDA Toolkit 12](https://developer.nvidia.com/cuda-downloads) installs, for Whisper.
+- Preferably an NVIDIA GPU with the CUDA 12 runtime, which the [CUDA Toolkit 12](https://developer.nvidia.com/cuda-downloads) installs, for Whisper. Without one, it runs on the CPU: see [Without an NVIDIA GPU](#without-an-nvidia-gpu).
 - [uv](https://docs.astral.sh/uv/getting-started/installation/), which installs Python 3.14 by itself.
 - [Claude Code](https://code.claude.com/docs/en/setup), signed in with a Claude Pro or Max subscription.
 
@@ -27,7 +27,7 @@ cd ClaudeTan
 uv run claudetan-setup
 ```
 
-The setup installs the dependencies, downloads Whisper (1.6 GB) and runs it once on the GPU.
+The setup installs the dependencies, downloads Whisper (1.6 GB, or 0.5 GB and the wake phrase spotter without an NVIDIA GPU) and runs it once.
 Then, only when needed, it opens Claude Code's sign-in page, and Claude Code itself in this folder so that you trust it:
 pick *Yes, I trust this folder*, then type `/exit`. This dialog is Claude Code's safety check before it works in a folder, so the app never answers it for you.
 
@@ -67,6 +67,12 @@ You may pause while you speak: she sends your request after 15 s of silence, or 
 - A click on her opens Claude Code's Remote Control on claude.ai, a long press lets you drag her.
 - Dropped on a second screen, she comes back there, and shows up on the main screen while it is unplugged.
 - Her tray icon, with a left or a right click, opens the session, the config or the log of what she heard and did, toggles the start with Windows, and quits.
+
+### Without an NVIDIA GPU
+
+Whisper's model takes 20 s a sentence on a 6-core CPU, against 0.6 s on a GPU, so the app switches to a lighter setup by itself:
+a small model of [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) listens for *"Hey Claude"* on 2.5 % of one core, and Whisper's `small` model only transcribes what you say after it.
+She then answers about 4 s after you stop speaking instead of 1 s, mishears more words, and wakes on the usual ways to say *"Hey Claude"* in English or French, whatever the `wake` key of the config says.
 
 ## ⚙️ Configuration
 

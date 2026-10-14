@@ -1,4 +1,4 @@
-""" One-time setup, run with `uv run claudetan-setup`: prepares Whisper, then readies Claude Code. """
+""" One-time setup, run with `uv run claudetan-setup`: prepares Whisper and, on a CPU, the wake phrase spotter, then Claude Code. """
 # Imports
 import json
 import shutil
@@ -10,16 +10,21 @@ import stouputils as stp
 
 from claudetan.config import ROOT
 from claudetan.console import enable_colors
-from claudetan.voice.audio import RATE, load_whisper
+from claudetan.voice.audio import GPU, RATE, load_whisper
+from claudetan.voice.wake import load_spotter
 
 
 # Functions
 def main() -> None:
 	enable_colors()
-	stp.progress("Downloading Whisper (1.6 GB the first time) and running it once on the GPU...")
+	device = "GPU" if GPU else "CPU, as no NVIDIA GPU was found"
+	stp.progress(f"Downloading Whisper ({'1.6' if GPU else '0.5'} GB the first time) and running it once on the {device}...")
 	segments, _ = load_whisper().transcribe(np.zeros(RATE, np.float32), language="en")
 	list(segments)
-	stp.info("Whisper runs on the GPU")
+	if not GPU:
+		stp.progress("Downloading the wake phrase spotter (18 MB the first time)...")
+		load_spotter()
+	stp.info(f"Whisper runs on the {device}")
 
 	if not shutil.which("claude"):
 		stp.warning(f"Install Claude Code, then run this setup again: {stp.CYAN}https://code.claude.com/docs/en/setup")
