@@ -8,8 +8,9 @@ from PySide6.QtWidgets import QApplication
 from stouputils.typing import JsonDict
 
 from claudetan import i18n
-from claudetan.actions import ALARMS, find, route
+from claudetan.actions import find, route
 from claudetan.services import claude, programs, weather
+from claudetan.services.alarms import ALARMS
 
 
 # Functions

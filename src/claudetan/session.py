@@ -32,6 +32,12 @@ SYSTEM_PROMPT: str = (
 	"use them rather than writing scripts.\n"
 )
 """ What the app tells the session about itself, before the user's additions from the config. """
+REVIEW_CHANGES: str = "Never commit your changes to ClaudeTan's own code: the user reviews and commits them.\n"
+""" What the session does with its changes to the app's code while `commit_changes` is off. """
+COMMIT_CHANGES: str = (
+	"Commit each change you make to ClaudeTan's own code, on the branch checked out, with a short conventional commit message: "
+	"the user allows it here, whatever their CLAUDE.md says.\n"
+)
 WORKER_DESCRIPTION: str = (
 	"Handles complicated requests in the background: writing or changing code, research, and tasks with several steps. "
 	"Hand such requests to it so that you stay free for quick ones, and tell the user when it has started."
@@ -115,7 +121,7 @@ class Session(QObject):
 	def start(self, config: Config) -> None:
 		""" Starts Claude Code with the config's models and prompt, which it reads only then, resuming the conversation if any. """
 		prompt = APP_DATA / "session_prompt.md"
-		prompt.write_text(system_prompt(config.prompt), encoding="utf-8")
+		prompt.write_text(system_prompt(config.prompt, commit=config.commit_changes), encoding="utf-8")
 		worker = {"description": WORKER_DESCRIPTION, "prompt": WORKER_PROMPT, "model": config.agent_model, "background": True}
 		resume = ["--resume", self.id] if self.id else ["--session-id", str(uuid.uuid4())]
 		tools = json.dumps({"mcpServers": {"claudetan": {"type": "http", "url": self.tools_url}}})
@@ -202,15 +208,16 @@ def wait_for_answer(ask: SignalInstance) -> bytes:
 	return json.dumps({"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": decision}}).encode()
 
 
-def system_prompt(additions: str) -> str:
-	""" Text for `--append-system-prompt-file`: `SYSTEM_PROMPT`, then the user's additions when there are any.
+def system_prompt(additions: str, *, commit: bool) -> str:
+	""" Text for `--append-system-prompt-file`: `SYSTEM_PROMPT`, the rule on committing, then the user's additions when there are any.
 
-	>>> system_prompt("\\n") == SYSTEM_PROMPT
+	>>> system_prompt("\\n", commit=False) == SYSTEM_PROMPT + REVIEW_CHANGES
 	True
-	>>> system_prompt("Mes jeux sont dans E:/Games.\\n").removeprefix(SYSTEM_PROMPT)
+	>>> system_prompt("Mes jeux sont dans E:/Games.\\n", commit=True).removeprefix(SYSTEM_PROMPT + COMMIT_CHANGES)
 	'\\nMes jeux sont dans E:/Games.'
 	"""
-	return f"{SYSTEM_PROMPT}\n{additions.strip()}" if additions.strip() else SYSTEM_PROMPT
+	base = SYSTEM_PROMPT + (COMMIT_CHANGES if commit else REVIEW_CHANGES)
+	return f"{base}\n{additions.strip()}" if additions.strip() else base
 
 
 def context_tokens(transcript: Path) -> int:

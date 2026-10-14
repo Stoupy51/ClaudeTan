@@ -1,6 +1,7 @@
 """ ClaudeTan: Claude-tan reacting to what she hears and to the hidden Claude Code session, through its hook events. """
 # Imports
 import logging
+import os
 import re
 import signal
 import subprocess
@@ -20,16 +21,19 @@ from PySide6.QtCore import QFileSystemWatcher, QObject, QPoint, QTimer, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
-from claudetan.actions import ALARMS, Action, chosen_model, find, route
+from claudetan import actions
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
 from claudetan.i18n import tr
+from claudetan.launcher import CHANGED, READY, RESTART, SET_ASIDE
 from claudetan.mcp import ActionServer
 from claudetan.overlay.avatar import Avatar, Pill, chime
 from claudetan.overlay.bubble import plain
 from claudetan.overlay.tray import Tray
+from claudetan.reload import Reloader
 from claudetan.report import Report
 from claudetan.services import claude
+from claudetan.services.alarms import ALARMS
 from claudetan.session import HookServer, JsonDict, Session
 from claudetan.voice.audio import GPU, microphone
 from claudetan.voice.listener import FOLLOW_UP_S, Listener
@@ -56,10 +60,8 @@ COMPACT_TIMEOUT_MS: int = 180_000
 """ How long quitting waits for the session's compaction. """
 INSTANCE_NAME: str = "ClaudeTan"
 """ Local server of the running app: a new one connects to it to have it quit. """
-SESSION_KEYS: frozenset[str] = frozenset({"agent_model", "prompt"})
+SESSION_KEYS: frozenset[str] = frozenset({"agent_model", "prompt", "commit_changes"})
 """ Settings Claude Code reads only when it starts, applied by restarting the session on the same conversation. """
-READY: str = "ready\n"
-""" Last line the background app writes to `main`, which returns on it: the venv's launcher keeps the pipe open after it. """
 
 
 # Classes
@@ -76,11 +78,13 @@ class Assistant(QObject):
 	announced = Signal(object)
 	""" Something to tell the user, from a thread that had to wait for it. """
 	restart = Signal()
+	""" The session starts again: `SESSION_KEYS` settings changed while she was free, or she was told to stop everything. """
+	free = Signal()
+	""" Nothing runs any more and she has left: the moment to apply a change to the app's code. """
 	speak = Signal(str, int)
 	""" A line to say aloud, with the VOICEVOX style of the config, emitted only while her voice is on. """
 	hush = Signal()
 	""" She is called while her voice may still be saying something. """
-	""" The session starts again: `SESSION_KEYS` settings changed while she was free, or she was told to stop everything. """
 
 	def __init__(self, avatar: Avatar, pill: Pill, config: Config) -> None:
 		super().__init__()
@@ -156,7 +160,7 @@ class Assistant(QObject):
 
 	def on_command(self, text: str) -> None:
 		LOG.info("Heard: %s", text)
-		if routed := route(text):
+		if routed := actions.route(text):
 			action, arguments = routed
 			LOG.info("Local action: %s", action.name)
 			said = self.run_action(action, arguments)
@@ -170,13 +174,13 @@ class Assistant(QObject):
 		self.commands.append(text)
 		self.flush()
 
-	def run_action(self, action: Action, arguments: Mapping[str, str | None]) -> str | Report:
+	def run_action(self, action: actions.Action, arguments: Mapping[str, str | None]) -> str | Report:
 		""" Carries the action out, whoever asked, and returns what it says about it. """
 		text = action.run(arguments)
 		match action.name:
 			case "stop_all":
 				self.stop_all()
-			case "model" if model := chosen_model(arguments):
+			case "model" if model := actions.chosen_model(arguments):
 				self.switch_model(model)
 			case _:
 				pass
@@ -188,7 +192,7 @@ class Assistant(QObject):
 
 	def announce(self, action: str) -> None:
 		""" Has her tell what the action says, carried out on a thread since the Qt one would freeze while it waits for `claude`. """
-		threading.Thread(target=lambda: self.announced.emit(find(action).run({})), daemon=True).start()
+		threading.Thread(target=lambda: self.announced.emit(actions.find(action).run({})), daemon=True).start()
 
 	def on_announce(self, text: str | Report) -> None:
 		self.appear("present", bubble=text)
@@ -200,7 +204,7 @@ class Assistant(QObject):
 		self.appear("present", bubble=done if label else tr("Your timer is done.", "Ton minuteur est terminé."))
 		self.dismiss.start(HEARD_MS)
 
-	def on_tool_call(self, action: Action, arguments: dict[str, str], text: Future[str]) -> None:
+	def on_tool_call(self, action: actions.Action, arguments: dict[str, str], text: Future[str]) -> None:
 		""" The session called the action as a tool: she does it without interrupting what she shows. """
 		LOG.info("Tool called: %s", action.name)
 		text.set_result(str(self.run_action(action, arguments)))
@@ -330,6 +334,16 @@ class Assistant(QObject):
 		self.dismiss.start(reading_ms(error))
 		self.flush()
 
+	def on_set_aside(self, reason: str) -> None:
+		""" A change to the app's code broke it, and was put aside in git. """
+		said = tr(
+			f"A change to my code broke me, so I put it aside in git: {reason}",
+			f"Un changement de mon code me cassait, je l'ai mis de côté dans git : {reason}",
+		)
+		self.appear("sad", bubble=said)
+		self.dismiss.start(reading_ms(said))
+		self.say_aloud(said)
+
 	def say_aloud(self, text: str) -> None:
 		if self.config.voice:
 			self.speak.emit(text, self.config.voice_style)
@@ -367,6 +381,7 @@ class Assistant(QObject):
 		if self.restart_pending:
 			self.restart_pending = False
 			self.restart.emit()
+		self.free.emit()
 
 	def on_idle(self) -> None:
 		if not self.busy:
@@ -418,7 +433,7 @@ def main() -> None:
 	stp.progress("Starting ClaudeTan, which takes about 15 s...")
 	# A gui-script would not do: uv makes the venv's pythonw.exe a copy of the console python.exe, which opens a window
 	app = subprocess.Popen(
-		[sys.executable, "-m", "claudetan.app"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+		[sys.executable, "-m", "claudetan.launcher"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
 		text=True, creationflags=subprocess.CREATE_NO_WINDOW,
 	)
 	assert app.stdout
@@ -459,6 +474,12 @@ def report_ready(session: Session, listener: Listener) -> None:
 		stp.warning("Whisper did not load", file=sys.stdout)
 	stp.info(f"Log: {stp.CYAN}{LOG_FILE}")
 	print(READY, end="", flush=True)
+
+
+def restart(app: QApplication, change: str) -> None:
+	""" Quits for the launcher to start the app again on its changed code. """
+	print(CHANGED + change, flush=True)
+	app.exit(RESTART)
 
 
 def shut_down(app: QApplication, tray: Tray, assistant: Assistant, session: Session) -> None:
@@ -520,6 +541,12 @@ def run() -> None:
 	assistant.send.connect(session.send)
 	assistant.idle.connect(session.compact)
 	app.aboutToQuit.connect(session.close)
+	reloader = Reloader()
+	hooks.posted.connect(reloader.on_hook)
+	assistant.free.connect(reloader.apply)
+	reloader.tools_changed.connect(assistant.restart)
+	reloader.broken.connect(assistant.on_set_aside)
+	reloader.restart.connect(partial(restart, app))
 	voice = Voice(config.voice_style if config.voice else None)
 	assistant.speak.connect(voice.say)
 	assistant.hush.connect(voice.hush)
@@ -540,6 +567,8 @@ def run() -> None:
 	saved.timeout.connect(partial(reload_config, watcher, listener, assistant))
 	watcher.fileChanged.connect(lambda: saved.start())
 	threading.Thread(target=listener.run, args=(microphone(),), daemon=True).start()
+	if set_aside := os.environ.get(SET_ASIDE):
+		assistant.on_set_aside(set_aside)
 	report_ready(session, listener)
 	sys.exit(app.exec())
 

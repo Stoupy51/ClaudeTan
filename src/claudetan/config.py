@@ -49,6 +49,8 @@ class Config:
 	""" Model of the hidden session, as `claude --model` takes it. """
 	agent_model: str
 	""" Model of the agent the session hands complicated requests to. """
+	commit_changes: bool
+	""" Whether the session commits its changes to the app's code itself, rather than leaving them for the user to review. """
 	avatar_zoom: float
 	""" Size of Claude-tan and her pill, 1 for their default size. """
 	text_zoom: float
@@ -83,6 +85,7 @@ class Config:
 			prompt=values["prompt"],
 			model=values["model"],
 			agent_model=values["agent_model"],
+			commit_changes=values["commit_changes"],
 			avatar_zoom=values["avatar_zoom"],
 			text_zoom=values["text_zoom"],
 			typing_speed=values["typing_speed"],

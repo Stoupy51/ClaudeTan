@@ -8,7 +8,7 @@ from typing import Any, override
 
 from PySide6.QtCore import QObject, Signal, SignalInstance
 
-from claudetan.actions import ACTIONS, Action, find
+from claudetan import actions
 from claudetan.session import JsonDict
 
 # Constants
@@ -19,7 +19,7 @@ CALL_TIMEOUT_S: float = 30.0
 # Classes
 class ActionServer(QObject):
 	""" Answers the session's MCP requests, relaying each tool call to the Qt thread, where actions must run. """
-	called = Signal(Action, dict, Future)
+	called = Signal(actions.Action, dict, Future)
 	""" An action to run with its arguments, and the future its text is set on. """
 
 	def __init__(self) -> None:
@@ -63,7 +63,7 @@ def answer(request: JsonDict, relay: SignalInstance) -> JsonDict | None:
 				"serverInfo": {"name": "claudetan", "version": "1"},
 			}
 		case "tools/list":
-			result = {"tools": [tool(action) for action in ACTIONS]}
+			result = {"tools": [tool(action) for action in actions.ACTIONS]}
 		case "tools/call":
 			result = call(request["params"], relay)
 		case "ping":
@@ -73,13 +73,13 @@ def answer(request: JsonDict, relay: SignalInstance) -> JsonDict | None:
 	return {"jsonrpc": "2.0", "id": request["id"], "result": result}
 
 
-def tool(action: Action) -> JsonDict:
+def tool(action: actions.Action) -> JsonDict:
 	properties = {name: {"type": "string", "description": text} for name, text in action.parameters.items()}
 	return {"name": action.name, "description": action.description, "inputSchema": {"type": "object", "properties": properties}}
 
 
 def call(params: JsonDict, relay: SignalInstance) -> JsonDict:
-	action = find(params["name"])
+	action = actions.find(params["name"])
 	arguments = {name: str(value) for name, value in params.get("arguments", {}).items()}
 	text: Future[str] = Future()
 	relay.emit(action, arguments, text)

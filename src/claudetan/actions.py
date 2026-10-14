@@ -14,8 +14,8 @@ from claudetan.config import Config
 from claudetan.i18n import tr
 from claudetan.report import Report
 from claudetan.services import claude, discord, programs, weather
-from claudetan.services.alarms import Alarms
-from claudetan.voice.meeting import Meeting
+from claudetan.services.alarms import ALARMS
+from claudetan.voice.meeting import MEETING
 
 
 # Classes
@@ -40,10 +40,6 @@ KEY_UP: int = 0x0002
 """ `KEYEVENTF_KEYUP`, the flag of a key release for `keybd_event`. """
 CURLY_APOSTROPHE: str = chr(0x2019)
 """ The apostrophe Whisper sometimes writes, turned into a straight one before matching phrases. """
-ALARMS: Alarms = Alarms()
-""" The timers set by voice or by the session. """
-MEETING: Meeting = Meeting()
-""" The one meeting transcription, started and stopped by voice. """
 UNITS: dict[str, int] = {"s": 1, "m": 60, "h": 3600}
 """ Seconds in a unit of time, by its first letter. """
 SCREENS: dict[str, int] = {"1": 1, "un": 1, "one": 1, "2": 2, "deux": 2, "two": 2, "3": 3, "trois": 3, "three": 3}

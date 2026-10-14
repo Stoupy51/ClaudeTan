@@ -7,8 +7,7 @@ from collections.abc import Iterator
 
 from PySide6.QtCore import QObject, Signal
 
-from claudetan import i18n
-from claudetan.actions import route
+from claudetan import actions, i18n
 from claudetan.config import Config
 from claudetan.voice.audio import GPU, RATE, Audio, Speech, load_whisper, utterances
 from claudetan.voice.wake import spot_wake
@@ -110,7 +109,7 @@ class Listener(QObject):
 		elif self.config.done.search(request):
 			self.request = [self.config.done.sub("", request)]
 			self.send()
-		elif route(request):
+		elif actions.route(request):
 			self.send()
 		else:
 			self.dictated.emit(request)

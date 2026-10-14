@@ -31,18 +31,18 @@ La session principale délègue les tâches compliquées (code, recherche, plusi
 
 Un registre d'actions Python, chacune avec un nom, une description, ses paramètres et des exemples de phrases :
 
-- capture de l'écran 1 ou 2 (mss), analysée par un modèle de vision local ou par Claude selon la config ;
+- capture de l'écran 1 ou 2 (mss) ;
 - raccourci clavier, par exemple Alt+F10 pour l'enregistrement instantané ShadowPlay (à tester : NVIDIA accepte-t-il une touche simulée par SendInput) ;
 - lancer une app, météo du jour (Open-Meteo, sans clé), minuteur ;
 - usage du forfait (fenêtre de 5 h, semaine) et tokens de la session, lus dans les données de la statusline (voir [Notes techniques](#notes-techniques)).
 
-Un routeur choisit qui répond, du moins cher au plus cher : des règles exactes pour les phrases connues, puis un petit modèle local avec appel de fonctions via Ollama (à réinstaller, il n'est plus sur le disque ; Qwen3 4B ou équivalent tient en 3 Go de VRAM environ à côté de Whisper), puis Claude pour tout le reste. Claude appelle les mêmes actions par un serveur MCP local, donc chaque outil ajouté sert aux deux.
+Un routeur choisit qui répond : des règles exactes pour les phrases connues, puis Claude pour tout le reste. Pas de petit modèle local entre les deux, ni de modèle de vision local pour les captures : ils prendraient trop de ressources à côté de Whisper et des jeux. Claude appelle les mêmes actions par un serveur MCP local, donc chaque outil ajouté sert aux deux.
 
 ### Auto-amélioration
 
-La session cachée travaille dans le repo ClaudeTan. "Crée-toi un outil pour X" devient une nouvelle action que Claude écrit dans le registre, avec sa description et un test, validée par ruff, pyright et stouputils check. Un `CLAUDE.md` explique à la session comment faire. L'app recharge le registre à chaud et ne se relance, en reprenant la session, que si son cœur a changé. Un lanceur minimal surveille cette relance : si l'app plante juste après un changement, il annule ce changement (`git stash` ou `git revert`), relance l'app et prévient, sans quoi l'assistant cassé ne pourrait plus se réparer lui-même.
+La session cachée travaille dans le repo ClaudeTan. "Crée-toi un outil pour X" devient une nouvelle action que Claude écrit dans le registre, avec sa description et un test, validée par ruff, pyright et stouputils check. Un `CLAUDE.md` explique à la session comment faire. L'app recharge à chaud ce qui a changé et ne se relance, en reprenant la session, que si son cœur a changé. Un lanceur minimal surveille cette relance : si l'app plante juste après un changement, il annule ce changement (`git stash` ou `git revert`), relance l'app et prévient, sans quoi l'assistant cassé ne pourrait plus se réparer lui-même.
 
-Le mode se règle dans la config : changements laissés à relire, commités sur une branche dédiée, ou "auto-suffisant", commités directement sur main sans relecture. "À relire" reste le défaut tant que le lanceur n'existe pas. `~/.claude/CLAUDE.md` interdit de commiter sans demande : l'app donne donc le mode à la session cachée par `--append-system-prompt`, et non dans le CLAUDE.md du repo, que lisent aussi les sessions de développement.
+Le mode se règle dans la config (`commit_changes`) : changements laissés à relire, le défaut, ou commités par la session sur la branche en cours. `~/.claude/CLAUDE.md` interdit de commiter sans demande : l'app donne donc le mode à la session cachée par `--append-system-prompt`, et non dans le CLAUDE.md du repo, que lisent aussi les sessions de développement.
 
 ### Applications connectées
 
@@ -67,7 +67,7 @@ La voix vient de VOICEVOX, un moteur local aux voix d'anime piloté par une API 
 Une seule app Python (PySide6) en six parties :
 
 - **voice** : micro, Silero VAD, faster-whisper sur le GPU (ou `small` sur le CPU derrière le détecteur de `wake.py`), regex du mot d'activation. Produit une commande texte.
-- **router** : décide si la commande est une action locale ou part dans la session (règles exactes, puis petit modèle local).
+- **router** : décide si la commande est une action locale ou part dans la session (règles exactes, sinon Claude).
 - **actions** : le registre d'actions, utilisé par le routeur et, via MCP, par Claude.
 - **session** : Claude Code dans un pseudo-terminal caché (pywinpty) avec `--remote-control` et des hooks HTTP vers l'app. Les commandes y sont tapées comme au clavier.
 - **avatar** : l'overlay, qui montre où en est la demande par l'expression, la bulle et la voix.
@@ -133,9 +133,9 @@ Ce que montre Claude-tan à chaque étape :
 
 - [x] `CLAUDE.md` du repo : la disposition, comment ajouter une action avec son test, les contrôles.
 - [x] Config rechargée dès qu'elle est enregistrée, avec une réaction de Claude-tan : la voix et la taille tout de suite, le modèle par `/model`, le modèle du sous-agent et le prompt, que Claude Code ne lit qu'au démarrage, par une relance de la seule session sur la même conversation dès qu'elle n'a plus rien en cours.
-- [ ] Rechargement à chaud du registre, et relance de l'app avec reprise de la session quand son cœur change.
-- [ ] Lanceur qui annule le dernier changement et relance l'app quand elle plante juste après.
-- [ ] Mode dans la config : à relire (défaut tant que le lanceur manque), branche dédiée ou auto-suffisant (commits directs sur main), transmis à la session par `--append-system-prompt`.
+- [x] Rechargement à chaud (`reload.py`) des fichiers que la session cachée modifie (hooks `PostToolUse` de Edit et Write, donc pas tes propres modifications), une fois qu'elle n'a plus rien en cours. Un module qui prend des noms d'un autre par `from ... import` garde les anciens objets, donc il est rechargé avec lui. Si l'un d'eux est dans `LIVE` (fenêtres, session, micro, minuteurs), l'app se relance sur la même conversation. `actions.py` et les services se rechargent donc seuls, et la session est relancée quand la liste de ses outils change, car Claude Code ne la lit qu'au démarrage.
+- [x] Lanceur (`launcher.py`, qui n'importe rien de l'app) : relance l'app après un tel changement. Si elle ne démarre pas, ou si le rechargement à chaud échoue, les fichiers du changement sont mis de côté dans git (stash de ce qui n'est pas commité, revert des commits de la session depuis le dernier code chargé), puis elle redémarre et prévient.
+- [x] `commit_changes` dans la config : à relire (défaut) ou commits de la session sur la branche en cours, transmis par `--append-system-prompt`. Pas de branche dédiée : l'app tourne sur la branche checkout, donc une branche à part changerait la copie de travail ou ne s'appliquerait pas.
 
 ### 4. Actions locales
 
@@ -144,8 +144,6 @@ Ce que montre Claude-tan à chaque étape :
 - [x] ShadowPlay accepte le Alt+F10 simulé par `keybd_event`.
 - [x] Actions `timer`, `weather` (Open-Meteo, `city` de la config) et `launch_program` (raccourcis du menu Démarrer, par la session seulement : "ouvre" ne doit pas avaler "ouvre le site").
 - [x] Actions `context` et `plan_usage` (`services/claude.py`) : `claude -p "/context" --resume ... --fork-session` et `claude -p "/usage"`, sans rien taper dans la session cachée. Aussi dans le menu de l'icône.
-- [ ] Petit modèle local via Ollama entre les règles et Claude.
-- [ ] Analyse d'une capture par un modèle de vision local ou par Claude, au choix dans la config.
 - [x] Serveur MCP local (`mcp.py`, HTTP sur 127.0.0.1) : chaque action de `ACTIONS` est aussi un outil `mcp__claudetan__*` de la session, qui reçoit `--mcp-config` et `--allowedTools`.
 
 ### 5. Voix et contrôle
@@ -161,8 +159,7 @@ Ce que montre Claude-tan à chaque étape :
 ### 6. Applications connectées
 
 - [x] Action `discord_messages` (`discord.py`) : les derniers MP avec une personne, lus avec `discord_token` de la config, jamais envoyés.
-- [ ] Donner à la session cachée l'accès au navigateur de l'utilisateur (Claude in Chrome) pour lire les pages qui demandent une connexion, comme le portail de Survisland, au lieu de s'arrêter devant la page de connexion.
-- [ ] Piloter une application sans API, en dernier recours : capture et clics par vision, ou arbre d'accessibilité Windows (UI Automation, pauvre sur Electron). À décider avant : clics autorisés à chaque fois ou limités à certaines applications, car un mauvais clic peut envoyer ou supprimer.
+- [ ] Donner à la session cachée l'accès à toute application du PC, navigateur compris (comme le portail de Survisland, qui demande une connexion) : lire et piloter ce qui n'a pas d'API, par l'arbre d'accessibilité Windows (UI Automation, pauvre sur Electron) ou par des captures lues par Claude et des clics. À décider avant : clics autorisés à chaque fois ou limités à certaines applications, car un mauvais clic peut envoyer ou supprimer.
 
 ### 7. Plus tard
 

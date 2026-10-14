@@ -57,3 +57,8 @@ class Meeting:
 			with self.writing, self.path.open("a", encoding="utf-8") as file:
 				file.write(f"[{datetime.now():%H:%M:%S}] {speaker} : {text}\n")
 
+
+# Constants
+MEETING: Meeting = Meeting()
+""" The one meeting transcription, started and stopped by voice, kept here as the app restarts rather than reloads this module. """
+

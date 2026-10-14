@@ -12,3 +12,8 @@ class Alarms(QObject):
 		""" Rings after `seconds`, from the Qt thread. """
 		QTimer.singleShot(seconds * 1000, lambda: self.rang.emit(label))
 
+
+# Constants
+ALARMS: Alarms = Alarms()
+""" The timers set by voice or by the session, kept here as the app restarts rather than reloads this module. """
+

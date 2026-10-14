@@ -32,6 +32,11 @@ model = "sonnet"
 # Model of the agent the session hands complicated requests to, such as code, research or several steps, in the background
 agent_model = "opus"
 
+# When you ask her to change her own code: false leaves her changes for you to review and commit, true has her commit them herself.
+# She applies them once she has nothing running, reloading what changed or restarting on the same conversation.
+# A change that stops her from loading or starting is put aside in git (stashed, or her commits reverted), and she tells you.
+commit_changes = false
+
 # Size of Claude-tan on screen: 1 for the default size, 0.75 for a quarter smaller, 1.5 for half as big again
 avatar_zoom = 1.0
 

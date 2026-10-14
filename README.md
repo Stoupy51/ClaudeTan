@@ -47,7 +47,7 @@ The app starts in the background with a hidden Claude Code session in this folde
 The session stays in claude.ai's list after you quit, and the app resumes it on its next start.
 Say *"Hey Claude, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
 Speak English, French or any language Whisper knows: the session answers in it, and her own lines are in French when you speak French, in English otherwise.
-She says her replies and her permission requests aloud in Japanese, the bubble being their subtitles: Claude Haiku translates each line, which takes a little of your plan's usage, and VOICEVOX says it on the CPU, about 4 s after the bubble shows.
+She says her replies and her permission requests aloud in Japanese, the bubble being their subtitles: Claude Haiku translates each line, which takes a little of your plan's usage, and VOICEVOX says it on the CPU, about 3 s after the bubble shows.
 A request that is exactly one of the phrases below is done by the app itself, at once and without the session. Any other wording goes to the session, which has the same actions as tools (`mcp__claudetan__*`) and calls them itself.
 
 | Action | Say | Does |
@@ -70,6 +70,11 @@ You may pause while you speak: she sends your request after 15 s of silence, or 
 - Dropped on a second screen, she comes back there, and shows up on the main screen while it is unplugged.
 - Her tray icon, with a left or a right click, opens the session, the config or the log of what she heard and did, toggles the start with Windows, and quits.
 
+Ask her to change her own code, such as *"make yourself an action that ..."*: the session edits this folder.
+Once it has nothing running, the app reloads `actions.py` and `services/` in place, and restarts on the same conversation for any other module.
+A change that stops her from loading or starting is put aside in git (stashed, or her commits reverted), and she tells you which.
+She leaves her changes for you to review and commit, unless `commit_changes = true` in the config.
+
 ### Without an NVIDIA GPU
 
 Whisper's model takes 20 s a sentence on a 6-core CPU, against 0.6 s on a GPU, so the app switches to a lighter setup by itself:
@@ -80,8 +85,8 @@ She then answers about 4 s after you stop speaking instead of 1 s, mishears more
 
 *Open the config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
 the speech recognition language, the wake phrase, the pause and the phrases that end a spoken request,
-the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), her size on screen, her voice, and your additions to the session's system prompt, such as where your folders are.
-A change applies as soon as you save the file, and she tells you what changed. The agent's model and the system prompt, which Claude Code reads only when it starts, restart the hidden session on the same conversation once she has nothing running.
+the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), whether she commits the changes to her own code, her size on screen, her voice, and your additions to the session's system prompt, such as where your folders are.
+A change applies as soon as you save the file, and she tells you what changed. The agent's model, the commits and the system prompt, which Claude Code reads only when it starts, restart the hidden session on the same conversation once she has nothing running.
 
 ## 🧑‍💻 Development
 

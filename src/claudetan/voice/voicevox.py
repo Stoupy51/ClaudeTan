@@ -5,6 +5,7 @@ The engine runs on the CPU, so that Whisper and games keep the GPU. It says a se
 # Imports
 import io
 import json
+import logging
 import os
 import queue
 import re
@@ -29,7 +30,8 @@ from claudetan.session import NESTED_SESSION_VARS
 # Constants
 type Vowels = tuple[tuple[float, str], ...]
 """ The vowels of a spoken line, each with the second of its sound it starts at, and an empty one where the line ends. """
-ENGINE_URL: str = "https://github.com/VOICEVOX/voicevox_engine/releases/download/0.25.2/voicevox_engine-windows-cpu-0.25.2.vvpp"
+LOG: logging.Logger = logging.getLogger("claudetan")
+ENGINE_URL: str ="https://github.com/VOICEVOX/voicevox_engine/releases/download/0.25.2/voicevox_engine-windows-cpu-0.25.2.vvpp"
 ENGINE: Path = Path(os.environ["LOCALAPPDATA"]) / "ClaudeTan" / "voicevox"
 """ The engine unpacked (2.1 GB), kept out of the roaming `APP_DATA`. """
 API: str = "http://127.0.0.1:50021"
@@ -102,7 +104,10 @@ class Voice(QObject):
 			self.hushed.clear()
 			japanese = text if KANA.search(text) else self.translate(CODE.sub("", text)[:LONGEST_LINE])
 			# VOICEVOX spells out Latin letters, so a line Haiku left untranslated is not said
-			if KANA.search(japanese) and not self.hushed.is_set():
+			if not KANA.search(japanese):
+				LOG.warning("Not said, left untranslated: %s", japanese)
+			elif not self.hushed.is_set():
+				LOG.info("Said: %s", japanese)
 				self.speak(japanese, style)
 
 	def translate(self, text: str) -> str:
