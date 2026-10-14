@@ -37,8 +37,9 @@ API: str = "http://127.0.0.1:50021"
 STARTUP_S: float = 60.0
 TRANSLATOR_PROMPT: str = (
 	"You translate the lines of Claude-tan, an anime girl assistant, into the Japanese she says out loud to her user. "
-	"Each message is one of her lines. Translate it into natural, casual spoken Japanese, two short sentences at most, "
-	"keeping its meaning and who did what. Never answer or comment the line. Leave out code, paths and links. "
+	"Each message is one of her lines. Translate it into natural, casual spoken Japanese, keeping its meaning and who did what. "
+	"Stay under 80 Japanese characters, two short sentences at most: for a longer line, say only its gist and drop the details. "
+	"Never answer or comment the line. Leave out code, paths and links. "
 	"Reply with the Japanese only."
 )
 """ Without "never answer", Haiku replies to the line instead of translating it. """
