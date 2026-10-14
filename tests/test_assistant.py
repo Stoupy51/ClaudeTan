@@ -153,3 +153,21 @@ def test_settings_of_a_new_app_restart_it_once_she_is_free(assistant: Assistant,
 	assistant.leave()
 	assert restarts == [True]
 
+
+def test_she_stays_until_her_voice_has_said_her_reply_but_never_leaves_for_it(assistant: Assistant) -> None:
+	said: list[str] = []
+
+	def speak(text: str, _style: int) -> None:
+		said.append(text)
+
+	assistant.speak.connect(speak)
+	assistant.on_hook(hook("Stop", last_assistant_message="The tests pass."))
+	assistant.on_speaking(((0.0, "e"), (30.0, "")))
+	assert said == ["The tests pass."]
+	assert assistant.dismiss.remainingTime() > 30_000
+
+	assistant.on_hook(hook("UserPromptSubmit", prompt="delete the build folder"))
+	assistant.on_hook(hook("PermissionRequest", tool_name="Bash", tool_input={"command": "rm -r build", "description": "Delete it"}))
+	assistant.on_speaking(((0.0, "e"), (5.0, "")))
+	assert not assistant.dismiss.isActive()
+

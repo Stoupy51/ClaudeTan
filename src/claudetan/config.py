@@ -55,6 +55,10 @@ class Config:
 	""" Size of her speech bubble and its text, 1 for their default size. """
 	typing_speed: float
 	""" Letters per second her bubble types a short text at. """
+	voice: bool
+	""" Whether she says her replies aloud, in Japanese. """
+	voice_style: int
+	""" The VOICEVOX voice she says them in, by its style id. """
 
 	@classmethod
 	def load(cls) -> Self:
@@ -82,5 +86,7 @@ class Config:
 			avatar_zoom=values["avatar_zoom"],
 			text_zoom=values["text_zoom"],
 			typing_speed=values["typing_speed"],
+			voice=values["voice"],
+			voice_style=values["voice_style"],
 		)
 

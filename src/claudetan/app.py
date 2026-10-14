@@ -33,6 +33,7 @@ from claudetan.services import claude
 from claudetan.session import HookServer, JsonDict, Session
 from claudetan.voice.audio import GPU, microphone
 from claudetan.voice.listener import FOLLOW_UP_S, Listener
+from claudetan.voice.voicevox import Voice, Vowels
 
 # Constants
 LOG: logging.Logger = logging.getLogger("claudetan")
@@ -42,6 +43,8 @@ DONE_NOTES: tuple[float, ...] = (1046.5, 1318.5, 1568.0)
 LONG_TASK_MS: int = 20_000
 """ How long a turn runs before she shrinks to the pill. """
 HEARD_MS: int = 4000
+SPOKEN_MS: int = 1500
+""" How long she stays once her voice has said a line. """
 """ How long the sentence she understood stays up when the session does not start on it right away. """
 CONFIG_NOTICE_MS: int = 6000
 """ How long she stays up to say what she applied from the saved config. """
@@ -73,6 +76,10 @@ class Assistant(QObject):
 	announced = Signal(object)
 	""" Something to tell the user, from a thread that had to wait for it. """
 	restart = Signal()
+	speak = Signal(str, int)
+	""" A line to say aloud, with the VOICEVOX style of the config, emitted only while her voice is on. """
+	hush = Signal()
+	""" She is called while her voice may still be saying something. """
 	""" The session starts again: `SESSION_KEYS` settings changed while she was free, or she was told to stop everything. """
 
 	def __init__(self, avatar: Avatar, pill: Pill, config: Config) -> None:
@@ -106,6 +113,7 @@ class Assistant(QObject):
 		self.idle_timer.timeout.connect(self.on_idle)
 
 	def on_wake(self) -> None:
+		self.hush.emit()
 		chime(*WAKE_NOTES)
 		self.appear("hello", bubble=tr("Yes?", "Oui ?"))
 		self.dismiss.start(round(FOLLOW_UP_S * 1000))
@@ -264,10 +272,12 @@ class Assistant(QObject):
 		LOG.info("Permission asked: %s", request)
 		self.asking = True
 		self.long_task.stop()
-		self.appear("please", bubble=tr(
+		asked = tr(
 			f"I need your OK: {request}. Say yes or no, or click on me.",
 			f"J'ai besoin de ton accord : {request}. Dis oui ou non, ou clique sur moi.",
-		))
+		)
+		self.appear("please", bubble=asked)
+		self.say_aloud(asked)
 
 	def on_permission_asked(self, answer: Future[bool]) -> None:
 		self.pending = answer
@@ -310,6 +320,7 @@ class Assistant(QObject):
 			chime(*DONE_NOTES)
 		self.appear("present" if self.worked else "happy", bubble=reply)
 		self.dismiss.start(reading_ms(reply))
+		self.say_aloud(reply)
 		self.flush()
 
 	def on_failure(self, error: str) -> None:
@@ -318,6 +329,15 @@ class Assistant(QObject):
 		self.appear("sad", bubble=tr(f"Oops, the request failed ({error}).", f"Oups, la requête a échoué ({error})."))
 		self.dismiss.start(reading_ms(error))
 		self.flush()
+
+	def say_aloud(self, text: str) -> None:
+		if self.config.voice:
+			self.speak.emit(text, self.config.voice_style)
+
+	def on_speaking(self, vowels: Vowels) -> None:
+		""" Keeps her up until her voice has said the line, if she was going to leave before. """
+		if self.dismiss.isActive():
+			self.dismiss.start(max(self.dismiss.remainingTime(), round(1000 * vowels[-1][0]) + SPOKEN_MS))
 
 	def end_turn(self) -> None:
 		self.busy = False
@@ -500,6 +520,12 @@ def run() -> None:
 	assistant.send.connect(session.send)
 	assistant.idle.connect(session.compact)
 	app.aboutToQuit.connect(session.close)
+	voice = Voice()
+	assistant.speak.connect(voice.say)
+	assistant.hush.connect(voice.hush)
+	voice.started.connect(avatar.speak)
+	voice.started.connect(assistant.on_speaking)
+	app.aboutToQuit.connect(voice.close)
 	listener = Listener(config)
 	listener.woke.connect(assistant.on_wake)
 	listener.dictated.connect(assistant.on_dictation)

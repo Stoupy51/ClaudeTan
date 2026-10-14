@@ -44,6 +44,7 @@ from claudetan.config import ROOT
 from claudetan.overlay.bubble import WIDTH as BUBBLE_WIDTH, Bubble
 from claudetan.overlay.effects import ACCENT, Spark, burst, glow, mote, overshoot
 from claudetan.report import Report
+from claudetan.voice.voicevox import Vowels
 
 # Constants
 ASSETS: Path = ROOT / "assets" / "claude"
@@ -63,6 +64,8 @@ TALK_FRAMES: dict[str, tuple[str, ...]] = {
 	"hello": ("hello_talk_open", "hello_talk_wide"),
 }
 """ Open mouths of the poses that can talk, one picked at random and held for a whole reply. """
+MOUTHS: dict[str, str] = {"a": "wide", "i": "open", "u": "o", "e": "open", "o": "o"}
+""" The open mouth of each vowel her voice says, `open` where a pose lacks it. Any other sound, such as a pause or "n", closes it. """
 CELEBRATIONS: frozenset[str] = frozenset({"happy", "present", "thanks"})
 """ Expressions she greets with a burst of sparks. """
 FRAME_MS: int = 16
@@ -89,6 +92,8 @@ class Avatar(QWidget):
 		self.bubble = Bubble()
 		self.clock = QElapsedTimer()
 		self.clock.start()
+		self.speech: tuple[float, Vowels] | None = None
+		""" When her voice started the line it is saying, and its vowels. """
 		self.previous_frame = ""
 		""" Frame fading out under `frame` for `CROSSFADE_S` after `changed_at`. """
 		self.changed_at = -1.0
@@ -150,6 +155,7 @@ class Avatar(QWidget):
 
 	def set_expression(self, expression: str, *, talking: bool = False, bubble: str | Report = "") -> None:
 		now = self.now()
+		self.speech = None
 		if expression != self.expression:
 			self.previous_frame = self.frame
 			self.changed_at = now
@@ -162,6 +168,12 @@ class Avatar(QWidget):
 			self.frame = random.choice(TALK_FRAMES[expression])
 		self.bubble.say(bubble, now)
 		self.update()
+
+	def speak(self, vowels: Vowels) -> None:
+		""" Moves her mouth on the vowels of the line her voice starts saying, in a pose that can talk. """
+		if self.expression not in TALK_FRAMES:
+			self.set_expression("idle", bubble=self.bubble.report or self.bubble.text)
+		self.speech = (self.now(), vowels)
 
 	def pop_in(self) -> None:
 		if not self.isVisible():
@@ -233,12 +245,23 @@ class Avatar(QWidget):
 		now = self.now()
 		self.bubble.type(now - self.last_tick)
 		self.last_tick = now
+		if self.speech:
+			self.move_mouth(now - self.speech[0], self.speech[1])
 		if now >= self.next_mote:
 			left, top = self.sprite_left + 0.2 * self.sprite_width, SPRITE_TOP + 0.15 * SPRITE_HEIGHT
 			self.sparks.append(mote(QRectF(left, top, 0.6 * self.sprite_width, 0.6 * SPRITE_HEIGHT), now))
 			self.next_mote = now + MOTE_EVERY_S
 		self.sparks = [spark for spark in self.sparks if spark.alive(now)]
 		self.update()
+
+	def move_mouth(self, said: float, vowels: Vowels) -> None:
+		""" Her mouth on the vowel said `said` seconds into the line, closed once the line is over. """
+		vowel = next((vowel for at, vowel in reversed(vowels) if at <= said), "")
+		if said >= vowels[-1][0]:
+			self.speech = None
+		shape = MOUTHS.get(vowel)
+		mouth = f"{self.expression}_talk_{shape}"
+		self.frame = (mouth if mouth in self.sprites else f"{self.expression}_talk_open") if shape else self.expression
 
 	@override
 	def paintEvent(self, event: QPaintEvent) -> None:

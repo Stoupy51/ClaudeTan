@@ -7,7 +7,7 @@
 
 </div>
 
-https://github.com/user-attachments/assets/84a558a3-62a4-4e16-9a47-94099be6e3ad
+https://github.com/user-attachments/assets/249dc573-0989-42da-8a05-e30bf17690b8
 
 > [!NOTE]
 > Work in progress: the roadmap is in [PLAN.md](PLAN.md), in French.
@@ -27,7 +27,8 @@ cd ClaudeTan
 uv run claudetan-setup
 ```
 
-The setup installs the dependencies, downloads Whisper (1.6 GB, or 0.5 GB and the wake phrase spotter without an NVIDIA GPU) and runs it once.
+The setup installs the dependencies, downloads Whisper (1.6 GB, or 0.5 GB and the wake phrase spotter without an NVIDIA GPU) and runs it once,
+then downloads [VOICEVOX](https://voicevox.hiroshiba.jp/), her voice (1.9 GB, unless `voice = false` in the config).
 Then, only when needed, it opens Claude Code's sign-in page, and Claude Code itself in this folder so that you trust it:
 pick *Yes, I trust this folder*, then type `/exit`. This dialog is Claude Code's safety check before it works in a folder, so the app never answers it for you.
 
@@ -46,6 +47,7 @@ The app starts in the background with a hidden Claude Code session in this folde
 The session stays in claude.ai's list after you quit, and the app resumes it on its next start.
 Say *"Hey Claude, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
 Speak English, French or any language Whisper knows: the session answers in it, and her own lines are in French when you speak French, in English otherwise.
+She says her replies and her permission requests aloud in Japanese, the bubble being their subtitles: Claude Haiku translates each line, which takes a little of your plan's usage, and VOICEVOX says it on the CPU, about 4 s after the bubble shows.
 A request that is exactly one of the phrases below is done by the app itself, at once and without the session. Any other wording goes to the session, which has the same actions as tools (`mcp__claudetan__*`) and calls them itself.
 
 | Action | Say | Does |
@@ -78,7 +80,7 @@ She then answers about 4 s after you stop speaking instead of 1 s, mishears more
 
 *Open the config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
 the speech recognition language, the wake phrase, the pause and the phrases that end a spoken request,
-the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), her size on screen, and your additions to the session's system prompt, such as where your folders are.
+the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), her size on screen, her voice, and your additions to the session's system prompt, such as where your folders are.
 A change applies as soon as you save the file, and she tells you what changed. The agent's model and the system prompt, which Claude Code reads only when it starts, restart the hidden session on the same conversation once she has nothing running.
 
 ## 🧑‍💻 Development
@@ -90,6 +92,7 @@ uv run pyright
 uv run prototypes/overlay_demo.py              # plays every expression in a loop
 uv run scripts/demo_video/main.py              # renders dist/demo.mp4, a scripted run through her features (needs ffmpeg)
 uv run prototypes/voice_demo.py --wav clip.wav # prints what the listener hears, from the microphone without --wav
+uv run prototypes/voice_demo.py --spotter      # counts what the wake phrase spotter of a computer without NVIDIA GPU catches
 ```
 
 The demo video at the top of this file is the `_small` copy of that script's video, uploaded with the [gh-image](https://github.com/drogers0/gh-image) extension:

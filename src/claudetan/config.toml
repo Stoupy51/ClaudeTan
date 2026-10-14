@@ -23,8 +23,8 @@ cancel_alone = "cancel|annule"
 
 # When she asks your permission, say one of these words, as a sentence of its own, to answer her.
 # Regexes matched ignoring case. Clicking on her and answering in Claude Code works as well.
-allow = "yes|ok|go|oui|vas-y|d'accord"
-deny = "no|non|refuse|pas question"
+allow = "yes|ok|go|oui|vas-y|d'accord|はい"
+deny = "no|non|refuse|pas question|いいえ"
 
 # Model of the hidden Claude session, which answers quick requests: "sonnet", "opus", "haiku", or a full model name
 model = "sonnet"
@@ -40,6 +40,15 @@ text_zoom = 1.0
 
 # Letters per second her bubble types at. A long text types faster, to show in full within a second.
 typing_speed = 80.0
+
+# She says her replies and her permission requests aloud in Japanese, whatever language you speak, the bubble being their subtitles.
+# Claude Haiku translates each line, which takes a little of your plan's usage, and VOICEVOX says it on the CPU (2.1 GB, downloaded by the setup).
+# false keeps her silent.
+voice = true
+
+# Her VOICEVOX voice, by its style id: 8 Kasukabe Tsumugi, 2 Shikoku Metan, 14 Meimei Himari, 3 Zundamon, 16 Kyushu Sora, 20 Mochiko-san.
+# http://127.0.0.1:50021/speakers lists them all while she speaks. Credit the voice (such as "VOICEVOX:春日部つむぎ") if you share her audio.
+voice_style = 8
 
 # The city she gives the weather of when you do not name one
 city = ""

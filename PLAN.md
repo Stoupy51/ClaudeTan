@@ -10,7 +10,7 @@ Personnage tiré de la vidéo https://www.youtube.com/watch?v=_m38WbRlzv0 (Brigh
 | Sujet | Choix |
 | :- | :- |
 | Mot d'activation | Sur GPU, Whisper transcrit chaque phrase et une regex repère "Hey Claude" (FR et EN) : le GPU travaille dès que quelqu'un parle près du micro, vidéos comprises. Sans GPU NVIDIA, le détecteur de mots-clés de sherpa-onnx repère "Hey Claude" et Whisper `small` ne transcrit que ce qui suit. |
-| Réponse | Bulle de texte et voix (TTS). La voix parle japonais par défaut, sous-titrée par la bulle. Sa langue se règle dans la config, où elle se coupe aussi. Voir [Voix japonaise](#voix-japonaise). |
+| Réponse | Bulle de texte et voix (TTS). La voix parle japonais, sous-titrée par la bulle, et se coupe dans la config. Voir [Voix japonaise](#voix-japonaise). |
 | Permissions | Session en `--permission-mode auto`. Ce que le classifieur bloque passe par Claude-tan ou par le Remote Control. |
 | Conversation | Persistante (`--resume` de la conversation dont l'app garde l'id), compactée (`/compact`) à l'arrêt de l'app et après 55 min sans activité. |
 | Modèles | Tâches compliquées confiées à Opus 5.5 par défaut. Session principale sur un modèle rapide, Sonnet 5.5 proposé. Les deux se règlent dans la config, voir [Modèle](#modèle). |
@@ -56,9 +56,11 @@ Possible dès le MVP, sans serveur. Grâce au Remote Control, l'app Claude iOS p
 
 ### Voix japonaise
 
-Pour l'immersion, Claude-tan parle japonais par défaut, même quand la bulle est dans une autre langue : la bulle sert alors de sous-titres. Quand la langue de la voix diffère de celle de la bulle, un modèle local traduit le texte, sans quota Claude : TranslateGemma 4B (Ollama, 3,3 Go), spécialisé dans la traduction, ou le modèle du routeur si la VRAM manque, puisque les 12 Go de la RTX 3060 servent aussi à Whisper, au routeur et aux jeux. Sur une longue réponse, la voix ne dit que les premières phrases et jamais le code : traduire tout le texte avec un modèle de 4B serait lent et approximatif.
+Pour l'immersion, Claude-tan parle japonais, même quand la bulle est dans une autre langue : la bulle sert alors de sous-titres. Elle dit ses réponses (`Stop`) et ses demandes de permission.
 
-En japonais, la voix vient de VOICEVOX, un moteur local aux voix d'anime piloté par une API HTTP. Il donne aussi la durée de chaque voyelle, donc la bouche peut suivre les voyelles plutôt que l'amplitude. AivisSpeech offre la même API avec des voix plus naturelles, mais sans ces durées. Edge n'a que deux voix japonaises (Nanami et Keita), sans style anime, et sert aux autres langues.
+Claude Haiku traduit chaque phrase en japonais parlé, en deux phrases courtes au plus, sans code ni chemins. Une conversation `claude -p` en stream-json reste ouverte (`voicevox.py`) : une phrase prend 1 à 2 s au lieu des 7 à 8 s d'un `claude -p` lancé à chaque fois, dont 4 s de démarrage. Elle est remplacée toutes les 40 phrases, chacune renvoyant les précédentes. Sans "never answer" dans le prompt, Haiku répond à la phrase au lieu de la traduire. C'est un peu de quota à chaque phrase (environ 0,0003 $ au tarif API, prompt en cache), choisi plutôt qu'Ollama et TranslateGemma 4B, qui prendraient 3,3 Go de VRAM à côté de Whisper et des jeux.
+
+La voix vient de VOICEVOX, un moteur local aux voix d'anime piloté par une API HTTP, installé par le setup dans `%LOCALAPPDATA%\ClaudeTan\voicevox` (version CPU, 1,9 Go à télécharger, 2,1 Go installés) et lancé à la première phrase. Un moteur qui tourne déjà sur le port 50021, comme celui de l'app VOICEVOX, sert tel quel. Il dit une phrase en 1,7 s sur un Ryzen 5 3600, plus 1,7 s la première fois qu'une voix sert : la voix commence environ 4 s après la bulle. Il donne aussi le début de chaque voyelle, sur lequel la bouche s'ouvre (`a` grande, `o` et `u` en rond, `i` et `e` entrouverte), dans la pose `idle`, la seule avec ces trois bouches. La voix se règle par son numéro de style (`voice_style`, Kasukabe Tsumugi par défaut). Ses conditions demandent de citer VOICEVOX et la voix quand on diffuse ce qu'elle dit. AivisSpeech offre la même API avec des voix plus naturelles, mais sans ces durées. Edge n'a que deux voix japonaises (Nanami et Keita), sans style anime.
 
 ## Architecture
 
@@ -82,8 +84,8 @@ Ce que montre Claude-tan à chaque étape :
 | `PreToolUse` | `working` et l'action en cours dans la bulle ("écrit main.py"), sans répéter la même |
 | `SubagentStart`, ou tâche de plus de 20 s | elle se réduit en pastille animée dans un coin |
 | `PermissionRequest`, `Notification` de type `permission_prompt` | `please`, puis `thanks` si accepté |
-| `MessageDisplay` | elle parle : `idle` avec une bouche ouverte tirée au hasard pour tout le message, et voix |
-| `Stop` | son, `present` si des outils ont servi, sinon `happy`. Si un sous-agent tourne encore, elle redevient pastille. |
+| `MessageDisplay` | elle parle : `idle` avec une bouche ouverte tirée au hasard pour tout le message |
+| `Stop` | son, `present` si des outils ont servi, sinon `happy`, puis sa voix dit la réponse en japonais, la bouche sur les voyelles, et elle reste jusqu'à la fin de la phrase. Si un sous-agent tourne encore, elle redevient pastille. |
 | `SubagentStop` | rien : la session annonce le résultat dans le tour qu'elle lance ensuite |
 | `StopFailure` | `sad` et le type d'erreur |
 
@@ -148,7 +150,9 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 5. Voix et contrôle
 
-- [ ] TTS désactivable, en japonais par défaut : traduction locale et VOICEVOX (à installer), bouche sur les voyelles. Seulement les premières phrases des longues réponses, jamais le code. Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
+- [x] Voix japonaise (`voice` dans la config) : Haiku traduit, VOICEVOX dit les réponses et les demandes de permission, bouche sur les voyelles, "Hey Claude" la coupe. "はい" et "いいえ" répondent aussi aux permissions. Voir [Voix japonaise](#voix-japonaise).
+- [ ] Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
+- [ ] Bouches `o` et `wide` pour les autres poses que `idle`, par le pipeline de sprites, pour qu'elle parle sans quitter `present` ou `please`.
 - [x] Dictée : les pauses ne coupent plus la demande, envoyée après 15 s de silence, sur "fin" dit seul ou "c'est tout" en fin de phrase, et annulée par "annule" seul. Les mots courts ne comptent que seuls : "jusqu'à la fin" ne coupe rien.
 - [x] Action "stop" : tue le tour en cours, ses agents et la file, puis relance la session sur la même conversation.
 - [x] Action "model" ("passe en Opus", `/model` tapé entre deux tours), aussi outil MCP.
