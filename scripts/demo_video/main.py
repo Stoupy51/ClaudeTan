@@ -1,11 +1,11 @@
-""" Renders the demo videos of Claude-tan, one per language, from `screenplay.py`.
+""" Renders the demo video of Claude-tan from `screenplay.py`.
 
 Nothing runs for real: no microphone, no Claude session, no network call.
 The screenplay feeds the real listener what Whisper would hear and the real `Assistant` the hook events Claude Code would post,
-and a clock steps the overlay frame by frame, so the same script always gives the same videos.
+and a clock steps the overlay frame by frame, so the same script always gives the same video.
 
-Run with `uv run scripts/demo_video/main.py`, which needs ffmpeg on the PATH and writes `dist/demo_en.mp4` and `dist/demo_fr.mp4`,
-and `dist/demo_en_small.mp4` and `dist/demo_fr_small.mp4` under the 10 MB GitHub takes for the README.
+Run with `uv run scripts/demo_video/main.py`, which needs ffmpeg on the PATH and writes `dist/demo.mp4`,
+and `dist/demo_small.mp4` under the 10 MB GitHub takes for the README.
 `--stills 12 30.5` saves the frames at those seconds as PNG images instead, to check a change in a few seconds.
 """
 # Imports
@@ -43,7 +43,7 @@ from scenery import (
 )
 from screenplay import WHISPER_S, Cue, Hook, Leave, Outro, Read, Speak, Title, Words, reading_s, screenplay, speaking_s
 from stouputils.typing import JsonDict
-from words import LANGUAGES
+from words import ENGLISH
 
 import claudetan.app
 import claudetan.config
@@ -52,16 +52,14 @@ from claudetan import i18n
 from claudetan.app import Assistant
 from claudetan.config import DEFAULTS, ROOT, Config
 from claudetan.overlay.avatar import CHIME_RATE, Avatar, Pill, bell
-from claudetan.services import weather
 from claudetan.voice.listener import Listener
 
 # Constants
 FPS: int = 60
-ZOOM: float = 1.7
+ZOOM: float = 2.2
 """ How many times larger than on a screen the overlay is drawn, as much as the camera zooms in on her. """
 PILL_ZOOM: float = 2.6
-HER_SHOT: float = 1.6
-PILL_SHOT: float = 1.35
+HER_SHOT: float = 2.2
 LINGER_S: float = 1.0
 """ How long the camera stays on her once she leaves, in case she comes right back. """
 SPRING: float = 6.0
@@ -83,10 +81,6 @@ CHORDS: tuple[tuple[float, ...], ...] = (
 )
 """ The soft pad under the video, in Hz: Cmaj7, Am7, Fmaj7 and G6, in the key of her chimes. """
 CHORD_S: float = 4.8
-FORECAST: JsonDict = {
-	"current": {"weather_code": 3, "temperature_2m": 14.4, "apparent_temperature": 12.6, "wind_speed_10m": 18.0},
-	"daily": {"temperature_2m_min": [9.0], "temperature_2m_max": [16.2], "precipitation_probability_max": [40]},
-}
 
 
 # Classes
@@ -174,7 +168,6 @@ class Studio:
 		stack.enter_context(patch.object(claudetan.voice.listener, "time", SimpleNamespace(monotonic=lambda: Clock.seconds)))
 		stack.enter_context(patch.object(Avatar, "now", video_time))
 		stack.enter_context(patch.object(i18n, "heard", "en"))
-		stack.enter_context(patch.object(weather, "get", forecast))
 
 		config = Config.load()
 		self.avatar = Avatar(ZOOM, ZOOM)
@@ -185,7 +178,7 @@ class Studio:
 		self.assistant = Assistant(self.avatar, self.pill, config)
 		self.assistant.send.connect(self.sent.append)
 		self.listener = Listener(config)
-		self.listener.woke.connect(self.assistant.on_wake)
+		# Not `woke`: each request is said in one breath with the wake phrase, so its own bubble would replace her "Yes?" at once
 		self.listener.dictated.connect(self.assistant.on_dictation)
 		self.listener.heard.connect(self.assistant.on_command)
 		self.listener.answered.connect(self.assistant.on_verdict)
@@ -238,7 +231,7 @@ class Studio:
 		for index in range(round(max(moments) * FPS) + 1):
 			self.step(index / FPS)
 			if any(round(moment * FPS) == index for moment in moments):
-				path = folder / f"demo_{self.words.language}_{index / FPS:06.2f}.png"
+				path = folder / f"demo_{index / FPS:06.2f}.png"
 				self.draw().save(str(path))
 				print(path)
 
@@ -306,14 +299,14 @@ class Studio:
 		return start + (end - start) * ease((Clock.seconds - at) / SLIDE_S)
 
 	def shot(self) -> Shot:
-		""" Wide on the desktop, close on her while she is up, closer on the pill while it spins. """
+		""" Wide on the desktop, close on her or her pill while either is up. """
 		wide = Shot(QPointF(WIDTH / 2, HEIGHT / 2), 1.0)
 		if Clock.seconds < INTRO_S - 0.5 or self.outro_at is not None:
 			return wide
-		if self.pill.isVisible():
-			return Shot(self.spot + self.size - QPointF(32, 32), PILL_SHOT)
-		if self.slide[1] == 1.0 or Clock.seconds - self.slide[2] < LINGER_S:
-			return Shot(self.spot + self.size / 2 - QPointF(140, 0), HER_SHOT)
+		if self.pill.isVisible() or self.slide[1] == 1.0 or Clock.seconds - self.slide[2] < LINGER_S:
+			# The desktop's corner she stands in, down to the top of the taskbar, or to its bottom for the pill sitting on it
+			bottom = HEIGHT if self.pill.isVisible() else HEIGHT - TASKBAR
+			return Shot(QPointF(WIDTH, bottom) - QPointF(WIDTH, HEIGHT) / HER_SHOT / 2, HER_SHOT)
 		return wide
 
 	def draw(self) -> QImage:
@@ -420,11 +413,6 @@ def video_time(_avatar: Avatar) -> float:
 	return Clock.seconds
 
 
-def forecast(url: str, query: JsonDict) -> JsonDict:
-	""" What Open-Meteo answers, a cloudy day in any city. """
-	return {"results": [{"name": query["name"], "latitude": 0.0, "longitude": 0.0}]} if url == weather.GEOCODING else FORECAST
-
-
 def music(seconds: float) -> np.ndarray[tuple[int, int], np.dtype[np.float32]]:
 	""" A slow pad of `CHORDS`, each fading into the next, the left and right voices slightly detuned to widen it. """
 	samples = round(seconds * CHIME_RATE)
@@ -452,21 +440,19 @@ def write_wav(path: Path, mix: np.ndarray[tuple[int, int], np.dtype[np.float32]]
 
 def main() -> None:
 	parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else "")
-	parser.add_argument("--languages", nargs="+", choices=LANGUAGES, default=list(LANGUAGES))
-	parser.add_argument("--stills", nargs="+", type=float, help="seconds of the frames to save as images, instead of the videos")
+	parser.add_argument("--stills", nargs="+", type=float, help="seconds of the frames to save as images, instead of the video")
 	args = parser.parse_args()
 	folder = ROOT / "dist"
 	folder.mkdir(exist_ok=True)
 
 	app = QApplication([])
 	app.setQuitOnLastWindowClosed(False)
-	for language in args.languages:
-		with ExitStack() as stack:
-			studio = Studio(LANGUAGES[language], stack)
-			if args.stills:
-				studio.stills(args.stills, folder)
-			else:
-				studio.render(folder / f"demo_{language}.mp4")
+	with ExitStack() as stack:
+		studio = Studio(ENGLISH, stack)
+		if args.stills:
+			studio.stills(args.stills, folder)
+		else:
+			studio.render(folder / "demo.mp4")
 
 
 if __name__ == "__main__":

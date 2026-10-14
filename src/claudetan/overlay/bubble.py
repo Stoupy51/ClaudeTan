@@ -42,8 +42,8 @@ SUBPIXEL_SCALE: float = 1.0001
 POP_S: float = 0.35
 TYPING_S: float = 1.0
 """ The longest a text takes to appear: a long one types faster to fit. """
-TYPING_SPEED: float = 40.0
-""" Letters per second a short text types at. """
+TYPING_SPEED: float = 80.0
+""" Letters per second a short text types at, until the config's `typing_speed` replaces it. """
 SCROLL_DELAY_S: float = 2.5
 """ Time to read the first lines before a long text starts scrolling. """
 SCROLL_SPEED: float = 14.0
@@ -68,6 +68,7 @@ class Bubble:
 		self.shown_at = -1.0
 		self.revealed = 0.0
 		""" How many letters are typed so far, running `FADE_CHARS` past the end while the last ones fade in. """
+		self.typing_speed = TYPING_SPEED
 		self.document = QTextDocument()
 		""" The text laid out, kept between frames while `typed` is unchanged. """
 		self.document.setDefaultFont(QFont("Segoe UI", 11))
@@ -94,7 +95,7 @@ class Bubble:
 		self.text = shown
 
 	def type(self, seconds: float) -> None:
-		speed = max(TYPING_SPEED, len(self.text) / TYPING_S)
+		speed = max(self.typing_speed, len(self.text) / TYPING_S)
 		self.revealed = min(len(self.text) + FADE_CHARS, self.revealed + speed * seconds)
 
 	def paint(self, painter: QPainter, now: float, bottom: float) -> None:

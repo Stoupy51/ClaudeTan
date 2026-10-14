@@ -9,8 +9,6 @@
 
 https://github.com/user-attachments/assets/84a558a3-62a4-4e16-9a47-94099be6e3ad
 
-*The same demo [in French](https://github.com/user-attachments/assets/4ad7b61b-bd03-42bd-b620-04c7be436a48).*
-
 > [!NOTE]
 > Work in progress: the roadmap is in [PLAN.md](PLAN.md), in French.
 
@@ -59,12 +57,9 @@ A request that is exactly one of the phrases below is done by the app itself, at
 | Switch model | *"switch to Opus"*, *"passe en Sonnet"* | Types `/model` into the session once its current request is done |
 | Context of the session | *"show me the context"*, *"le contexte"*, or the tray menu | How full the hidden session's context window is, as `/context` reports it |
 | Plan usage | *"my usage"*, *"mon usage"*, or the tray menu | Share of the 5-hour window and of the week used, as `/usage` reports it |
-| Timer | *"set a timer for 10 minutes"*, *"mets un minuteur de 10 minutes"* | Rings with a sound and a message when it is over |
-| Weather | *"what's the weather in London"*, *"quel temps fait-il"* | Weather now and for the day, from Open-Meteo. Without a city, the `city` of the config |
 | Open a program | Any request, through the session (`launch_program` tool) | Opens the program whose Start menu shortcut matches the name |
 | Read Discord messages | *"read the messages from Artyu"*, *"lis les messages de Artyu"* | Shows the last direct messages with that person, read with the `discord_token` of the config. It never sends anything |
 | ShadowPlay clip | *"clip that"*, *"enregistre ça"* | Presses Alt+F10 |
-| Mute | *"mute"*, *"coupe le son"* | Toggles the mute |
 
 You may pause while you speak: she sends your request after 15 s of silence, or as soon as you say *"done"* (or *"terminé"*) as a sentence of its own after a pause, or end it with *"over"* (or *"c'est tout"*). *"Cancel"* said alone, or *"cancel prompt"* at the end, drops it. The bubble reminds you of the word.
 
@@ -87,12 +82,12 @@ uv run pytest tests --doctest-modules claudetan
 uv run ruff check .
 uv run pyright
 uv run prototypes/overlay_demo.py              # plays every expression in a loop
-uv run scripts/demo_video/main.py              # renders dist/demo_en.mp4 and dist/demo_fr.mp4, a scripted run through her features (needs ffmpeg)
+uv run scripts/demo_video/main.py              # renders dist/demo.mp4, a scripted run through her features (needs ffmpeg)
 uv run prototypes/voice_demo.py --wav clip.wav # prints what the listener hears, from the microphone without --wav
 ```
 
-The demo videos at the top of this file are the `_small` copies of that script's videos, uploaded with the [gh-image](https://github.com/drogers0/gh-image) extension:
-`gh image dist/demo_en_small.mp4 --repo Stoupy51/ClaudeTan` prints the link to paste in place of the old one.
+The demo video at the top of this file is the `_small` copy of that script's video, uploaded with the [gh-image](https://github.com/drogers0/gh-image) extension:
+`gh image dist/demo_small.mp4 --repo Stoupy51/ClaudeTan` prints the link to paste in place of the old one.
 
 The sprites in `assets/claude/` come out of `tools/sprites/`, a separate uv project described in [PLAN.md](PLAN.md#sprites).
 

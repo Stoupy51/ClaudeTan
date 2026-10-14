@@ -1,4 +1,4 @@
-""" What happens in the demo video and when, written once and played in each language the video is made in. """
+""" What happens in the demo video and when. """
 # Imports
 from dataclasses import dataclass, field
 
@@ -27,7 +27,7 @@ class Chapter:
 
 @dataclass(frozen=True)
 class Words:
-	""" Everything the user says and the video writes, in the language of one video. """
+	""" Everything the user says and the video writes. """
 	language: str
 	""" Whisper's code of the language, which her own lines follow. """
 	tagline: str
@@ -46,9 +46,6 @@ class Words:
 	dark_mode: str
 	handed_off: str
 	dark_mode_done: str
-	abroad: str
-	""" Whisper's code of the other language, which the user switches to once. """
-	weather_abroad: str
 
 
 @dataclass(frozen=True)
@@ -118,18 +115,20 @@ def speaking_s(text: str) -> float:
 	""" How long the user takes to say the text.
 
 	>>> round(speaking_s("Hey Claude."), 2)
-	0.7
+	0.45
 	"""
-	return 0.2 + 0.045 * length(text)
+	return 0.2 + 0.0225 * length(text)
 
 
 def reading_s(text: str) -> float:
-	""" How long a bubble stays up: the time it takes to type, then 35 characters a second, 3 s at most to get the gist of a long one.
+	""" How long a bubble stays up: the time it takes to type, then 22 characters a second, 3 s at most to get the gist of a long one.
+
+	Viewers keep up with subtitles to about 20 characters a second, and start skipping words beyond.
 
 	>>> round(reading_s("Thanks!"), 2), reading_s(200 * "a")
-	(0.57, 3.0)
+	(0.61, 3.0)
 	"""
-	return min(3.0, min(TYPING_S, length(text) / TYPING_SPEED) + 0.2 + length(text) / 35)
+	return min(3.0, min(TYPING_S, length(text) / TYPING_SPEED) + 0.2 + length(text) / 22)
 
 
 def length(text: str) -> int:
@@ -150,18 +149,17 @@ def screenplay(words: Words) -> Timeline:
 
 
 def ask_out_loud(play: Timeline, words: Words) -> None:
-	play.cue(Title(1, words.chapters[0]), then=0.2)
-	play.say(words.question, words.language, then=0.1)
-	play.hook("UserPromptSubmit", then=0.5)
-	play.hook("PreToolUse", then=0.6, tool_name="mcp__claudetan__screenshot", tool_input={"screen": 1})
+	play.cue(Title(1, words.chapters[0]), then=0.7)
+	ask(play, words.question, words.language)
+	play.hook("PreToolUse", then=0.0, tool_name="mcp__claudetan__screenshot", tool_input={"screen": 1})
+	play.cue(Read())
 	play.stream(words.reply, message_id="reply", every=0.2)
 	play.cue(Read())
 
 
 def permission_by_voice(play: Timeline, words: Words) -> None:
-	play.cue(Title(2, words.chapters[1]), then=0.2)
-	play.say(words.cleanup, words.language, then=0.1)
-	play.hook("UserPromptSubmit", then=0.5)
+	play.cue(Title(2, words.chapters[1]), then=0.7)
+	ask(play, words.cleanup, words.language)
 	tool_input = {"command": "rm -r build", "description": words.cleanup_tool}
 	play.hook("PermissionRequest", then=0.0, tool_name="Bash", tool_input=tool_input)
 	play.cue(Read())
@@ -171,9 +169,8 @@ def permission_by_voice(play: Timeline, words: Words) -> None:
 
 
 def background_work(play: Timeline, words: Words) -> None:
-	play.cue(Title(3, words.chapters[2]), then=0.2)
-	play.say(words.dark_mode, words.language, then=0.1)
-	play.hook("UserPromptSubmit", then=0.5)
+	play.cue(Title(3, words.chapters[2]), then=0.7)
+	ask(play, words.dark_mode, words.language)
 	play.hook("Stop", then=0.0, last_assistant_message=words.handed_off)
 	play.cue(Read())
 	# After her reply rather than before it, as it comes, so that she shrinks to the pill once instead of blinking through it
@@ -185,11 +182,15 @@ def background_work(play: Timeline, words: Words) -> None:
 
 
 def any_language(play: Timeline, words: Words) -> None:
-	play.cue(Title(4, words.chapters[3]), then=0.2)
-	play.say(words.weather_abroad, words.abroad, then=0.0)
-	play.cue(Read())
-	play.say(f"Hey Claude, {JAPANESE_REQUEST} Done.", "ja", then=0.1)
-	play.hook("UserPromptSubmit", then=0.6)
+	play.cue(Title(4, words.chapters[3]), then=0.7)
+	ask(play, f"Hey Claude, {JAPANESE_REQUEST} Done.", "ja")
 	play.stream(JAPANESE_REPLY, message_id="japanese", every=0.25)
+	play.cue(Read())
+
+
+def ask(play: Timeline, request: str, language: str) -> None:
+	""" The user asks, and the session takes the prompt as soon as Whisper hands it over, which the viewer then reads. """
+	play.say(request, language, then=0.0)
+	play.hook("UserPromptSubmit", then=0.0)
 	play.cue(Read())
 

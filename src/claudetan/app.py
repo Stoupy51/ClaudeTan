@@ -79,6 +79,7 @@ class Assistant(QObject):
 		super().__init__()
 		self.config = config
 		self.avatar = avatar
+		self.avatar.bubble.typing_speed = config.typing_speed
 		self.pill = pill
 		self.commands: deque[str] = deque()
 		self.busy = False
@@ -122,6 +123,7 @@ class Assistant(QObject):
 	def on_config(self, config: Config, changed: list[str]) -> None:
 		LOG.info("Config changed: %s", ", ".join(changed))
 		self.config = config
+		self.avatar.bubble.typing_speed = config.typing_speed
 		if "avatar_zoom" in changed or "text_zoom" in changed:
 			self.avatar.set_zoom(config.avatar_zoom, config.text_zoom)
 			self.pill.set_zoom(config.avatar_zoom)

@@ -37,6 +37,9 @@ avatar_zoom = 1.0
 # Size of her speech bubble and its text, on the same scale
 text_zoom = 1.0
 
+# Letters per second her bubble types at. A long text types faster, to show in full within a second.
+typing_speed = 80.0
+
 # The city she gives the weather of when you do not name one
 city = ""
 

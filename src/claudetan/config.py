@@ -53,6 +53,8 @@ class Config:
 	""" Size of Claude-tan and her pill, 1 for their default size. """
 	text_zoom: float
 	""" Size of her speech bubble and its text, 1 for their default size. """
+	typing_speed: float
+	""" Letters per second her bubble types a short text at. """
 
 	@classmethod
 	def load(cls) -> Self:
@@ -79,5 +81,6 @@ class Config:
 			agent_model=values["agent_model"],
 			avatar_zoom=values["avatar_zoom"],
 			text_zoom=values["text_zoom"],
+			typing_speed=values["typing_speed"],
 		)
 

@@ -329,7 +329,9 @@ def browser_icon(painter: QPainter, center: QPointF) -> None:
 
 
 def caption(painter: QPainter, who: str, language: str, text: str, said: float, level: float) -> None:
-	""" What the user says, on a dark card at the bottom left: who speaks, the language Whisper hears, and the words said so far.
+	""" What the user says, on a dark card under her bubble once the camera is on her.
+
+	It shows who speaks, the language Whisper hears, and the words said so far.
 
 	Args:
 		said:  Share of the text said so far, from 0 to 1, shown a whole word at a time.
@@ -337,7 +339,7 @@ def caption(painter: QPainter, who: str, language: str, text: str, said: float, 
 	"""
 	words = font(30, QFont.Weight.DemiBold)
 	width = max(360.0, QFontMetricsF(words).horizontalAdvance(text) + 150)
-	card = QRectF(72, HEIGHT - 196, width, 112)
+	card = QRectF(72, 600, width, 112)
 	shadow(painter, card, 22)
 	painter.setPen(QPen(QColor(255, 255, 255, 30), 1))
 	painter.setBrush(QColor(16, 16, 24, 225))
@@ -374,10 +376,10 @@ def caption(painter: QPainter, who: str, language: str, text: str, said: float, 
 
 
 def chapter_card(painter: QPainter, number: int, title: str, subtitle: str) -> None:
-	""" The number, name and line of the chapter, at the top left. """
+	""" The number, name and line of the chapter, right above her bubble once the camera is on her. """
 	heading, line = font(40, QFont.Weight.DemiBold), font(21)
 	width = max(QFontMetricsF(heading).horizontalAdvance(title), QFontMetricsF(line).horizontalAdvance(subtitle)) + 130
-	card = QRectF(64, 56, width, 118)
+	card = QRectF(525, 170, width, 118)
 	shadow(painter, card, 18)
 	painter.setPen(Qt.PenStyle.NoPen)
 	painter.setBrush(QColor(14, 14, 22, 215))
