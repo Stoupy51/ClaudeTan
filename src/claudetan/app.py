@@ -60,6 +60,8 @@ COMPACT_TIMEOUT_MS: int = 180_000
 """ How long quitting waits for the session's compaction. """
 INSTANCE_NAME: str = "ClaudeTan"
 """ Local server of the running app: a new one connects to it to have it quit. """
+PIPES: str = "\\\\.\\pipe\\"
+""" Where Windows lists the named pipes, the local server among them, without connecting to them. """
 SESSION_KEYS: frozenset[str] = frozenset({"agent_model", "prompt", "commit_changes"})
 """ Settings Claude Code reads only when it starts, applied by restarting the session on the same conversation. """
 
@@ -436,6 +438,8 @@ def reading_ms(text: str) -> int:
 def main() -> None:
 	""" Starts the app in the background and returns once it reports it is ready, so no console window stays open. """
 	enable_colors()
+	if INSTANCE_NAME in os.listdir(PIPES):
+		stp.progress("ClaudeTan is already running: shutting it down first, after it compacts its session when that is large...")
 	stp.progress("Starting ClaudeTan, which takes about 15 s...")
 	# A gui-script would not do: uv makes the venv's pythonw.exe a copy of the console python.exe, which opens a window
 	app = subprocess.Popen(
@@ -503,7 +507,6 @@ def replace_running_app() -> None:
 	running = QLocalSocket()
 	running.connectToServer(INSTANCE_NAME)
 	if running.waitForConnected(1000):
-		stp.progress("Waiting for the running app to quit, after it compacts its session when that is large...")
 		running.waitForDisconnected(COMPACT_TIMEOUT_MS + 10_000)
 
 

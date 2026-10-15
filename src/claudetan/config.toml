@@ -59,10 +59,6 @@ voice_style = 114
 # The city she gives the weather of when you do not name one
 city = ""
 
-# Token of your Discord account, so that she can read your direct messages with someone. She only reads, and never sends anything.
-# Keep this file private: anyone holding the token has your account.
-discord_token = ""
-
 # Applications whose windows she may use, by the file name of their program: "read" to read them, "act" to also press buttons and fill fields.
 # She asks you the first time she acts in one since the app started. Terminals stay closed to her, whatever this says.
 # She never presses a key nor moves the mouse. In VS Code, Discord, Edge, or a field of Firefox, an action brings the window to the front,

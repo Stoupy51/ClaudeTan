@@ -13,7 +13,7 @@ from PySide6.QtGui import QGuiApplication
 from claudetan.config import Config
 from claudetan.i18n import tr
 from claudetan.report import Report
-from claudetan.services import claude, desktop, discord, programs, weather
+from claudetan.services import claude, desktop, programs, weather
 from claudetan.services.alarms import ALARMS
 from claudetan.voice.meeting import MEETING
 
@@ -95,12 +95,14 @@ ACTIONS: list[Action] = [
 		description="How full the context window of this session is: its model and its tokens.",
 		phrases=r"(?:(?:quel est|montre-moi|donne-moi|affiche|what's|show me) )?(?:le |the )?contexte?(?: de la session| usage)?",
 		run=lambda _: claude.context(),
+		threaded=True,
 	),
 	Action(
 		name="plan_usage",
 		description="How much of the Claude subscription's 5-hour window and weekly limit is used, and when they reset.",
 		phrases=r"(?:(?:quel est|montre-moi|donne-moi|affiche|what's|show me) )?(?:mon |l'|my |the )?(?:plan )?usage(?: du forfait)?",
 		run=lambda _: claude.plan_usage(),
+		threaded=True,
 	),
 	Action(
 		name="timer",
@@ -125,14 +127,6 @@ ACTIONS: list[Action] = [
 		description="Opens a program installed on the computer, found by part of its name as the Start menu shows it.",
 		run=lambda arguments: programs.launch(arguments["name"] or ""),
 		parameters={"name": "Part of the program's name, such as Spotify or Discord."},
-	),
-	Action(
-		name="discord_messages",
-		description="Reads the last direct messages the user exchanged with a person on Discord. It never sends anything.",
-		phrases=r"(?:lis|montre|affiche|read|show)(?:-moi| moi| me)? (?:les |the )?(?:derniers |last )?(?:messages|mp|dms)"
-		r" (?:de |d'|avec |from |with )(?P<person>.+)",
-		run=lambda arguments: discord_messages(arguments["person"] or "", int(arguments.get("count") or 10)),
-		parameters={"person": "Part of the person's Discord name.", "count": "How many messages, 10 by default."},
 	),
 	Action(
 		name="list_windows",
@@ -232,13 +226,6 @@ def forecast(city: str) -> str:
 	if not city:
 		return tr("Tell me the city, or put it in the config (city).", "Dis-moi la ville, ou mets-la dans la config (city).")
 	return weather.forecast(city)
-
-
-def discord_messages(person: str, count: int) -> str:
-	token = Config.load().discord_token
-	if not token:
-		return tr("Put your token in the config (discord_token).", "Mets ton jeton dans la config (discord_token).")
-	return discord.last_messages(person, min(count, 50), token)
 
 
 def screenshot(screen: int) -> str:

@@ -46,9 +46,9 @@ Le mode se règle dans la config (`commit_changes`) : changements laissés à re
 
 ### Applications connectées
 
-Claude-tan lit d'autres applications sans jamais y écrire, à commencer par Discord. Exemple : "Artyu m'a MP pour une PR, tu peux aller la résoudre stp ?" La session retrouve le dernier MP d'Artyu, y lit le lien de la PR et confie la correction au sous-agent Opus. C'est l'utilisateur qui répond sur Discord. Chaque application connectée devient une action du registre, donc aussi un outil MCP pour Claude. GitHub passe déjà par `gh`, que la session sait utiliser.
+Claude-tan lit les fenêtres des applications ouvertes, et agit dans celles que la config lui ouvre. Exemple : "Artyu m'a MP pour une PR, tu peux aller la résoudre stp ?" La session lit la conversation affichée dans Discord, y trouve le lien de la PR et confie la correction au sous-agent Opus. C'est l'utilisateur qui répond sur Discord, laissé en lecture seule. GitHub passe déjà par `gh`, que la session sait utiliser.
 
-Les MP sont lus avec le compte de l'utilisateur, par l'API HTTP que le client Discord utilise lui-même, en lecture seule : l'app n'envoie jamais rien. Discord interdit d'automatiser un compte utilisateur, même en lecture ; l'utilisateur accepte ce risque pour son compte. Le jeton du compte se met dans la config, à la main.
+Elle lit ce que Discord affiche, par l'arbre d'accessibilité de Windows, et non par l'API avec le jeton du compte, que Discord interdit d'automatiser.
 
 ### Depuis l'iPhone
 
@@ -158,7 +158,6 @@ Ce que montre Claude-tan à chaque étape :
 
 ### 6. Applications connectées
 
-- [x] Action `discord_messages` (`discord.py`) : les derniers MP avec une personne, lus avec `discord_token` de la config, jamais envoyés.
 - [x] Donner à la session cachée l'accès aux applications du PC (VS Code, Discord, Firefox, comme le portail de Survisland), par nos propres outils MCP sur l'arbre UI Automation (`desktop.py`, bibliothèque `uiautomation`), sur le modèle de sécurité du computer use de Claude Desktop :
 	- Lire ne touche jamais au focus. Mesuré : 1 800 à 2 600 éléments par fenêtre, 2 400 à 3 700 tokens pour ce qui est visible, +39 Mo pour Discord. Chromium ne construit l'arbre d'une page qu'une fois qu'un programme le demande, en 3 s environ : la première lecture d'une application attend 4 s. `look_window` dessine une fenêtre, même cachée (`PrintWindow`), quand l'arbre ne suffit pas.
 	- `apps` dans la config : "read" ou "act" par programme, terminaux et ClaudeTan jamais. Le hook `PreToolUse` renvoie `ask` à la première action dans une application depuis le démarrage, donc la demande passe par la bulle et le "oui" à la voix. "Arrête tout" coupe.

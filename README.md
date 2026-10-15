@@ -60,7 +60,6 @@ A request that is exactly one of the phrases below is done by the app itself, at
 | Context of the session | *"show me the context"*, *"le contexte"*, or the tray menu | How full the hidden session's context window is, as `/context` reports it |
 | Plan usage | *"my usage"*, *"mon usage"*, or the tray menu | Share of the 5-hour window and of the week used, as `/usage` reports it |
 | Open a program | Any request, through the session (`launch_program` tool) | Opens the program whose Start menu shortcut matches the name |
-| Read Discord messages | *"read the messages from Artyu"*, *"lis les messages de Artyu"* | Shows the last direct messages with that person, read with the `discord_token` of the config. It never sends anything |
 | Use an application | Any request, through the session (`list_windows`, `read_window`, `look_window`, `press`, `fill` tools) | Reads the windows of the applications of the `apps` config key, and presses or fills what they show in those set to `"act"`, after asking you once. She never takes the focus from a game |
 | ShadowPlay clip | *"clip that"*, *"enregistre ça"* | Presses Alt+F10 |
 
