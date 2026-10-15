@@ -32,7 +32,7 @@ from claudetan.overlay.bubble import plain
 from claudetan.overlay.tray import Tray
 from claudetan.reload import Reloader
 from claudetan.report import Report
-from claudetan.services import claude
+from claudetan.services import claude, desktop
 from claudetan.services.alarms import ALARMS
 from claudetan.session import HookServer, JsonDict, Session
 from claudetan.voice.audio import GPU, microphone
@@ -207,6 +207,9 @@ class Assistant(QObject):
 	def on_tool_call(self, action: actions.Action, arguments: dict[str, str], text: Future[str]) -> None:
 		""" The session called the action as a tool: she does it without interrupting what she shows. """
 		LOG.info("Tool called: %s", action.name)
+		if action.threaded:
+			threading.Thread(target=lambda: text.set_result(str(action.run(arguments))), daemon=True).start()
+			return
 		text.set_result(str(self.run_action(action, arguments)))
 
 	def stop_all(self) -> None:
@@ -418,6 +421,9 @@ def describe_tool(name: str, tool_input: JsonDict) -> str:
 			return tr("hands off a task: ", "confie une tâche : ") + tool_input["description"]
 		case "AskUserQuestion":
 			return tool_input["questions"][0]["question"]
+		case "mcp__claudetan__press" | "mcp__claudetan__fill" if element := desktop.ELEMENTS.get(str(tool_input["element"])):
+			verb = tr("presses ", "appuie sur ") if name.endswith("press") else tr("fills ", "remplit ")
+			return f"{verb}{element.label} ({Path(element.app).stem})"
 		case _:
 			return name.rsplit("__", 1)[-1]
 

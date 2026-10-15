@@ -61,6 +61,7 @@ A request that is exactly one of the phrases below is done by the app itself, at
 | Plan usage | *"my usage"*, *"mon usage"*, or the tray menu | Share of the 5-hour window and of the week used, as `/usage` reports it |
 | Open a program | Any request, through the session (`launch_program` tool) | Opens the program whose Start menu shortcut matches the name |
 | Read Discord messages | *"read the messages from Artyu"*, *"lis les messages de Artyu"* | Shows the last direct messages with that person, read with the `discord_token` of the config. It never sends anything |
+| Use an application | Any request, through the session (`list_windows`, `read_window`, `look_window`, `press`, `fill` tools) | Reads the windows of the applications of the `apps` config key, and presses or fills what they show in those set to `"act"`, after asking you once. She never takes the focus from a game |
 | ShadowPlay clip | *"clip that"*, *"enregistre ça"* | Presses Alt+F10 |
 
 You may pause while you speak: she sends your request after 15 s of silence, or as soon as you say *"done"* (or *"terminé"*) as a sentence of its own after a pause, or end it with *"over"* (or *"c'est tout"*). *"Cancel"* said alone, or *"cancel prompt"* at the end, drops it. The bubble reminds you of the word.
@@ -85,7 +86,7 @@ She then answers about 4 s after you stop speaking instead of 1 s, mishears more
 
 *Open the config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
 the speech recognition language, the wake phrase, the pause and the phrases that end a spoken request,
-the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), whether she commits the changes to her own code, her size on screen, her voice, and your additions to the session's system prompt, such as where your folders are.
+the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), whether she commits the changes to her own code, the applications she may use, her size on screen, her voice, and your additions to the session's system prompt, such as where your folders are.
 A change applies as soon as you save the file, and she tells you what changed. The agent's model, the commits and the system prompt, which Claude Code reads only when it starts, restart the hidden session on the same conversation once she has nothing running.
 
 ## 🧑‍💻 Development

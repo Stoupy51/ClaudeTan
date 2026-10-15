@@ -159,11 +159,16 @@ Ce que montre Claude-tan à chaque étape :
 ### 6. Applications connectées
 
 - [x] Action `discord_messages` (`discord.py`) : les derniers MP avec une personne, lus avec `discord_token` de la config, jamais envoyés.
-- [ ] Donner à la session cachée l'accès à toute application du PC, navigateur compris (comme le portail de Survisland, qui demande une connexion) : lire et piloter ce qui n'a pas d'API, par l'arbre d'accessibilité Windows (UI Automation, pauvre sur Electron) ou par des captures lues par Claude et des clics. À décider avant : clics autorisés à chaque fois ou limités à certaines applications, car un mauvais clic peut envoyer ou supprimer.
+- [x] Donner à la session cachée l'accès aux applications du PC (VS Code, Discord, Firefox, comme le portail de Survisland), par nos propres outils MCP sur l'arbre UI Automation (`desktop.py`, bibliothèque `uiautomation`), sur le modèle de sécurité du computer use de Claude Desktop :
+	- Lire ne touche jamais au focus. Mesuré : 1 800 à 2 600 éléments par fenêtre, 2 400 à 3 700 tokens pour ce qui est visible, +39 Mo pour Discord. Chromium ne construit l'arbre d'une page qu'une fois qu'un programme le demande, en 3 s environ : la première lecture d'une application attend 4 s. `look_window` dessine une fenêtre, même cachée (`PrintWindow`), quand l'arbre ne suffit pas.
+	- `apps` dans la config : "read" ou "act" par programme, terminaux et ClaudeTan jamais. Le hook `PreToolUse` renvoie `ask` à la première action dans une application depuis le démarrage, donc la demande passe par la bulle et le "oui" à la voix. "Arrête tout" coupe.
+	- Agir sans jamais gêner, même en jeu. Mesuré depuis un processus sans droit au premier plan : un clic dans Firefox (`DoDefaultAction`) et `WM_SETTEXT` dans un champ Win32 laissent le focus, même fenêtre réduite. Remplir un champ dans Firefox, et toute action dans Chromium (Edge, Discord, VS Code), font passer l'application au premier plan, car UI Automation lui en donne le droit.
+	- Ces actions-là attendent 3 s sans clavier ni souris, sans application plein écran (`SHQueryUserNotificationState`), dans une application de `apps` : jamais depuis un jeu, même fenêtré comme Minecraft. Le focus revient ensuite à la fenêtre d'avant. Sinon elles renoncent au bout de 20 s. Jamais de touche ni de clic simulé.
 
 ### 7. Plus tard
 
 - [ ] Page web pour parler à Claude-tan depuis l'iPhone (voix et avatar), joignable via Tailscale.
+- [ ] Tests en jeu pour le dev Minecraft, par RCON sur un serveur local ou les tests intégrés au jeu : l'arbre UI Automation ne voit rien d'une fenêtre OpenGL.
 - [ ] Channels (serveur MCP) quand la fonction sortira de la research preview, pour ne plus taper dans le terminal.
 - [ ] Sur GPU aussi, le détecteur de `wake.py` devant Whisper, pour ne plus le réveiller à chaque phrase, une fois mesuré sur une vraie voix.
 

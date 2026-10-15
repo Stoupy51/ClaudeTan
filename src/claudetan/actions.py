@@ -13,7 +13,7 @@ from PySide6.QtGui import QGuiApplication
 from claudetan.config import Config
 from claudetan.i18n import tr
 from claudetan.report import Report
-from claudetan.services import claude, discord, programs, weather
+from claudetan.services import claude, desktop, discord, programs, weather
 from claudetan.services.alarms import ALARMS
 from claudetan.voice.meeting import MEETING
 
@@ -31,6 +31,8 @@ class Action:
 	""" Its named groups are the arguments the request gives. Empty for a tool only the session calls. """
 	parameters: Mapping[str, str] = field(default_factory=dict[str, str])
 	""" Each argument the action takes, with what it is. """
+	threaded: bool = False
+	""" Whether it runs on a thread of its own as a tool, taking seconds that would freeze the Qt thread. """
 
 
 # Constants
@@ -131,6 +133,41 @@ ACTIONS: list[Action] = [
 		r" (?:de |d'|avec |from |with )(?P<person>.+)",
 		run=lambda arguments: discord_messages(arguments["person"] or "", int(arguments.get("count") or 10)),
 		parameters={"person": "Part of the person's Discord name.", "count": "How many messages, 10 by default."},
+	),
+	Action(
+		name="list_windows",
+		description="Lists the open windows of the applications the user lets you read or act in, by the id read_window takes.",
+		run=lambda _: desktop.list_windows(),
+		threaded=True,
+	),
+	Action(
+		name="read_window",
+		description="Lists what a window shows, as numbered elements with their type, name and value, without disturbing the user. "
+		"Cheaper than look_window, so read first.",
+		run=lambda arguments: desktop.read_window(arguments["window"] or ""),
+		parameters={"window": "Its id from list_windows."},
+		threaded=True,
+	),
+	Action(
+		name="look_window",
+		description="Draws a window into a picture file, even behind others, when read_window does not tell enough.",
+		run=lambda arguments: desktop.look_window(arguments["window"] or ""),
+		parameters={"window": "Its id from list_windows."},
+		threaded=True,
+	),
+	Action(
+		name="press",
+		description="Presses a button, link, tab or check box of a window, without a mouse.",
+		run=lambda arguments: desktop.press(arguments["element"] or ""),
+		parameters={"element": "Its number from the last read_window."},
+		threaded=True,
+	),
+	Action(
+		name="fill",
+		description="Writes text into a field of a window, in place of what it holds, without a keyboard.",
+		run=lambda arguments: desktop.fill(arguments["element"] or "", arguments["text"] or ""),
+		parameters={"element": "Its number from the last read_window.", "text": "What to write."},
+		threaded=True,
 	),
 	Action(
 		name="mute",

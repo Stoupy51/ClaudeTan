@@ -43,6 +43,8 @@ class Config:
 	""" Whole sentences that refuse it. """
 	discord_token: str
 	""" Token of the user's Discord account, empty until they put it there. """
+	apps: dict[str, str]
+	""" What she may do in each application's windows, "read" or "act", by the file name of its program in lower case. """
 	prompt: str
 	""" The user's additions to the system prompt of the hidden session. """
 	model: str
@@ -82,6 +84,7 @@ class Config:
 			allow=re.compile(rf"\W*(?:{values['allow']})\W*", re.IGNORECASE),
 			deny=re.compile(rf"\W*(?:{values['deny']})\W*", re.IGNORECASE),
 			discord_token=values["discord_token"],
+			apps={program.lower(): level for program, level in values["apps"].items()},
 			prompt=values["prompt"],
 			model=values["model"],
 			agent_model=values["agent_model"],

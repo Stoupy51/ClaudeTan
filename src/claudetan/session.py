@@ -18,6 +18,7 @@ from PySide6.QtCore import QObject, QTimer, Signal, SignalInstance
 from winpty import PtyProcess
 
 from claudetan.config import APP_DATA, ROOT, USER_CONFIG, Config
+from claudetan.services import desktop
 
 # Constants
 type JsonDict = dict[str, Any]
@@ -84,7 +85,14 @@ class HookServer(QObject):
 			def do_POST(self) -> None:
 				event = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
 				relay.emit(event)
-				body = wait_for_answer(ask) if event["hook_event_name"] == "PermissionRequest" else b""
+				match event["hook_event_name"]:
+					case "PermissionRequest":
+						body = wait_for_answer(ask)
+					case "PreToolUse" if reason := desktop.permission(event["tool_name"], event["tool_input"]):
+						decision = {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": reason}
+						body = json.dumps({"hookSpecificOutput": decision}).encode()
+					case _:
+						body = b""
 				self.send_response(200)
 				self.send_header("Content-Length", str(len(body)))
 				self.end_headers()
@@ -122,6 +130,7 @@ class Session(QObject):
 		""" Starts Claude Code with the config's models and prompt, which it reads only then, resuming the conversation if any. """
 		prompt = APP_DATA / "session_prompt.md"
 		prompt.write_text(system_prompt(config.prompt, commit=config.commit_changes), encoding="utf-8")
+		desktop.CAPTURE.parent.mkdir(exist_ok=True)
 		worker = {"description": WORKER_DESCRIPTION, "prompt": WORKER_PROMPT, "model": config.agent_model, "background": True}
 		resume = ["--resume", self.id] if self.id else ["--session-id", str(uuid.uuid4())]
 		tools = json.dumps({"mcpServers": {"claudetan": {"type": "http", "url": self.tools_url}}})
@@ -129,6 +138,7 @@ class Session(QObject):
 			"claude", "--remote-control", "ClaudeTan", "--permission-mode", "auto", "--model", config.model,
 			"--agents", json.dumps({"worker": worker}), "--mcp-config", tools, "--allowedTools", "mcp__claudetan",
 			"--settings", str(self.settings), "--append-system-prompt-file", str(prompt), *resume,
+			"--add-dir", str(desktop.CAPTURE.parent),
 		]
 		# chcp 65001: without it the pseudo console feeds Claude Code accented letters in cp850
 		argv = ["cmd.exe", "/c", "chcp", "65001", ">nul", "&&", *claude]

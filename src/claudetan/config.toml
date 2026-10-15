@@ -63,6 +63,13 @@ city = ""
 # Keep this file private: anyone holding the token has your account.
 discord_token = ""
 
+# Applications whose windows she may use, by the file name of their program: "read" to read them, "act" to also press buttons and fill fields.
+# She asks you the first time she acts in one since the app started. Terminals stay closed to her, whatever this says.
+# She never presses a key nor moves the mouse. In VS Code, Discord, Edge, or a field of Firefox, an action brings the window to the front,
+# so she waits until you leave keyboard and mouse alone for 3 s in one of these applications, never a game, with nothing full screen,
+# then gives you your window back.
+apps = { "firefox.exe" = "act", "Code.exe" = "act", "Discord.exe" = "read" }
+
 # Your additions to the system prompt of the hidden Claude session, after what the app writes there itself:
 # where ClaudeTan is installed and how it started the session. Write them between the two ''' lines, for example:
 # "My projects are located in D:\advanced_desktop, my screenshots in D:\Captures."
