@@ -149,8 +149,6 @@ Ce que montre Claude-tan à chaque étape :
 ### 5. Voix et contrôle
 
 - [x] Voix japonaise (`voice` dans la config) : Haiku traduit, VOICEVOX dit les réponses et les demandes de permission, bouche sur les voyelles, "Hey Claude" la coupe. "はい" et "いいえ" répondent aussi aux permissions. Voir [Voix japonaise](#voix-japonaise).
-- [ ] Langue de la voix dans la config, voix Edge pour les autres langues (`fr-FR-VivienneMultilingualNeural`, `DeniseNeural`, `HenriNeural`, `RemyMultilingualNeural`), bouche sur l'amplitude.
-- [ ] Bouches `o` et `wide` pour les autres poses que `idle`, par le pipeline de sprites, pour qu'elle parle sans quitter `present` ou `please`.
 - [x] Dictée : les pauses ne coupent plus la demande, envoyée après 15 s de silence, sur "fin" dit seul ou "c'est tout" en fin de phrase, et annulée par "annule" seul. Les mots courts ne comptent que seuls : "jusqu'à la fin" ne coupe rien.
 - [x] Action "stop" : tue le tour en cours, ses agents et la file, puis relance la session sur la même conversation.
 - [x] Action "model" ("passe en Opus", `/model` tapé entre deux tours), aussi outil MCP.
@@ -167,9 +165,8 @@ Ce que montre Claude-tan à chaque étape :
 ### 7. Plus tard
 
 - [ ] Page web pour parler à Claude-tan depuis l'iPhone (voix et avatar), joignable via Tailscale.
-- [ ] Tests en jeu pour le dev Minecraft, par RCON sur un serveur local ou les tests intégrés au jeu : l'arbre UI Automation ne voit rien d'une fenêtre OpenGL.
 - [ ] Channels (serveur MCP) quand la fonction sortira de la research preview, pour ne plus taper dans le terminal.
-- [ ] Sur GPU aussi, le détecteur de `wake.py` devant Whisper, pour ne plus le réveiller à chaque phrase, une fois mesuré sur une vraie voix.
+- [ ] Sur GPU, le détecteur de `wake.py` devant Whisper en option, désactivée par défaut, pour ne plus le réveiller à chaque phrase. Son modèle n'est sur le disque que sans GPU NVIDIA : l'activer passe par un script qui le télécharge, à mesurer d'abord sur une vraie voix.
 
 ## Sprites
 
