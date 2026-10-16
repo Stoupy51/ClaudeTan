@@ -1,7 +1,11 @@
 """ The timer, the weather and the program launcher she offers. """
 # Imports
+import json
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import Any, override
 
 import pytest
 from PySide6.QtWidgets import QApplication
@@ -9,7 +13,7 @@ from stouputils.typing import JsonDict
 
 from claudetan import i18n
 from claudetan.actions import find, route
-from claudetan.services import claude, programs, weather
+from claudetan.services import claude, minecraft, programs, weather
 from claudetan.services.alarms import ALARMS
 
 
@@ -104,4 +108,27 @@ def test_english_requests_reach_the_same_actions_as_french_ones() -> None:
 	}
 	routed = {request: (route(request) or (None,))[0] for request in requests}
 	assert routed == {request: find(name) for request, name in requests.items()}
+
+
+def test_a_minecraft_tool_relays_the_bridge_answer_and_says_when_the_client_is_off(monkeypatch: pytest.MonkeyPatch) -> None:
+	received: list[JsonDict] = []
+	class Bridge(BaseHTTPRequestHandler):
+		def do_POST(self) -> None:
+			received.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+			self.send_response(200)
+			self.end_headers()
+			self.wfile.write(b'{"ok":true}')
+
+		@override
+		def log_message(self, format: str, *args: Any) -> None:
+			pass
+
+	server = HTTPServer(("127.0.0.1", 0), Bridge)
+	threading.Thread(target=server.handle_request, daemon=True).start()
+	monkeypatch.setattr(minecraft, "BRIDGE", f"http://127.0.0.1:{server.server_port}")
+	assert find("minecraft_hold").run({"key": "use", "ticks": None}) == '{"ok":true}'
+	assert received == [{"key": "use", "ticks": "1"}]
+
+	server.server_close()
+	assert find("minecraft_state").run({}) == "The test client is not running: start it with minecraft_start."
 

@@ -162,6 +162,8 @@ Ce que montre Claude-tan à chaque étape :
 	- Agir sans jamais gêner, même en jeu. Mesuré depuis un processus sans droit au premier plan : un clic dans Firefox (`DoDefaultAction`) et `WM_SETTEXT` dans un champ Win32 laissent le focus, même fenêtre réduite. Remplir un champ dans Firefox, et toute action dans Chromium (Edge, Discord, VS Code), font passer l'application au premier plan, car UI Automation lui en donne le droit.
 	- Ces actions-là attendent 3 s sans clavier ni souris, sans application plein écran (`SHQueryUserNotificationState`), dans une application de `apps` : jamais depuis un jeu, même fenêtré comme Minecraft. Le focus revient ensuite à la fenêtre d'avant. Sinon elles renoncent au bout de 20 s. Jamais de touche ni de clic simulé.
 
+- [x] Client Minecraft de test (`tools/minecraft/`), une instance à part, jamais le jeu de l'utilisateur : un mod Fabric 26.3 ouvre un serveur HTTP sur `127.0.0.1:47621`, et les outils `minecraft_*` le pilotent (état, commandes, chat, touches, rotation, capture, connexion à un serveur). Les touches passent par les `KeyMapping` du client, sans entrée Windows ni focus, et la pause à la perte du focus est coupée. Vérifié sur un serveur dédié 26.3 : déconnexion et reconnexion d'une partie Zombies de StoupGun. À la fermeture, la JVM sort sur un crash natif (0xC0000005) après "Stopping!", sans conséquence pour un client de test.
+
 ### 7. Plus tard
 
 - [ ] Page web pour parler à Claude-tan depuis l'iPhone (voix et avatar), joignable via Tailscale.

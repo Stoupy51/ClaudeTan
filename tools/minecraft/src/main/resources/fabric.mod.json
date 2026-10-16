@@ -1,0 +1,16 @@
+{
+	"schemaVersion": 1,
+	"id": "claudetan_bridge",
+	"version": "0.1.0",
+	"name": "ClaudeTan Bridge",
+	"description": "Lets ClaudeTan drive this test client over HTTP on localhost: commands, chat, inputs, state and screenshots.",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["dev.stoupy.claudetan.bridge.Bridge"]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"fabric-api": "*",
+		"minecraft": "26.3"
+	}
+}

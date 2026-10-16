@@ -11,7 +11,7 @@ from PySide6.QtGui import QGuiApplication
 from claudetan.config import SCREENSHOTS, Config
 from claudetan.i18n import tr
 from claudetan.report import Report
-from claudetan.services import claude, desktop, programs, weather
+from claudetan.services import claude, desktop, minecraft, programs, weather
 from claudetan.services.alarms import ALARMS
 from claudetan.voice.meeting import MEETING
 
@@ -160,6 +160,72 @@ ACTIONS: list[Action] = [
 		description="Writes text into a field of a window, in place of what it holds, without a keyboard.",
 		run=lambda arguments: desktop.fill(arguments["element"] or "", arguments["text"] or ""),
 		parameters={"element": "Its number from the last read_window.", "text": "What to write."},
+		threaded=True,
+	),
+	Action(
+		name="minecraft_start",
+		description="Starts the test Minecraft client, a game instance of its own, never the user's. "
+		"Ready once minecraft_state says loading: false.",
+		run=lambda _: minecraft.start(),
+	),
+	Action(
+		name="minecraft_state",
+		description="The test client's screen, and in a world the player's position, rotation, health, gamemode and hotbar, as JSON.",
+		run=lambda _: minecraft.call("/state"),
+		threaded=True,
+	),
+	Action(
+		name="minecraft_connect",
+		description="Joins a server with the test client, whose player is ClaudeTan, so the server needs online-mode=false.",
+		run=lambda arguments: minecraft.call("/connect", {"address": arguments["address"] or "localhost"}),
+		parameters={"address": "host:port, localhost by default."},
+		threaded=True,
+	),
+	Action(
+		name="minecraft_disconnect",
+		description="Leaves the world or server of the test client, back to the title screen.",
+		run=lambda _: minecraft.call("/disconnect"),
+		threaded=True,
+	),
+	Action(
+		name="minecraft_command",
+		description="Runs a command as the test client's player. Its feedback arrives in minecraft_chat.",
+		run=lambda arguments: minecraft.call("/command", {"command": arguments["command"] or ""}),
+		parameters={"command": "The command, with or without its slash."},
+		threaded=True,
+	),
+	Action(
+		name="minecraft_chat",
+		description="The chat, system and action bar lines the test client received from an index on, and the next index.",
+		run=lambda arguments: minecraft.call("/chat", {"after": arguments["after"] or "0"}),
+		parameters={"after": "Index of the first line, 0 by default."},
+		threaded=True,
+	),
+	Action(
+		name="minecraft_hold",
+		description="Holds a key of the test client for some ticks, after one click: forward, back, left, right, jump, sneak, sprint, "
+		"use, attack, drop, swapOffhand, inventory or hotbar.1 to hotbar.9.",
+		run=lambda arguments: minecraft.call("/hold", {"key": arguments["key"] or "", "ticks": arguments["ticks"] or "1"}),
+		parameters={"key": "The key's name.", "ticks": "How long, in ticks of 1/20 s, 1 by default."},
+		threaded=True,
+	),
+	Action(
+		name="minecraft_look",
+		description="Turns the test client's player to a rotation.",
+		run=lambda arguments: minecraft.call("/look", {"yaw": arguments["yaw"] or "0", "pitch": arguments["pitch"] or "0"}),
+		parameters={"yaw": "Degrees, 0 south, 90 west.", "pitch": "Degrees, -90 up, 90 down."},
+		threaded=True,
+	),
+	Action(
+		name="minecraft_screenshot",
+		description="Saves what the test client shows into a picture file and gives its path, to read.",
+		run=lambda _: minecraft.call("/screenshot"),
+		threaded=True,
+	),
+	Action(
+		name="minecraft_quit",
+		description="Closes the test client.",
+		run=lambda _: minecraft.call("/quit"),
 		threaded=True,
 	),
 	Action(

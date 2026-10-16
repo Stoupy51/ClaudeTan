@@ -1,0 +1,28 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version '1.15.+'
+}
+
+version = '0.1.0'
+group = 'dev.stoupy'
+base {
+	archivesName = 'claudetan-bridge'
+}
+
+loom {
+	runs {
+		client {
+			runDir 'run'
+			programArgs '--username', 'ClaudeTan'
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}

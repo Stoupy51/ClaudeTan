@@ -4,3 +4,7 @@ ClaudeTanRoaming.lnk
 Temp/
 
 *.mp4
+tools/minecraft/.gradle/
+tools/minecraft/build/
+tools/minecraft/run/
+tools/minecraft/run_client.log

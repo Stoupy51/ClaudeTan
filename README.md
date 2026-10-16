@@ -62,6 +62,7 @@ A request that is exactly one of the phrases below is done by the app itself, at
 | Open a program | Any request, through the session (`launch_program` tool) | Opens the program whose Start menu shortcut matches the name |
 | Use an application | Any request, through the session (`list_windows`, `read_window`, `look_window`, `press`, `fill` tools) | Reads the windows of the applications of the `apps` config key, and presses or fills what they show in those set to `"act"`, after asking you once. She never takes the focus from a game |
 | ShadowPlay clip | *"clip that"*, *"enregistre ça"* | Presses Alt+F10 |
+| Test Minecraft | Any request, through the session (`minecraft_*` tools) | Starts a Minecraft 26.3 test client of its own (`tools/minecraft/`, never your game), joins a server, runs commands, reads the chat, holds keys and takes screenshots |
 
 You may pause while you speak: she sends your request after 15 s of silence, or as soon as you say *"done"* (or *"terminé"*) as a sentence of its own after a pause, or end it with *"over"* (or *"c'est tout"*). *"Cancel"* said alone, or *"cancel prompt"* at the end, drops it. The bubble reminds you of the word.
 
