@@ -362,6 +362,10 @@ class Assistant(QObject):
 		if self.dismiss.isActive():
 			self.dismiss.start(max(self.dismiss.remainingTime(), round(1000 * vowels[-1][0]) + SPOKEN_MS))
 
+	def on_read(self) -> None:
+		if self.dismiss.isActive():
+			self.leave()
+
 	def end_turn(self) -> None:
 		self.busy = False
 		self.asking = False
@@ -563,6 +567,7 @@ def run() -> None:
 	voice = Voice(config.voice_style if config.voice else None)
 	assistant.speak.connect(voice.say)
 	assistant.hush.connect(voice.hush)
+	avatar.read.connect(assistant.on_read)
 	voice.started.connect(avatar.speak)
 	voice.started.connect(assistant.on_speaking)
 	app.aboutToQuit.connect(voice.close)

@@ -1,5 +1,6 @@
 """ Sound coming in: the microphone and the PC's own output, cut into sentences by Silero VAD for Whisper. """
 # Imports
+import contextlib
 import functools
 import queue
 from collections.abc import Iterator
@@ -21,6 +22,8 @@ FRAME: int = 512
 """ Samples per VAD step, the window Silero expects at 16 kHz (32 ms). """
 EARLY_CHECK_FRAMES: int = 40
 """ Length (1.3 s) at which a sentence still being spoken is transcribed once, so she reacts to the wake phrase before it ends. """
+STALL_S: float = 2.0
+""" Seconds without a frame after which the microphone's stream is considered dead. """
 GPU: bool = ctranslate2.get_cuda_device_count() > 0
 """ Whether an NVIDIA GPU runs Whisper. The CPU, 30 times slower, runs a smaller model, and only after the wake phrase. """
 
@@ -65,13 +68,15 @@ def load_whisper() -> Whisper:
 
 
 def microphone() -> Iterator[Audio]:
+	""" The microphone's frames, its stream opened again when it delivers none for `STALL_S`, as a restarted app's sometimes does. """
 	frames: queue.Queue[Audio] = queue.Queue()
-	with sd.InputStream(
-		samplerate=RATE, channels=1, dtype="float32", blocksize=FRAME,
-		callback=lambda data, _count, _time, _status: frames.put(data[:, 0].copy()),
-	):
-		while True:
-			yield frames.get()
+	while True:
+		with sd.InputStream(
+			samplerate=RATE, channels=1, dtype="float32", blocksize=FRAME,
+			callback=lambda data, _count, _time, _status: frames.put(data[:, 0].copy()),
+		), contextlib.suppress(queue.Empty):
+			while True:
+				yield frames.get(timeout=STALL_S)
 
 
 def utterances(frames: Iterator[Audio], pause_s: float) -> Iterator[Speech | None]:

@@ -62,6 +62,8 @@ CLICK_SLOP: int = 6
 """ Pixels the cursor may travel during a press that still counts as a click. """
 WHEEL_STEP: float = 40.0
 """ Pixels of text one notch of the mouse wheel scrolls. """
+READ_S: float = 3.0
+""" How long the end of a text stays still under the wheel before she leaves. """
 TALK_FRAMES: dict[str, tuple[str, ...]] = {
 	"idle": ("idle_talk_open", "idle_talk_o", "idle_talk_wide"),
 	"hello": ("hello_talk_open", "hello_talk_wide"),
@@ -83,6 +85,8 @@ CHIME_RATE: int = 44100
 # Classes
 class Avatar(QWidget):
 	clicked = Signal()
+	read = Signal()
+	""" The text was scrolled to its end, left there for `READ_S`, and her voice is done. """
 
 	def __init__(self, zoom: float = 1.0, text_zoom: float = 1.0) -> None:
 		""" The overlay, with her drawn `zoom` times and her bubble `text_zoom` times their default size. """
@@ -250,6 +254,9 @@ class Avatar(QWidget):
 		self.last_tick = now
 		if self.speech:
 			self.move_mouth(now - self.speech[0], self.speech[1])
+		elif (since := self.bubble.read_since) is not None and now - since >= READ_S:
+			self.bubble.read_since = None
+			self.read.emit()
 		if now >= self.next_mote:
 			left, top = self.sprite_left + 0.2 * self.sprite_width, SPRITE_TOP + 0.15 * SPRITE_HEIGHT
 			self.sparks.append(mote(QRectF(left, top, 0.6 * self.sprite_width, 0.6 * SPRITE_HEIGHT), now))
@@ -307,7 +314,7 @@ class Avatar(QWidget):
 
 	@override
 	def wheelEvent(self, event: QWheelEvent) -> None:
-		self.bubble.scroll(-event.angleDelta().y() / 120 * WHEEL_STEP / self.text_zoom)
+		self.bubble.scroll(-event.angleDelta().y() / 120 * WHEEL_STEP / self.text_zoom, self.now())
 
 	@override
 	def mousePressEvent(self, event: QMouseEvent) -> None:
