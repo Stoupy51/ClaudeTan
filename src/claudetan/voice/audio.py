@@ -75,7 +75,7 @@ def microphone() -> Iterator[Audio]:
 
 
 def utterances(frames: Iterator[Audio], pause_s: float) -> Iterator[Speech | None]:
-	""" Sentences cut out of the frames: one starts after 250 ms above the threshold and ends after 800 ms of silence or 15 s.
+	""" Sentences cut out of the frames: one starts after 250 ms above the threshold and ends after 500 ms of silence or 15 s.
 
 	Each sentence reaching `EARLY_CHECK_FRAMES` is also yielded once before it ends, and None once `pause_s` pass without a voice.
 	"""
@@ -91,7 +91,7 @@ def utterances(frames: Iterator[Audio], pause_s: float) -> Iterator[Speech | Non
 		else:
 			continue
 
-		ended = silent >= 25 or len(speech) >= 15 * RATE // FRAME
+		ended = silent >= 16 or len(speech) >= 15 * RATE // FRAME
 		if ended or len(speech) == EARLY_CHECK_FRAMES:
 			yield Speech(audio=np.concatenate(speech), ended=ended)
 		if ended:

@@ -289,7 +289,8 @@ class Assistant(QObject):
 			f"J'ai besoin de ton accord : {request}. Dis oui ou non, ou clique sur moi.",
 		)
 		self.appear("please", bubble=asked)
-		self.say_aloud(asked)
+		# The same words each time, so their translation and sound are kept rather than made again
+		self.say_aloud(tr("I need your OK: say yes or no.", "J'ai besoin de ton accord : dis oui ou non."))
 
 	def on_permission_asked(self, answer: Future[bool]) -> None:
 		self.pending = answer

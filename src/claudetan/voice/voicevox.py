@@ -3,6 +3,7 @@
 The engine runs on the CPU, so that Whisper and games keep the GPU. It says a sentence in 1.7 s, and Haiku translates one in 1 to 2 s.
 """
 # Imports
+import functools
 import io
 import json
 import logging
@@ -63,7 +64,7 @@ CHUNK_S: float = 0.05
 
 # Classes
 class Voice(QObject):
-	""" Says her lines one at a time on a thread of its own. """
+	""" Says her lines one at a time, each translated on a thread of its own while the one before it is said on another. """
 	started = Signal(object)
 	""" The `Vowels` of the line her voice starts saying. """
 
@@ -71,11 +72,17 @@ class Voice(QObject):
 		""" Readies the engine with the voice of `style` and the translator, or leaves them to her first line when None. """
 		super().__init__()
 		self.lines: queue.Queue[tuple[str, int]] = queue.Queue()
-		self.hushed = threading.Event()
+		self.translated_lines: queue.Queue[tuple[str, int, int]] = queue.Queue()
+		""" Lines in Japanese with their style and the `hushes` they came after, waiting for the line being said. """
+		self.hushes = 0
+		""" How many times she was hushed: a line from before the last time is dropped, translated or being said. """
+		self.translations: dict[str, str] = {}
+		""" Lines already translated, said again in the same words, whose sentences `synthesize` then keeps. """
 		self.engine: subprocess.Popen[bytes] | None = None
 		self.translator: subprocess.Popen[str] | None = None
 		self.translated = 0
-		threading.Thread(target=self.run, args=(style,), daemon=True).start()
+		threading.Thread(target=self.translate_lines, args=(style,), daemon=True).start()
+		threading.Thread(target=self.say_lines, daemon=True).start()
 
 	def say(self, text: str, style: int) -> None:
 		""" Says the text in the VOICEVOX style, once the line before it is said. A line still waiting is dropped for it. """
@@ -83,16 +90,17 @@ class Voice(QObject):
 
 	def hush(self) -> None:
 		""" Stops the line being said and drops those waiting. """
-		with self.lines.mutex:
-			self.lines.queue.clear()
-		self.hushed.set()
+		for waiting in (self.lines, self.translated_lines):
+			with waiting.mutex:
+				waiting.queue.clear()
+		self.hushes += 1
 
 	def close(self) -> None:
 		for process in (self.engine, self.translator):
 			if process:
 				process.kill()
 
-	def run(self, style: int | None) -> None:
+	def translate_lines(self, style: int | None) -> None:
 		if style is not None:
 			self.engine = None if engine_answers() else start_engine()
 			post(f"/initialize_speaker?speaker={style}")
@@ -101,17 +109,26 @@ class Voice(QObject):
 			text, style = self.lines.get()
 			if not self.lines.empty():
 				continue
-			self.hushed.clear()
+			hushes = self.hushes
 			japanese = text if KANA.search(text) else self.translate(CODE.sub("", text)[:LONGEST_LINE])
 			# VOICEVOX spells out Latin letters, so a line Haiku left untranslated is not said
 			if not KANA.search(japanese):
 				LOG.warning("Not said, left untranslated: %s", japanese)
-			elif not self.hushed.is_set():
+			elif hushes == self.hushes:
+				self.translated_lines.put((japanese, style, hushes))
+
+	def say_lines(self) -> None:
+		while True:
+			japanese, style, hushes = self.translated_lines.get()
+			if self.translated_lines.empty() and hushes == self.hushes:
 				LOG.info("Said: %s", japanese)
-				self.speak(japanese, style)
+				self.speak(japanese, style, hushes)
 
 	def translate(self, text: str) -> str:
 		""" The text in spoken Japanese, by a Haiku conversation kept open: a line does not wait the 4 s `claude` takes to start. """
+		if text in self.translations:
+			return self.translations[text]
+
 		if not self.translator or self.translator.poll() is not None or self.translated >= LINES_PER_TRANSLATOR:
 			if self.translator:
 				self.translator.kill()
@@ -121,10 +138,14 @@ class Voice(QObject):
 		self.translator.stdin.write(json.dumps({"type": "user", "message": message}) + "\n")
 		self.translator.stdin.flush()
 		self.translated += 1
-		results = (json.loads(line) for line in self.translator.stdout)
-		return next((event["result"] for event in results if event["type"] == "result"), "")
 
-	def speak(self, japanese: str, style: int) -> None:
+		results = (json.loads(line) for line in self.translator.stdout)
+		japanese = next((event["result"] for event in results if event["type"] == "result"), "")
+		if KANA.search(japanese):
+			self.translations[text] = japanese
+		return japanese
+
+	def speak(self, japanese: str, style: int, hushes: int) -> None:
 		""" Says each sentence once it is synthesized, the next one being synthesized while it plays. """
 		if not self.engine and not engine_answers():
 			self.engine = start_engine()
@@ -138,7 +159,7 @@ class Voice(QObject):
 				sound, _rate = sf.read(io.BytesIO(wav), dtype="float32")
 				self.started.emit(timing)
 				for start in range(0, len(sound), chunk):
-					if self.hushed.is_set():
+					if self.hushes != hushes:
 						synthesizer.shutdown(cancel_futures=True)
 						return
 					stream.write(sound[start:start + chunk])
@@ -165,8 +186,9 @@ def vowels(query: JsonDict) -> Vowels:
 	return (*timed, (round(at / query["speedScale"], 3), ""))
 
 
+@functools.lru_cache(maxsize=64)
 def synthesize(japanese: str, style: int) -> tuple[Vowels, bytes]:
-	""" The vowels and the WAV sound of the text said in the VOICEVOX style. """
+	""" The vowels and the WAV sound of the text said in the VOICEVOX style, kept for the sentences she says again. """
 	query = post(f"/audio_query?{urllib.parse.urlencode({'text': japanese, 'speaker': style})}")
 	return vowels(json.loads(query)), post(f"/synthesis?speaker={style}", query)
 
