@@ -14,6 +14,14 @@ loom {
 			runDir 'run'
 			programArgs '--username', 'ClaudeTan'
 		}
+		// A second player for tests that need two, such as two game modes at once.
+		client2 {
+			inherit client
+			configName = 'Minecraft Client 2'
+			runDir 'run2'
+			programArgs '--username', 'ClaudeTan2'
+			vmArg '-Dclaudetan.bridge.port=47622'
+		}
 	}
 }
 

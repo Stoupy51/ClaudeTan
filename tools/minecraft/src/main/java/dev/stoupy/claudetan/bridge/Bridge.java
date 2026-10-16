@@ -31,6 +31,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.player.LocalPlayer;
@@ -227,7 +228,8 @@ public final class Bridge implements ClientModInitializer {
 		if (client.level == null) {
 			return error("Not in a world.");
 		}
-		client.disconnect(new TitleScreen(), false);
+		// As the pause menu's Disconnect button: the server sees the player leave at once.
+		client.disconnectFromWorld(ClientLevel.DEFAULT_QUIT_MESSAGE);
 		return ok();
 	}
 
