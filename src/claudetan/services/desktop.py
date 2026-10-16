@@ -254,7 +254,7 @@ def in_front(act: Callable[[], object], done: str) -> str:
 
 
 def press_now(control: auto.Control) -> None:
-	""" Presses the element through the first pattern it has of those a click would use. """
+	""" Presses the element through the first pattern it has of those a click would use, a gone element having none. """
 	if isinstance(invoke := control.GetPattern(auto.PatternId.InvokePattern), auto.InvokePattern):
 		invoke.Invoke()
 	elif isinstance(toggle := control.GetPattern(auto.PatternId.TogglePattern), auto.TogglePattern):
@@ -263,8 +263,10 @@ def press_now(control: auto.Control) -> None:
 		item.Select()
 	elif isinstance(expand := control.GetPattern(auto.PatternId.ExpandCollapsePattern), auto.ExpandCollapsePattern):
 		expand.Collapse() if expand.ExpandCollapseState == auto.ExpandCollapseState.Expanded else expand.Expand()
+	elif legacy := control.GetLegacyIAccessiblePattern():
+		legacy.DoDefaultAction()
 	else:
-		control.GetLegacyIAccessiblePattern().DoDefaultAction()
+		raise RefusedError(tr("This element is gone: read the window again.", "Cet élément n'existe plus, relis la fenêtre."))
 
 
 def idle_s() -> float:

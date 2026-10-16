@@ -135,7 +135,8 @@ class Session(QObject):
 		actions.SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 		worker = {"description": WORKER_DESCRIPTION, "prompt": WORKER_PROMPT, "model": config.agent_model, "background": True}
 		resume = ["--resume", self.id] if self.id else ["--session-id", str(uuid.uuid4())]
-		tools = json.dumps({"mcpServers": {"claudetan": {"type": "http", "url": self.tools_url}}})
+		# Deferred behind tool search, her tools would show the session their names only, so it would pick the ones it already loaded
+		tools = json.dumps({"mcpServers": {"claudetan": {"type": "http", "url": self.tools_url, "alwaysLoad": True}}})
 		claude = [
 			"claude", "--remote-control", "ClaudeTan", "--permission-mode", "auto", "--model", config.model,
 			"--agents", json.dumps({"worker": worker}), "--mcp-config", tools, "--allowedTools", "mcp__claudetan",
