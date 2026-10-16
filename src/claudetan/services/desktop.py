@@ -15,21 +15,35 @@ from concurrent.futures import ThreadPoolExecutor
 from ctypes import windll, wintypes
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+import comtypes.client
 import uiautomation as auto
 from PySide6.QtGui import QImage
 
 from claudetan.config import APP_DATA, Config
 from claudetan.i18n import tr
 
+if TYPE_CHECKING:
+	from comtypes.gen.UIAutomationClient import IUIAutomation, IUIAutomationElement
+
 # Constants
 COM: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=1, initializer=auto.InitializeUIAutomationInCurrentThread)
 """ UI Automation's objects only work on the thread that made them, so every call goes through this one. """
 ELEMENTS: dict[str, Element] = {}
 """ What the last `read_window` listed, by the number it gave. """
+CHROMIUM: str = "Chrome_WidgetWin_1"
+""" Window class of Chromium and Electron (Edge, VS Code, Discord), which build a page's elements once asked, in about 3 s. """
 AWAKE: set[int] = set()
-""" Processes already asked for their elements: Chromium builds a page's only once a program asks, in about 3 s. """
+""" Processes already asked for their elements. """
+ASLEEP_BELOW: int = 50
+""" Fewer elements than this in a Chromium window means it has not built its page yet, which shows hundreds. """
 WAKE_S: float = 4.0
+WAKE_POLL_S: float = 0.5
+SHOWN: tuple[int, ...] = (auto.PropertyId.ControlTypeProperty, auto.PropertyId.NameProperty, auto.PropertyId.ValueValueProperty)
+""" Properties `read_window` lists, read in the same request as the elements: one call each would take seconds. """
+DESCENDANTS: int = 4
+""" `TreeScope_Descendants`. """
 APPROVED: set[str] = set()
 """ Applications the user let her act in since the app started. """
 ACTING_TOOLS: frozenset[str] = frozenset({"mcp__claudetan__press", "mcp__claudetan__fill"})
@@ -102,10 +116,9 @@ def list_windows() -> str:
 @com
 def read_window(window: str) -> str:
 	control, app, level = open_window(window)
-	if control.ProcessId not in AWAKE:
-		AWAKE.add(control.ProcessId)
-		listing(control, app, level)
-		time.sleep(WAKE_S)
+	if control.ProcessId not in AWAKE and control.ClassName == CHROMIUM:
+		wake(control)
+	AWAKE.add(control.ProcessId)
 	return listing(control, app, level)
 
 
@@ -168,10 +181,15 @@ def executable(pid: int) -> str:
 
 
 def open_window(window: str) -> tuple[auto.Control, str, str]:
-	""" The window `list_windows` gave this id, its application and what she may do in it. """
-	control = auto.ControlFromHandle(int(window)) if window.isdigit() else None
+	""" The window `list_windows` gave this id, or the frontmost one of this program, its application and what she may do in it. """
+	if window.isdigit():
+		control = auto.ControlFromHandle(int(window))
+	else:
+		program = window.lower().removesuffix(".exe") + ".exe"
+		control = next((w for w in auto.GetRootControl().GetChildren() if w.Name and executable(w.ProcessId) == program), None)
 	if not control:
-		raise RefusedError(tr("No window has this id: list them again.", "Aucune fenêtre n'a cet id : liste-les à nouveau."))
+		raise RefusedError(tr("No such window is open: list them.", "Aucune fenêtre de ce nom n'est ouverte : liste-les."))
+
 	app, level = access(control.ProcessId)
 	if not level:
 		raise RefusedError(tr(f"The user did not open {app} to me.", f"L'utilisateur ne m'a pas ouvert {app}."))
@@ -182,23 +200,54 @@ def listing(control: auto.Control, app: str, level: str) -> str:
 	""" The window's title and its elements, numbered for `press` and `fill`. """
 	ELEMENTS.clear()
 	lines = [f"{control.Name} ({app}, {level})"]
-	for element, _depth in auto.WalkControl(control):
+	for element in on_screen(control):
 		if len(ELEMENTS) == MAX_LINES:
 			lines.append(tr("And more, not listed.", "Et d'autres, non listés."))
 			break
-		if (label := describe(element)) and not element.IsOffscreen:
+		if label := describe(element):
 			number = str(len(ELEMENTS) + 1)
-			ELEMENTS[number] = Element(element, app, label)
+			ELEMENTS[number] = Element(auto.Control(element=element), app, label)
 			lines.append(f"[{number}] {label}")
 	return "\n".join(lines)
 
 
-def describe(control: auto.Control) -> str:
+def wake(control: auto.Control) -> None:
+	""" Waits until a Chromium window that has not built its page yet has built it, `WAKE_S` at most. """
+	deadline = time.monotonic() + WAKE_S
+	first = previous = len(on_screen(control))
+	while first < ASLEEP_BELOW and time.monotonic() < deadline:
+		time.sleep(WAKE_POLL_S)
+		count = len(on_screen(control))
+		if count == previous > first:
+			return
+		previous = count
+
+
+def on_screen(control: auto.Control) -> list[IUIAutomationElement]:
+	""" The window's elements shown on screen, in tree order, with their properties of `SHOWN` already read. """
+	uia = automation()
+	request = uia.CreateCacheRequest()
+	for property_id in SHOWN:
+		request.AddProperty(property_id)
+	shown = uia.CreatePropertyCondition(auto.PropertyId.IsOffscreenProperty, value=False)
+	found = uia.ElementFromHandle(control.NativeWindowHandle).FindAllBuildCache(DESCENDANTS, shown, request)
+	return [found.GetElement(index) for index in range(found.Length)]
+
+
+@functools.cache
+def automation() -> IUIAutomation:
+	""" UI Automation's own interface, for the cached requests that `uiautomation` leaves out. """
+	comtypes.client.GetModule("UIAutomationCore.dll")
+	from comtypes.gen.UIAutomationClient import CUIAutomation, IUIAutomation
+	return comtypes.client.CreateObject(CUIAutomation, interface=IUIAutomation)
+
+
+def describe(element: IUIAutomationElement) -> str:
 	""" Its type, name and value as listed, empty for a container with nothing to say. """
-	kind = control.ControlTypeName.removesuffix("Control")
-	name = control.Name.strip()[:MAX_TEXT]
-	value = control.GetPattern(auto.PatternId.ValuePattern) if kind in ("Edit", "ComboBox") else None
-	text = value.Value[:MAX_TEXT] if isinstance(value, auto.ValuePattern) else ""
+	kind = auto.ControlTypeNames[element.CachedControlType].removesuffix("Control")
+	name = element.CachedName.strip()[:MAX_TEXT]
+	value = element.GetCachedPropertyValue(auto.PropertyId.ValueValueProperty) if kind in ("Edit", "ComboBox") else ""
+	text = value[:MAX_TEXT] if isinstance(value, str) else ""
 	if not (name or text or kind in LISTED_TYPES):
 		return ""
 	return f'{kind} "{name}"' + (f' = "{text}"' if text else "")

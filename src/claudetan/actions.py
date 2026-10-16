@@ -132,7 +132,8 @@ ACTIONS: list[Action] = [
 	),
 	Action(
 		name="list_windows",
-		description="Lists the open windows of the applications the user lets you read or act in, by the id read_window takes.",
+		description="Lists the open windows of the applications the user lets you read or act in, by the id read_window takes. "
+		"Needed only to pick a window other than the frontmost one of its program.",
 		run=lambda _: desktop.list_windows(),
 		threaded=True,
 	),
@@ -141,14 +142,14 @@ ACTIONS: list[Action] = [
 		description="Lists what a window shows, as numbered elements with their type, name and value, without disturbing the user. "
 		"Cheaper than look_window, so read first.",
 		run=lambda arguments: desktop.read_window(arguments["window"] or ""),
-		parameters={"window": "Its id from list_windows."},
+		parameters={"window": "Its program's file name, such as firefox.exe, for its frontmost window, or its id from list_windows."},
 		threaded=True,
 	),
 	Action(
 		name="look_window",
 		description="Draws a window into a picture file, even behind others, when read_window does not tell enough.",
 		run=lambda arguments: desktop.look_window(arguments["window"] or ""),
-		parameters={"window": "Its id from list_windows."},
+		parameters={"window": "Its program's file name, such as firefox.exe, for its frontmost window, or its id from list_windows."},
 		threaded=True,
 	),
 	Action(
