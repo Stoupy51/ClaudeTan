@@ -48,6 +48,8 @@ SCREENS: dict[str, int] = {"1": 1, "un": 1, "one": 1, "2": 2, "deux": 2, "two": 
 """ Screen numbers as Whisper may write them. """
 MODELS: tuple[str, ...] = ("opus", "sonnet", "haiku")
 """ The models of `/model` she switches to by name. """
+SCREENSHOTS: Path = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation)) / "Screenshots"
+""" Where her screenshots go, a folder the session reads without asking. """
 ACTIONS: list[Action] = [
 	Action(
 		name="screenshot",
@@ -234,11 +236,10 @@ def screenshot(screen: int) -> str:
 	if screen > len(screens):
 		plural = "s" * (len(screens) > 1)
 		return tr(f"I only see {len(screens)} screen{plural}.", f"Je ne vois que {len(screens)} écran{plural}.")
-	folder = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation)) / "Screenshots"
-	folder.mkdir(parents=True, exist_ok=True)
-	path = folder / f"Capture {datetime.now():%Y-%m-%d %H-%M-%S}.png"
+	SCREENSHOTS.mkdir(parents=True, exist_ok=True)
+	path = SCREENSHOTS / f"Capture {datetime.now():%Y-%m-%d %H-%M-%S}.png"
 	screens[screen - 1].grabWindow(0).save(str(path))
-	return tr(f"Screen {screen} captured in {folder}.", f"Capture de l'écran {screen} enregistrée dans {folder}.")
+	return tr(f"Screen {screen} captured in {SCREENSHOTS}.", f"Capture de l'écran {screen} enregistrée dans {SCREENSHOTS}.")
 
 
 def press(*keys: int, said: str) -> str:

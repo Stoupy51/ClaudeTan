@@ -83,6 +83,8 @@ def test_permission_is_asked_then_thanked(assistant: Assistant) -> None:
 	assistant.on_hook(hook("UserPromptSubmit", prompt="supprime le dossier build"))
 	assistant.on_hook(hook("PreToolUse", tool_name="Bash", tool_input=command, tool_use_id="t1"))
 	assistant.on_hook(hook("PermissionRequest", tool_name="Bash", tool_input=command))
+	assistant.on_hook(hook("PreToolUse", tool_name="ToolSearch", tool_input={}, tool_use_id="t2"))
+	assistant.on_hook(hook("PostToolUse", tool_name="ToolSearch", tool_input={}, tool_response={}, tool_use_id="t2"))
 	assert assistant.avatar.expression == "please"
 
 	assistant.on_hook(hook("PostToolUse", tool_name="Bash", tool_input=command, tool_response={}, tool_use_id="t1"))

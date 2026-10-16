@@ -17,6 +17,7 @@ import pyte
 from PySide6.QtCore import QObject, QTimer, Signal, SignalInstance
 from winpty import PtyProcess
 
+from claudetan import actions
 from claudetan.config import APP_DATA, ROOT, USER_CONFIG, Config
 from claudetan.services import desktop
 
@@ -131,6 +132,7 @@ class Session(QObject):
 		prompt = APP_DATA / "session_prompt.md"
 		prompt.write_text(system_prompt(config.prompt, commit=config.commit_changes), encoding="utf-8")
 		desktop.CAPTURE.parent.mkdir(exist_ok=True)
+		actions.SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 		worker = {"description": WORKER_DESCRIPTION, "prompt": WORKER_PROMPT, "model": config.agent_model, "background": True}
 		resume = ["--resume", self.id] if self.id else ["--session-id", str(uuid.uuid4())]
 		tools = json.dumps({"mcpServers": {"claudetan": {"type": "http", "url": self.tools_url}}})
@@ -138,7 +140,7 @@ class Session(QObject):
 			"claude", "--remote-control", "ClaudeTan", "--permission-mode", "auto", "--model", config.model,
 			"--agents", json.dumps({"worker": worker}), "--mcp-config", tools, "--allowedTools", "mcp__claudetan",
 			"--settings", str(self.settings), "--append-system-prompt-file", str(prompt), *resume,
-			"--add-dir", str(desktop.CAPTURE.parent),
+			"--add-dir", str(desktop.CAPTURE.parent), str(actions.SCREENSHOTS),
 		]
 		# chcp 65001: without it the pseudo console feeds Claude Code accented letters in cp850
 		argv = ["cmd.exe", "/c", "chcp", "65001", ">nul", "&&", *claude]

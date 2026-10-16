@@ -98,6 +98,8 @@ class Assistant(QObject):
 		self.busy = False
 		self.agents: set[str] = set()
 		self.asking = False
+		self.asked_tool: tuple[str, JsonDict] | None = None
+		""" Name and input of the tool waiting for permission: only its completion answers the request, others run alongside. """
 		self.pending: Future[bool] | None = None
 		self.worked = False
 		""" Whether the turn used a tool, which makes her present the result rather than smile. """
@@ -229,10 +231,11 @@ class Assistant(QObject):
 				self.on_prompt(event["prompt"])
 			case "PreToolUse":
 				self.on_tool(describe_tool(event["tool_name"], event["tool_input"]))
-			case "PostToolUse" if self.asking:
+			case "PostToolUse" if self.asking and (event["tool_name"], event["tool_input"]) == self.asked_tool:
 				self.settle_permission()
 				self.appear("thanks", bubble=tr("Thanks!", "Merci !"))
 			case "PermissionRequest":
+				self.asked_tool = (event["tool_name"], event["tool_input"])
 				self.on_permission(describe_tool(event["tool_name"], event["tool_input"]))
 			case "Notification" if event["notification_type"] == "permission_prompt":
 				self.on_permission(event["message"])
@@ -259,6 +262,7 @@ class Assistant(QObject):
 	def on_prompt(self, prompt: str) -> None:
 		""" A turn starts, typed by the app, sent from the Remote Control, or started by Claude Code itself. """
 		LOG.info("Prompt: %s", prompt)
+		self.settle_permission()
 		self.busy = True
 		self.worked = False
 		self.activity = ""
@@ -270,8 +274,7 @@ class Assistant(QObject):
 	def on_tool(self, activity: str) -> None:
 		LOG.info("Action: %s", activity)
 		self.worked = True
-		self.settle_permission()
-		if activity != self.activity and not self.pill.isVisible():
+		if activity != self.activity and not self.asking and not self.pill.isVisible():
 			self.activity = activity
 			self.appear("working", bubble=activity)
 
