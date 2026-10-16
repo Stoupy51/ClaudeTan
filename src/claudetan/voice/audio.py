@@ -4,6 +4,7 @@ import functools
 import queue
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import override
 
 import ctranslate2
 import numpy as np
@@ -14,6 +15,7 @@ from faster_whisper.vad import get_vad_model
 
 # Constants
 type Audio = np.ndarray[tuple[int], np.dtype[np.float32]]
+type Features = np.ndarray[tuple[int, int], np.dtype[np.float32]]
 RATE: int = 16000
 FRAME: int = 512
 """ Samples per VAD step, the window Silero expects at 16 kHz (32 ms). """
@@ -31,16 +33,35 @@ class Speech:
 	""" False for the opening of a sentence still being spoken. """
 
 
+class Whisper(WhisperModel):
+	""" Whisper encoding a sentence once, where `transcribe` encodes it to detect its language and again for its text.
+
+	The second time it leaves out the sentence's last frame (10 ms), so the first encoding serves for both.
+	"""
+	last: tuple[Features, ctranslate2.StorageView] | None = None
+
+	@override
+	def encode(self, features: Features) -> ctranslate2.StorageView:
+		if self.last:
+			differ = np.flatnonzero((features != self.last[0]).any(axis=0))
+			if len(differ) <= 1 and not features[:, differ].any():
+				return self.last[1]
+
+		encoded = super().encode(features)
+		self.last = (features, encoded)
+		return encoded
+
+
 # Functions
 @functools.cache
-def load_whisper() -> WhisperModel:
+def load_whisper() -> Whisper:
 	""" Whisper, shared by every caller and downloaded from Hugging Face on the first call: 1.6 GB on the GPU, 0.5 GB on the CPU.
 
 	On the CPU, `small` takes 4 s a sentence where `large-v3-turbo` takes 20, and `base` mistakes French for other languages.
 	"""
 	if GPU:
-		return WhisperModel("large-v3-turbo", device="cuda", compute_type="int8_float16")
-	return WhisperModel("small", device="cpu", compute_type="int8")
+		return Whisper("large-v3-turbo", device="cuda", compute_type="int8_float16")
+	return Whisper("small", device="cpu", compute_type="int8")
 
 
 def microphone() -> Iterator[Audio]:

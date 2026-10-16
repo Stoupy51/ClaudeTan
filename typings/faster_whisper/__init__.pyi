@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 
+import ctranslate2
 import numpy as np
 
 class Segment:
@@ -20,3 +21,4 @@ class WhisperModel:
 		beam_size: int = 5,
 		condition_on_previous_text: bool = True,
 	) -> tuple[Iterable[Segment], TranscriptionInfo]: ...
+	def encode(self, features: np.ndarray[tuple[int, int], np.dtype[np.float32]]) -> ctranslate2.StorageView: ...

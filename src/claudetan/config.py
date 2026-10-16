@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
+from PySide6.QtCore import QStandardPaths
+
 # Constants
 ROOT: Path = Path(__file__).resolve().parents[2]
 """ The ClaudeTan repository, which the app runs from. """
@@ -15,6 +17,8 @@ APP_DATA: Path = Path(os.environ["APPDATA"]) / "ClaudeTan"
 DEFAULTS: Path = Path(__file__).with_name("config.toml")
 USER_CONFIG: Path = APP_DATA / "config.toml"
 LOG_FILE: Path = APP_DATA / "claudetan.log"
+SCREENSHOTS: Path = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation)) / "Screenshots"
+""" Where her screenshots go, a folder the session reads without asking. """
 
 
 # Classes

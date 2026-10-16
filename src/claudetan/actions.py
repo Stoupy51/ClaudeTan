@@ -5,12 +5,10 @@ from collections.abc import Callable, Mapping
 from ctypes import windll
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 
-from PySide6.QtCore import QStandardPaths
 from PySide6.QtGui import QGuiApplication
 
-from claudetan.config import Config
+from claudetan.config import SCREENSHOTS, Config
 from claudetan.i18n import tr
 from claudetan.report import Report
 from claudetan.services import claude, desktop, programs, weather
@@ -48,8 +46,6 @@ SCREENS: dict[str, int] = {"1": 1, "un": 1, "one": 1, "2": 2, "deux": 2, "two": 
 """ Screen numbers as Whisper may write them. """
 MODELS: tuple[str, ...] = ("opus", "sonnet", "haiku")
 """ The models of `/model` she switches to by name. """
-SCREENSHOTS: Path = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation)) / "Screenshots"
-""" Where her screenshots go, a folder the session reads without asking. """
 ACTIONS: list[Action] = [
 	Action(
 		name="screenshot",
