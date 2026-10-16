@@ -78,6 +78,13 @@ class Bubble:
 		self.pixmap_key: tuple[tuple[str, float], float] = (("", -1.0), 0.0)
 		self.pixmap = QPixmap()
 		""" The text drawn once at the screen's scale, to scroll it smoothly. """
+		self.scrolled = 0.0
+		self.max_scroll = 0.0
+		self.dragged: float | None = None
+		""" Where the mouse wheel left the text, which stops the automatic scroll until another text is shown. """
+
+	def scroll(self, pixels: float) -> None:
+		self.dragged = max(0.0, min(self.max_scroll, self.scrolled + pixels))
 
 	def say(self, text: str | Report, now: float) -> None:
 		""" Shows the text, typing on from where it was when it continues the shown one, as a reply streamed in pieces does.
@@ -89,9 +96,11 @@ class Bubble:
 		if self.report:
 			self.revealed = len(shown) + FADE_CHARS
 			self.shown_at = now
+			self.dragged = None
 		elif not (self.text and shown.startswith(self.text)):
 			self.revealed = 0.0
 			self.shown_at = now
+			self.dragged = None
 		self.text = shown
 
 	def type(self, seconds: float) -> None:
@@ -103,7 +112,9 @@ class Bubble:
 		self.lay_out()
 		height = self.document.size().height()
 		visible = min(height, REPORT_HEIGHT if self.report else TEXT_HEIGHT)
-		scrolled = min(height - visible, SCROLL_SPEED * max(0.0, now - self.shown_at - SCROLL_DELAY_S))
+		self.max_scroll = height - visible
+		automatic = SCROLL_SPEED * max(0.0, now - self.shown_at - SCROLL_DELAY_S)
+		scrolled = self.scrolled = min(self.max_scroll, automatic if self.dragged is None else self.dragged)
 		box = QRectF(8, max(18.0, bottom - visible - 2 * PADDING), WIDTH - 20, visible + 2 * PADDING)
 		shape = outline(box)
 		tip = QPointF(box.right() + 18, box.bottom() - 14)

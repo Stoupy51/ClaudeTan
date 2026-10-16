@@ -37,6 +37,7 @@ from PySide6.QtGui import (
 	QPen,
 	QPixmap,
 	QShowEvent,
+	QWheelEvent,
 )
 from PySide6.QtWidgets import QWidget
 
@@ -59,6 +60,8 @@ PILL_SIZE: int = 64
 LONG_PRESS_MS: int = 200
 CLICK_SLOP: int = 6
 """ Pixels the cursor may travel during a press that still counts as a click. """
+WHEEL_STEP: float = 40.0
+""" Pixels of text one notch of the mouse wheel scrolls. """
 TALK_FRAMES: dict[str, tuple[str, ...]] = {
 	"idle": ("idle_talk_open", "idle_talk_o", "idle_talk_wide"),
 	"hello": ("hello_talk_open", "hello_talk_wide"),
@@ -301,6 +304,10 @@ class Avatar(QWidget):
 			painter.setOpacity(fade)
 		painter.drawPixmap(top_left, self.sprites[self.frame])
 		painter.restore()
+
+	@override
+	def wheelEvent(self, event: QWheelEvent) -> None:
+		self.bubble.scroll(-event.angleDelta().y() / 120 * WHEEL_STEP / self.text_zoom)
 
 	@override
 	def mousePressEvent(self, event: QMouseEvent) -> None:
