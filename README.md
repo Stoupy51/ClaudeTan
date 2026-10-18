@@ -93,6 +93,7 @@ A change applies as soon as you save the file, and she tells you what changed. T
 
 ```powershell
 uv run pytest tests --doctest-modules claudetan
+$env:CLAUDETAN_UI_TESTS = 1; uv run pytest tests/test_desktop.py   # opens a Notepad, which takes the focus
 uv run ruff check .
 uv run pyright
 uv run prototypes/overlay_demo.py              # plays every expression in a loop

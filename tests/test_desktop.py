@@ -1,5 +1,6 @@
 """ The windows of other applications, read and filled through UI Automation, on a Notepad opened behind the user's window. """
 # Imports
+import os
 import re
 import subprocess
 import time
@@ -16,6 +17,7 @@ SW_SHOWNOACTIVATE: int = 4
 
 
 # Functions
+@pytest.mark.skipif(not os.environ.get("CLAUDETAN_UI_TESTS"), reason="Opens a Notepad that takes the focus from the user's window")
 def test_she_asks_before_her_first_action_in_an_app_and_only_reads_one_left_to_reading(
 	tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
