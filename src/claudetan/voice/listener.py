@@ -17,8 +17,12 @@ from claudetan.voice.wake import spot_wake
 LOG: logging.Logger = logging.getLogger("claudetan")
 SENTENCES: re.Pattern[str] = re.compile(r"(?<=[.!?])\s+")
 """ Whisper punctuates a pause, so a word said after one starts a sentence of its own even when the voice detector kept both. """
-SPELLING: str = "Hey Claude."
-""" Given to Whisper as the sentence before, so that it spells the wake phrase's name like this instead of as a French word. """
+SPELLING: str = "Hey Claude, question."
+""" Given to Whisper as the sentence before, so that it spells the wake phrase's name like this instead of as a French word.
+
+It continues with a word both languages share, so that Whisper does not write the bare wake phrase on noise.
+
+Whisper still writes it back whole on some noise: `hear` ignores that sentence. """
 FOLLOW_UP_S: float = 8.0
 """ How long a lone wake phrase keeps her listening for the command. """
 
@@ -74,6 +78,9 @@ class Listener(QObject):
 
 	def hear(self, text: str, language: str, *, ended: bool) -> None:
 		""" Acts on a sentence Whisper heard in `language`, which her lines then follow when the sentence was meant for her. """
+		if text.casefold() == SPELLING.casefold():
+			return
+
 		if self.asking and ended and (verdict := self.verdict(text)) is not None:
 			i18n.heard = language
 			self.answered.emit(verdict)
@@ -90,6 +97,11 @@ class Listener(QObject):
 			for part in SENTENCES.split(command):
 				self.add(part)
 			self.awake_until = 0.0
+
+	def cancel(self) -> None:
+		""" Drops the request being dictated and the wake that opened the window for one, from the Qt thread. """
+		self.request = []
+		self.awake_until = 0.0
 
 	def wake(self) -> None:
 		""" She is called, by the wake phrase Whisper heard or the one `spot_wake` caught in the sound before Whisper had it. """
@@ -116,6 +128,9 @@ class Listener(QObject):
 		if self.config.cancel_alone.fullmatch(sentence) or self.config.cancel.search(request):
 			self.request = []
 			self.cancelled.emit()
+		elif (routed := actions.route(sentence)) and routed[0].name == "stop_all":
+			self.request = [sentence]
+			self.send()
 		elif self.config.done_alone.fullmatch(sentence):
 			self.request.pop()
 			self.send()

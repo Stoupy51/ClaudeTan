@@ -9,7 +9,7 @@ from claudetan.config import DEFAULTS, Config
 from claudetan.i18n import tr
 from claudetan.voice import listener as listener_module
 from claudetan.voice.audio import RATE, Speech
-from claudetan.voice.listener import Listener
+from claudetan.voice.listener import SPELLING, Listener
 
 
 # Functions
@@ -94,4 +94,35 @@ def test_on_the_cpu_whisper_hears_only_the_sentences_she_listens_to(monkeypatch:
 	voice.wake()
 	assert voice.transcribes(Speech(audio=sentence, ended=True))
 	assert not voice.transcribes(Speech(audio=sentence, ended=False))
+
+
+
+def test_closing_the_bubble_drops_the_request_and_the_wake(monkeypatch: pytest.MonkeyPatch) -> None:
+	sent: list[str] = []
+	voice = listener(sent, monkeypatch)
+	voice.wake()
+	voice.add("Ouvre Spotify.")
+	voice.cancel()
+	voice.hear("Et ouvre Discord.", "fr", ended=True)
+	voice.send()
+	assert sent == []
+
+
+def test_a_stop_said_as_a_sentence_of_its_own_replaces_the_request_being_dictated(monkeypatch: pytest.MonkeyPatch) -> None:
+	sent: list[str] = []
+	voice = listener(sent, monkeypatch)
+	voice.add("Écris un script qui range mes captures.")
+	voice.add("Annule tout.")
+	assert sent == ["Annule tout."]
+	assert voice.request == []
+
+	voice.add("Ouvre Spotify et arrête tout ce bruit.")
+	assert sent == ["Annule tout."]
+
+
+def test_the_sentence_given_to_whisper_as_context_does_not_wake_her_when_it_writes_it_back(monkeypatch: pytest.MonkeyPatch) -> None:
+	sent: list[str] = []
+	voice = listener(sent, monkeypatch)
+	voice.hear(SPELLING, "en", ended=True)
+	assert voice.awake_until == 0.0
 
