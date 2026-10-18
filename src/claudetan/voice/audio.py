@@ -2,6 +2,7 @@
 # Imports
 import contextlib
 import functools
+import logging
 import queue
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ from faster_whisper import WhisperModel
 from faster_whisper.vad import get_vad_model
 
 # Constants
+LOG: logging.Logger = logging.getLogger("claudetan")
 type Audio = np.ndarray[tuple[int], np.dtype[np.float32]]
 type Features = np.ndarray[tuple[int, int], np.dtype[np.float32]]
 RATE: int = 16000
@@ -70,13 +72,19 @@ def load_whisper() -> Whisper:
 def microphone() -> Iterator[Audio]:
 	""" The microphone's frames, its stream opened again when it delivers none for `STALL_S`, as a restarted app's sometimes does. """
 	frames: queue.Queue[Audio] = queue.Queue()
+
+	def on_frame(data: Features, _count: int, _time: object, status: sd.CallbackFlags) -> None:
+		if status:
+			LOG.warning("Microphone stream status: %s", status)
+		frames.put(data[:, 0].copy())
+
 	while True:
-		with sd.InputStream(
-			samplerate=RATE, channels=1, dtype="float32", blocksize=FRAME,
-			callback=lambda data, _count, _time, _status: frames.put(data[:, 0].copy()),
-		), contextlib.suppress(queue.Empty):
+		with sd.InputStream(samplerate=RATE, channels=1, dtype="float32", blocksize=FRAME, callback=on_frame), \
+				contextlib.suppress(queue.Empty):
+			LOG.info("Microphone opened")
 			while True:
 				yield frames.get(timeout=STALL_S)
+		LOG.warning("Microphone silent for %.0f s, reopening", STALL_S)
 
 
 def utterances(frames: Iterator[Audio], pause_s: float) -> Iterator[Speech | None]:

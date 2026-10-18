@@ -1,5 +1,6 @@
 """ The microphone's sentences, transcribed by Whisper and reduced to the requests spoken to her. """
 # Imports
+import logging
 import re
 import threading
 import time
@@ -13,8 +14,11 @@ from claudetan.voice.audio import GPU, RATE, Audio, Speech, load_whisper, uttera
 from claudetan.voice.wake import spot_wake
 
 # Constants
+LOG: logging.Logger = logging.getLogger("claudetan")
 SENTENCES: re.Pattern[str] = re.compile(r"(?<=[.!?])\s+")
 """ Whisper punctuates a pause, so a word said after one starts a sentence of its own even when the voice detector kept both. """
+SPELLING: str = "Hey Claude."
+""" Given to Whisper as the sentence before, so that it spells the wake phrase's name like this instead of as a French word. """
 FOLLOW_UP_S: float = 8.0
 """ How long a lone wake phrase keeps her listening for the command. """
 
@@ -55,10 +59,18 @@ class Listener(QObject):
 				continue
 			if not self.transcribes(speech):
 				continue
+			started = time.monotonic()
 			segments, info = whisper.transcribe(
 				speech.audio, language=self.config.language, beam_size=1, condition_on_previous_text=False,
+				initial_prompt=SPELLING,
 			)
-			self.hear(" ".join(segment.text.strip() for segment in segments), info.language, ended=speech.ended)
+			text = " ".join(segment.text.strip() for segment in segments)
+			LOG.info(
+				"Transcribed %.1f s of %s (%.2f) in %.2f s, %s: %s",
+				len(speech.audio) / RATE, info.language, info.language_probability, time.monotonic() - started,
+				"ended" if speech.ended else "ongoing", text,
+			)
+			self.hear(text, info.language, ended=speech.ended)
 
 	def hear(self, text: str, language: str, *, ended: bool) -> None:
 		""" Acts on a sentence Whisper heard in `language`, which her lines then follow when the sentence was meant for her. """
@@ -82,6 +94,7 @@ class Listener(QObject):
 	def wake(self) -> None:
 		""" She is called, by the wake phrase Whisper heard or the one `spot_wake` caught in the sound before Whisper had it. """
 		if time.monotonic() > self.awake_until:
+			LOG.info("Woken")
 			self.woke.emit()
 		self.awake_until = time.monotonic() + FOLLOW_UP_S
 

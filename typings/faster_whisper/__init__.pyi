@@ -20,5 +20,6 @@ class WhisperModel:
 		language: str | None = None,
 		beam_size: int = 5,
 		condition_on_previous_text: bool = True,
+		initial_prompt: str | None = None,
 	) -> tuple[Iterable[Segment], TranscriptionInfo]: ...
 	def encode(self, features: np.ndarray[tuple[int, int], np.dtype[np.float32]]) -> ctranslate2.StorageView: ...

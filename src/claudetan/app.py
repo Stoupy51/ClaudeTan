@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from concurrent.futures import Future
 from dataclasses import fields
 from functools import partial
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -42,6 +43,9 @@ from claudetan.voice.voicevox import Voice, Vowels
 # Constants
 LOG: logging.Logger = logging.getLogger("claudetan")
 """ The app's own log, kept at INFO while the libraries stay at WARNING. """
+LOG_BYTES: int = 5_000_000
+LOG_BACKUPS: int = 20
+""" The log is cut every `LOG_BYTES`, and these many older files are kept besides the current one (about 100 MB, weeks of use). """
 WAKE_NOTES: tuple[float, ...] = (880.0, 1318.5)
 DONE_NOTES: tuple[float, ...] = (1046.5, 1318.5, 1568.0)
 LONG_TASK_MS: int = 20_000
@@ -521,7 +525,8 @@ def replace_running_app() -> None:
 def run() -> None:
 	APP_DATA.mkdir(parents=True, exist_ok=True)
 	logging.basicConfig(
-		filename=LOG_FILE, encoding="utf-8", level=logging.WARNING, format="%(asctime)s %(levelname)s %(message)s",
+		handlers=[RotatingFileHandler(LOG_FILE, maxBytes=LOG_BYTES, backupCount=LOG_BACKUPS, encoding="utf-8")],
+		level=logging.WARNING, format="%(asctime)s %(levelname)s %(message)s",
 	)
 	LOG.setLevel(logging.INFO)
 	# Without a console the default hooks print tracebacks nowhere
