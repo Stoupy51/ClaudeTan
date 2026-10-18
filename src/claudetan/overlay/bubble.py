@@ -56,6 +56,7 @@ FADE_CHARS: float = 6.0
 INK: QColor = QColor(61, 57, 41)
 GOLD: QColor = QColor(242, 184, 112)
 ROSE: QColor = QColor(236, 138, 150)
+BUTTON_RADIUS: float = 10.0
 NAME: str = "Claude-tan"
 RAYS: tuple[float, ...] = (1.0, 0.8, 0.95, 0.85, 1.0, 0.75, 0.95, 0.8, 1.0, 0.8, 0.9, 0.85)
 """ Relative length of each ray of the Claude logo, going around from the right. """
@@ -91,6 +92,8 @@ class Bubble:
 
 		self.read_since: float | None = None
 		""" When the wheel last left the text at its end, None while the end is not in sight. """
+		self.buttons: dict[str, QRectF] = {}
+		""" Where its "close" and "hide" buttons were last drawn, in the coordinates the bubble is painted in. """
 
 	def scroll(self, pixels: float, now: float) -> None:
 		self.dragged = max(0.0, min(self.max_scroll, self.scrolled + pixels))
@@ -129,6 +132,10 @@ class Bubble:
 		box = QRectF(RIGHT_EDGE - width, max(18.0, bottom - visible - 2 * PADDING), width, visible + 2 * PADDING)
 		shape = outline(box)
 		tip = QPointF(box.right() + 18, box.bottom() - 14)
+		close = QPointF(box.right() - 6, box.top() + 2)
+		centers = {"close": close, "hide": close - QPointF(2 * BUTTON_RADIUS + 4, 0)}
+		diameter = 2 * BUTTON_RADIUS
+		self.buttons = {name: QRectF(c.x() - BUTTON_RADIUS, c.y() - BUTTON_RADIUS, diameter, diameter) for name, c in centers.items()}
 		appeared = min(1.0, (now - self.shown_at) / POP_S)
 		grown = 0.8 + 0.2 * overshoot(appeared)
 
@@ -141,6 +148,8 @@ class Bubble:
 		paint_paper(painter, shape, box, now)
 		paint_twinkles(painter, box, now)
 		paint_tag(painter, box, now)
+		paint_button(painter, centers["hide"], hide=True)
+		paint_button(painter, centers["close"], hide=False)
 		if self.revealed >= len(self.text) + FADE_CHARS:
 			paint_next_mark(painter, box, now)
 		self.paint_text(painter, box.adjusted(PADDING, PADDING, -PADDING, -PADDING), scrolled)
@@ -347,6 +356,21 @@ def paint_tag(painter: QPainter, box: QRectF, now: float) -> None:
 	painter.setPen(QPen(QColor(255, 255, 255), 1.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
 	paint_logo(painter, QPointF(tag.left() + 12, tag.center().y()), 5, angle=0)
 	painter.drawText(tag.adjusted(16, 0, -4, 0), Qt.AlignmentFlag.AlignCenter, NAME)
+
+
+def paint_button(painter: QPainter, center: QPointF, *, hide: bool) -> None:
+	""" Round button straddling the bubble's top edge: a chevron down to hide her, a cross to drop what she is listening to. """
+	painter.setPen(QPen(ACCENT, 1.2))
+	painter.setBrush(QColor(255, 250, 238))
+	painter.drawEllipse(center, BUTTON_RADIUS, BUTTON_RADIUS)
+	reach = 0.45 * BUTTON_RADIUS
+	painter.setPen(QPen(INK, 1.6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+	if hide:
+		half = 0.5 * reach
+		painter.drawPolyline([center + QPointF(-reach, -half), center + QPointF(0, half), center + QPointF(reach, -half)])
+		return
+	painter.drawLine(center + QPointF(-reach, -reach), center + QPointF(reach, reach))
+	painter.drawLine(center + QPointF(-reach, reach), center + QPointF(reach, -reach))
 
 
 def paint_logo(painter: QPainter, center: QPointF, radius: float, angle: float) -> None:

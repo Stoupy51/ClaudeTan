@@ -85,6 +85,10 @@ CHIME_RATE: int = 44100
 # Classes
 class Avatar(QWidget):
 	clicked = Signal()
+	closed = Signal()
+	""" The cross of her bubble was clicked. """
+	hidden = Signal()
+	""" The dash of her bubble was clicked. """
 	read = Signal()
 	""" The text was scrolled to its end, left there for `READ_S`, and her voice is done. """
 
@@ -334,7 +338,9 @@ class Avatar(QWidget):
 	def mouseReleaseEvent(self, event: QMouseEvent) -> None:
 		if self.long_press.isActive():
 			self.long_press.stop()
-			self.clicked.emit()
+			button = next((name for name, box in self.bubble.buttons.items() if box.contains(event.position() / self.text_zoom)), None)
+			signals = {"close": self.closed, "hide": self.hidden}
+			(signals[button] if button and self.bubble.text else self.clicked).emit()
 		elif self.dragging:
 			self.dragging = False
 			self.unsetCursor()

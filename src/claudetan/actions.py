@@ -75,6 +75,13 @@ ACTIONS: list[Action] = [
 		run=lambda _: tr("Stopping everything, starting over.", "J'arrête tout, je repars de zéro."),
 	),
 	Action(
+		name="restart_app",
+		description="Quits and starts the whole app again on the same conversation, as the automatic reload does for a change it "
+		"cannot apply in place. Only when that reload did not apply a change, or the app is stuck.",
+		phrases=r"(?:redémarre|relance)(?:-toi| (?:l'appli|l'application|claude-?tan))|restart (?:yourself|the app)",
+		run=lambda _: tr("Restarting myself.", "Je me redémarre."),
+	),
+	Action(
 		name="clip",
 		description="Saves the last minutes of the game with ShadowPlay, by pressing Alt+F10.",
 		phrases=r"(?:enregistre|clippe|clip|save)(?: (?:ça|ca|ce moment|les dernières minutes|that|it|the replay))?",
@@ -254,6 +261,8 @@ def route(request: str) -> tuple[Action, dict[str, str | None]] | None:
 	('model', 'Opus')
 	>>> route("Arrête la transcription.")[0].name
 	'meeting_stop'
+	>>> route("Relance-toi.")[0].name
+	'restart_app'
 	>>> route("Mets pause, puis ouvre Spotify.") is None
 	True
 	"""

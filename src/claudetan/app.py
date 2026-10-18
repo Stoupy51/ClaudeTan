@@ -62,6 +62,10 @@ COMPACT_IDLE_MS: int = 55 * 60_000
 """ Quiet time after which a large session is compacted, while its prompt cache (1 h on a subscription) still makes that cheap. """
 COMPACT_TIMEOUT_MS: int = 180_000
 """ How long quitting waits for the session's compaction. """
+RESTART_DELAY_MS: int = 2500
+""" How long she keeps to say she restarts before the app quits. """
+FULL_RESTART: str = '{"files": [], "since": ""}'
+""" The change line of a restart that applies no change to the code, so the launcher puts nothing aside. """
 INSTANCE_NAME: str = "ClaudeTan"
 """ Local server of the running app: a new one connects to it to have it quit. """
 PIPES: str = "\\\\.\\pipe\\"
@@ -85,6 +89,8 @@ class Assistant(QObject):
 	""" Something to tell the user, from a thread that had to wait for it. """
 	restart = Signal()
 	""" The session starts again: `SESSION_KEYS` settings changed while she was free, or she was told to stop everything. """
+	restart_app = Signal()
+	""" She was told to start the whole app again. """
 	free = Signal()
 	""" Nothing runs any more and she has left: the moment to apply a change to the app's code. """
 	speak = Signal(str, int)
@@ -188,6 +194,8 @@ class Assistant(QObject):
 		match action.name:
 			case "stop_all":
 				self.stop_all()
+			case "restart_app":
+				self.restart_app.emit()
 			case "model" if model := actions.chosen_model(arguments):
 				self.switch_model(model)
 			case _:
@@ -569,6 +577,7 @@ def run() -> None:
 	reloader.tools_changed.connect(assistant.restart)
 	reloader.broken.connect(assistant.on_set_aside)
 	reloader.restart.connect(partial(restart, app))
+	assistant.restart_app.connect(lambda: QTimer.singleShot(RESTART_DELAY_MS, partial(restart, app, FULL_RESTART)))
 	voice = Voice(config.voice_style if config.voice else None)
 	assistant.speak.connect(voice.say)
 	assistant.hush.connect(voice.hush)
@@ -580,6 +589,9 @@ def run() -> None:
 	listener.woke.connect(assistant.on_wake)
 	listener.dictated.connect(assistant.on_dictation)
 	listener.cancelled.connect(assistant.on_cancel)
+	avatar.closed.connect(listener.cancel)
+	avatar.closed.connect(assistant.leave)
+	avatar.hidden.connect(assistant.leave)
 	listener.answered.connect(assistant.on_verdict)
 	assistant.listening_for_answer.connect(lambda: setattr(listener, "asking", True))
 	assistant.answer_settled.connect(lambda: setattr(listener, "asking", False))

@@ -118,6 +118,14 @@ def test_stopping_everything_restarts_the_session_and_forgets_the_work(assistant
 	assert assistant.avatar.expression == "present"
 
 
+def test_telling_her_to_restart_asks_for_the_whole_app_to_start_again(assistant: Assistant) -> None:
+	restarts: list[bool] = []
+	assistant.restart_app.connect(lambda: restarts.append(True))
+	assistant.on_command("Relance-toi.")
+	assert restarts == [True]
+	assert assistant.avatar.expression == "present"
+
+
 def test_switching_model_by_voice_types_it_into_the_session(assistant: Assistant) -> None:
 	sent: list[str] = []
 	assistant.send.connect(sent.append)

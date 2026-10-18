@@ -2,8 +2,8 @@
 # Imports
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QSettings
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import QEvent, QPoint, QPointF, QSettings, Qt
+from PySide6.QtGui import QGuiApplication, QImage, QMouseEvent, QPainter
 from PySide6.QtWidgets import QApplication
 
 from claudetan.overlay.avatar import Avatar
@@ -35,4 +35,28 @@ def test_her_mouth_follows_the_vowels_her_voice_says_in_a_pose_that_can_talk(app
 		frames.append(avatar.frame)
 	assert frames == ["idle_talk_wide", "idle_talk_open", "idle", "idle"]
 	assert avatar.speech is None
+
+
+
+def test_the_buttons_of_her_bubble_close_or_hide_her_and_a_click_elsewhere_opens_the_session(app: QApplication) -> None:
+	avatar = Avatar()
+	avatar.set_expression("present", bubble="The tests pass.")
+	image = QImage(500, 500, QImage.Format.Format_ARGB32)
+	painter = QPainter(image)
+	avatar.bubble.paint(painter, now=1.0, bottom=250)
+	painter.end()
+	events: list[str] = []
+	avatar.closed.connect(lambda: events.append("closed"))
+	avatar.hidden.connect(lambda: events.append("hidden"))
+	avatar.clicked.connect(lambda: events.append("clicked"))
+
+	def click(point: QPointF) -> None:
+		left, none, no_keys = Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+		avatar.mousePressEvent(QMouseEvent(QEvent.Type.MouseButtonPress, point, point, left, left, no_keys))
+		avatar.mouseReleaseEvent(QMouseEvent(QEvent.Type.MouseButtonRelease, point, point, left, none, no_keys))
+
+	click(avatar.bubble.buttons["close"].center() * avatar.text_zoom)
+	click(avatar.bubble.buttons["hide"].center() * avatar.text_zoom)
+	click(QPointF(avatar.width() - 5, avatar.height() - 5))
+	assert events == ["closed", "hidden", "clicked"]
 
