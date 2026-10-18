@@ -2,6 +2,7 @@
 # Imports
 import importlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,24 @@ def test_an_edited_action_reloads_in_place_and_an_edited_session_restarts_the_ap
 	reloader.on_hook(edit(session))
 	reloader.apply()
 	assert json.loads(restarts[0])["files"] == [str(session)]
+
+
+def test_a_file_written_by_a_shell_restarts_the_app_like_an_edited_one(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+	package = tmp_path / "claudetan"
+	package.mkdir()
+	session = package / "session.py"
+	session.write_text("old\n", encoding="utf-8")
+	monkeypatch.setattr("claudetan.reload.PACKAGE", package)
+	importlib.import_module("claudetan.session")
+	reloader = Reloader()
+	restarts: list[str] = []
+	reloader.restart.connect(restarts.append)
+	reloader.apply()
+	assert not restarts
+
+	os.utime(session, ns=(1, 1))
+	reloader.apply()
+	assert json.loads(restarts[0])["files"] == [str(session.resolve())]
 
 
 def test_a_broken_change_is_stashed_and_its_commits_reverted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

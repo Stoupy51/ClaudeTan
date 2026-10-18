@@ -44,6 +44,8 @@ class Reloader(QObject):
 	def __init__(self) -> None:
 		super().__init__()
 		self.edited: set[Path] = set()
+		self.modified = {path: path.stat().st_mtime_ns for path in PACKAGE.rglob("*.py")}
+		""" When each source file was last written, which catches the edits made through a shell instead of an edit tool. """
 		self.since = git(ROOT, "rev-parse", "HEAD")
 		""" The commit the running code was loaded from, after which the session's commits belong to its change. """
 
@@ -54,6 +56,11 @@ class Reloader(QObject):
 				self.edited.add(path)
 
 	def apply(self) -> None:
+		for path in PACKAGE.rglob("*.py"):
+			if self.modified.get(path) != (written := path.stat().st_mtime_ns):
+				self.modified[path] = written
+				self.edited.add(path.resolve())
+
 		if not self.edited:
 			return
 		files = sorted(str(path) for path in self.edited)
