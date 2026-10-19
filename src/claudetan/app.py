@@ -14,8 +14,6 @@ from concurrent.futures import Future
 from dataclasses import fields
 from functools import partial
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
-from urllib.parse import urlparse
 
 import stouputils as stp
 from PySide6.QtCore import QFileSystemWatcher, QObject, QPoint, QTimer, Signal
@@ -33,12 +31,13 @@ from claudetan.overlay.bubble import plain
 from claudetan.overlay.tray import Tray
 from claudetan.reload import Reloader
 from claudetan.report import Report
-from claudetan.services import claude, desktop
+from claudetan.services import claude
+from claudetan.services.agents import describe_tool
 from claudetan.services.alarms import ALARMS
 from claudetan.session import HookServer, JsonDict, Session
 from claudetan.voice.audio import GPU, microphone
 from claudetan.voice.listener import FOLLOW_UP_S, Listener
-from claudetan.voice.voicevox import Voice, Vowels
+from claudetan.voice.speech import Voice, Vowels
 
 # Constants
 LOG: logging.Logger = logging.getLogger("claudetan")
@@ -94,7 +93,7 @@ class Assistant(QObject):
 	free = Signal()
 	""" Nothing runs any more and she has left: the moment to apply a change to the app's code. """
 	speak = Signal(str, int)
-	""" A line to say aloud, with the VOICEVOX style of the config, emitted only while her voice is on. """
+	""" A line to say aloud, with the voice style of the config, emitted only while her voice is on. """
 	hush = Signal()
 	""" She is called while her voice may still be saying something. """
 
@@ -414,42 +413,6 @@ class Assistant(QObject):
 
 
 # Functions
-def describe_tool(name: str, tool_input: JsonDict) -> str:
-	""" What a tool call does, in a few words for the bubble.
-
-	>>> describe_tool("Edit", {"file_path": "D:/repo/claudetan/app.py", "old_string": "a", "new_string": "b"})
-	'edits app.py'
-	>>> describe_tool("Bash", {"command": "git status", "description": "Show working tree status"})
-	'Show working tree status'
-	>>> describe_tool("mcp__claudetan__screenshot", {"screen": 2})
-	'screenshot'
-	"""
-	match name:
-		case "Read":
-			return tr("reads ", "lit ") + Path(tool_input["file_path"]).name
-		case "Write":
-			return tr("writes ", "écrit ") + Path(tool_input["file_path"]).name
-		case "Edit" | "MultiEdit":
-			return tr("edits ", "modifie ") + Path(tool_input["file_path"]).name
-		case "Bash" | "PowerShell":
-			return tool_input.get("description") or tr("runs ", "lance ") + tool_input["command"][:60]
-		case "Grep" | "Glob":
-			return tr("searches ", "cherche ") + tool_input["pattern"]
-		case "WebSearch":
-			return tr(f'searches the web for "{tool_input["query"]}"', f"cherche « {tool_input['query']} » sur le web")
-		case "WebFetch":
-			return tr("reads ", "lit ") + urlparse(str(tool_input["url"])).netloc
-		case "Agent" | "Task":
-			return tr("hands off a task: ", "confie une tâche : ") + tool_input["description"]
-		case "AskUserQuestion":
-			return tool_input["questions"][0]["question"]
-		case "mcp__claudetan__press" | "mcp__claudetan__fill" if element := desktop.ELEMENTS.get(str(tool_input["element"])):
-			verb = tr("presses ", "appuie sur ") if name.endswith("press") else tr("fills ", "remplit ")
-			return f"{verb}{element.label} ({Path(element.app).stem})"
-		case _:
-			return name.rsplit("__", 1)[-1]
-
-
 def reading_ms(text: str) -> int:
 	""" How long a text stays up: 4 s, plus 50 ms per character, which the bubble scrolls through at that pace, 60 s at most. """
 	return min(4000 + 50 * len(plain(text)), 60_000)

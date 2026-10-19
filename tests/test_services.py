@@ -13,7 +13,7 @@ from stouputils.typing import JsonDict
 
 from claudetan import i18n
 from claudetan.actions import find, route
-from claudetan.services import claude, minecraft, programs, weather
+from claudetan.services import agents, claude, minecraft, programs, weather
 from claudetan.services.alarms import ALARMS
 
 
@@ -131,4 +131,29 @@ def test_a_minecraft_tool_relays_the_bridge_answer_and_says_when_the_client_is_o
 
 	server.server_close()
 	assert find("minecraft_state").run({}) == "The test client is not running: start it with minecraft_start."
+
+
+
+def test_the_agent_progress_tells_what_a_running_agent_and_a_finished_one_did(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+	session = tmp_path / "project" / "abc" / "subagents"
+	session.mkdir(parents=True)
+	monkeypatch.setattr(agents, "PROJECTS", tmp_path)
+	monkeypatch.setattr(agents, "SESSION_ID", tmp_path / "session_id")
+	(tmp_path / "session_id").write_text("abc", encoding="utf-8")
+	started = {"type": "user", "timestamp": "2026-10-18T21:00:00+00:00", "message": {"content": "task"}}
+
+	def call(name: str, tool_input: JsonDict) -> JsonDict:
+		block = {"type": "tool_use", "name": name, "input": tool_input}
+		return {"type": "assistant", "message": {"stop_reason": "tool_use", "content": [block]}}
+
+	read = call("Read", {"file_path": "D:/x/a.py"})
+	for agent, last in (("agent-running", call("Edit", {"file_path": "D:/x/app.py"})), ("agent-done", call("SubagentHandback", {}))):
+		(session / f"{agent}.meta.json").write_text(json.dumps({"description": agent}), encoding="utf-8")
+		rows = "\n".join(json.dumps(row) for row in (started, read, last))
+		(session / f"{agent}.jsonl").write_text(rows, encoding="utf-8")
+
+	report = agents.progress()
+	assert "agent-running: running" in report
+	assert "2 tool calls, last: edits app.py" in report
+	assert "agent-done: finished" in report
 

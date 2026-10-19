@@ -11,7 +11,7 @@ import stouputils as stp
 from claudetan.config import ROOT, Config
 from claudetan.console import enable_colors
 from claudetan.voice.audio import GPU, RATE, load_whisper
-from claudetan.voice.voicevox import ENGINE, install_engine
+from claudetan.voice.speech import MODEL, RUN, install_engine
 from claudetan.voice.wake import load_spotter
 
 
@@ -26,8 +26,8 @@ def main() -> None:
 		stp.progress("Downloading the wake phrase spotter (18 MB the first time)...")
 		load_spotter()
 	stp.info(f"Whisper runs on the {device}")
-	if Config.load().voice and not (ENGINE / "run.exe").exists():
-		stp.progress("Downloading VOICEVOX, her Japanese voice (1.9 GB), which voice = false in the config turns off...")
+	if Config.load().voice and not (RUN.exists() and MODEL.exists()):
+		stp.progress("Downloading AivisSpeech, her Japanese voice (0.5 GB), which voice = false in the config turns off...")
 		install_engine()
 
 	if not shutil.which("claude"):

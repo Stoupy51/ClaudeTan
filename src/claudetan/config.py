@@ -64,7 +64,7 @@ class Config:
 	voice: bool
 	""" Whether she says her replies aloud, in Japanese. """
 	voice_style: int
-	""" The VOICEVOX voice she says them in, by its style id. """
+	""" The AivisSpeech voice she says them in, by its style id. """
 
 	@classmethod
 	def load(cls) -> Self:

@@ -11,7 +11,7 @@ from PySide6.QtGui import QGuiApplication
 from claudetan.config import SCREENSHOTS, Config
 from claudetan.i18n import tr
 from claudetan.report import Report
-from claudetan.services import claude, desktop, minecraft, programs, weather
+from claudetan.services import agents, claude, desktop, minecraft, programs, weather
 from claudetan.services.alarms import ALARMS
 from claudetan.voice.meeting import MEETING
 
@@ -80,6 +80,14 @@ ACTIONS: list[Action] = [
 		"cannot apply in place. Only when that reload did not apply a change, or the app is stuck.",
 		phrases=r"(?:redémarre|relance)(?:-toi| (?:l'appli|l'application|claude-?tan))|restart (?:yourself|the app)",
 		run=lambda _: tr("Restarting myself.", "Je me redémarre."),
+	),
+	Action(
+		name="agent_progress",
+		description="Where the background agents of this session stand: task, running time, tool calls and the last one.",
+		phrases=r"(?:il |elle )?(?:en est|est en) où(?: là)?|où en (?:est|sont)(?: l'agent| les agents| le travail)?"
+		r"|(?:agent )?progress|how(?:'s| is) the agent(?: doing)?",
+		run=lambda _: agents.progress(),
+		threaded=True,
 	),
 	Action(
 		name="clip",
@@ -261,8 +269,8 @@ def route(request: str) -> tuple[Action, dict[str, str | None]] | None:
 	('model', 'Opus')
 	>>> route("Arrête la transcription.")[0].name
 	'meeting_stop'
-	>>> route("Relance-toi.")[0].name
-	'restart_app'
+	>>> route("Il en est où ?")[0].name
+	'agent_progress'
 	>>> route("Mets pause, puis ouvre Spotify.") is None
 	True
 	"""

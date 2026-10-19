@@ -45,7 +45,7 @@ from claudetan.config import ROOT
 from claudetan.overlay.bubble import WIDTH as BUBBLE_WIDTH, Bubble
 from claudetan.overlay.effects import ACCENT, Spark, burst, glow, mote, overshoot
 from claudetan.report import Report
-from claudetan.voice.voicevox import Vowels
+from claudetan.voice.speech import Vowels
 
 # Constants
 ASSETS: Path = ROOT / "assets" / "claude"

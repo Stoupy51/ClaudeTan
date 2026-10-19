@@ -11,7 +11,7 @@ A voice assistant with an anime overlay (PySide6), driving a hidden Claude Code 
 - `src/claudetan/launcher.py`: runs the app, starts it again after such a change, and puts the change aside in git when the app then fails to start. It imports nothing of the app.
 - `src/claudetan/actions.py`: `ACTIONS`, what she does on the computer. `mcp.py` offers the same list to the session as tools.
 - `src/claudetan/services/`: what the actions call (weather, programs, timers, other applications' windows in `desktop.py`). Put the code of a new action there when it is more than a few lines.
-- `src/claudetan/voice/`: microphone, Whisper, wake and end phrases, meeting transcription, and her Japanese voice (`voicevox.py`). `overlay/`: avatar, bubble, tray.
+- `src/claudetan/voice/`: microphone, Whisper, wake and end phrases, meeting transcription, and her Japanese voice (`speech.py`). `overlay/`: avatar, bubble, tray.
 - `tools/sprites/`: a separate uv project that draws `assets/claude/`. Leave it alone unless asked about sprites.
 - `tools/minecraft/`: a Fabric mod (Gradle, Java) for the test client the `minecraft_*` actions drive over HTTP (`services/minecraft.py`). `gradlew.bat runClient` starts it, its game folder is `run/`; `runClient2` starts a second player, ClaudeTan2, whose bridge listens on 47622, for tests that need two.
 

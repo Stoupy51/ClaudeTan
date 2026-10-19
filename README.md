@@ -28,7 +28,7 @@ uv run claudetan-setup
 ```
 
 The setup installs the dependencies, downloads Whisper (1.6 GB, or 0.5 GB and the wake phrase spotter without an NVIDIA GPU) and runs it once,
-then downloads [VOICEVOX](https://voicevox.hiroshiba.jp/), her voice (1.9 GB, unless `voice = false` in the config).
+then downloads [AivisSpeech](https://aivis-project.com/), her voice (0.5 GB, unless `voice = false` in the config).
 Then, only when needed, it opens Claude Code's sign-in page, and Claude Code itself in this folder so that you trust it:
 pick *Yes, I trust this folder*, then type `/exit`. This dialog is Claude Code's safety check before it works in a folder, so the app never answers it for you.
 
@@ -47,7 +47,7 @@ The app starts in the background with a hidden Claude Code session in this folde
 The session stays in claude.ai's list after you quit, and the app resumes it on its next start.
 Say *"Hey Claude, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
 Speak English, French or any language Whisper knows: the session answers in it, and her own lines are in French when you speak French, in English otherwise.
-She says her replies and her permission requests aloud in Japanese, the bubble being their subtitles: Claude Haiku translates each line, which takes a little of your plan's usage, and VOICEVOX says it on the CPU, about 3 s after the bubble shows.
+She says her replies and her permission requests aloud in Japanese, the bubble being their subtitles: Claude Haiku translates each line, which takes a little of your plan's usage, and AivisSpeech says it on the CPU, about 4 s after the bubble shows.
 A request that is exactly one of the phrases below is done by the app itself, at once and without the session. Any other wording goes to the session, which has the same actions as tools (`mcp__claudetan__*`) and calls them itself.
 
 | Action | Say | Does |
@@ -56,6 +56,7 @@ A request that is exactly one of the phrases below is done by the app itself, at
 | Start a transcription | *"transcribe the meeting"*, *"transcris la réunion"* | Writes everything the PC plays and your microphone hears into `Documents\Transcriptions`, one timed line per sentence |
 | Stop the transcription | *"stop the transcription"*, *"arrête la transcription"* | Closes that file |
 | Stop everything | *"stop everything"*, *"arrête tout"* | Kills the running request, its agents and the queued commands, then starts the session again on the same conversation. The app keeps running |
+| Agents progress | *"il en est où ?"*, *"agent progress"* | Tells what each background agent of the session works on: running or finished, its age, its tool calls and the last one |
 | Restart the app | *"restart yourself"*, *"relance-toi"* | Quits and starts the whole app again on the same conversation, for the rare change the automatic reload does not apply |
 | Switch model | *"switch to Opus"*, *"passe en Sonnet"* | Types `/model` into the session once its current request is done |
 | Context of the session | *"show me the context"*, *"le contexte"*, or the tray menu | How full the hidden session's context window is, as `/context` reports it |
