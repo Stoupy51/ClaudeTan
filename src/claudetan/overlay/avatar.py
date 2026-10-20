@@ -210,6 +210,8 @@ class Avatar(QWidget):
 
 		The fallback is never saved, so she goes back to the other screen as soon as it returns.
 		"""
+		if self.dragging:
+			return self.pos()
 		saved = self.settings.value("pos")
 		if isinstance(saved, QPoint) and QGuiApplication.screenAt(saved + self.rect().center()):
 			return saved
@@ -257,6 +259,7 @@ class Avatar(QWidget):
 	def hideEvent(self, event: QHideEvent) -> None:
 		self.ticker.stop()
 		self.sparks.clear()
+		self.stop_drag()
 
 	def tick(self) -> None:
 		now = self.now()
@@ -352,14 +355,18 @@ class Avatar(QWidget):
 			else:
 				(signals[button] if button and self.bubble.text else self.clicked).emit()
 		elif self.dragging:
-			self.dragging = False
-			self.unsetCursor()
+			self.stop_drag()
 			self.settings.setValue("pos", self.pos())
 		self.press_offset = None
 
 	def start_drag(self) -> None:
 		self.dragging = True
 		self.setCursor(Qt.CursorShape.ClosedHandCursor)
+
+	def stop_drag(self) -> None:
+		self.long_press.stop()
+		self.dragging = False
+		self.unsetCursor()
 
 
 class Pill(QWidget):
@@ -404,6 +411,7 @@ class Pill(QWidget):
 	@override
 	def hideEvent(self, event: QHideEvent) -> None:
 		self.spin.stop()
+		self.stop_drag()
 
 	@override
 	def paintEvent(self, event: QPaintEvent) -> None:
@@ -446,13 +454,17 @@ class Pill(QWidget):
 			self.long_press.stop()
 			self.clicked.emit()
 		elif self.dragging:
-			self.dragging = False
-			self.unsetCursor()
+			self.stop_drag()
 			self.dropped.emit(self.pos() + QPoint(self.width(), self.height()))
 
 	def start_drag(self) -> None:
 		self.dragging = True
 		self.setCursor(Qt.CursorShape.ClosedHandCursor)
+
+	def stop_drag(self) -> None:
+		self.long_press.stop()
+		self.dragging = False
+		self.unsetCursor()
 
 
 # Functions

@@ -88,3 +88,16 @@ def test_a_pill_dragged_after_a_long_press_moves_her_place_and_a_short_press_onl
 	corner = QPoint(300, 200) + QPoint(pill.width(), pill.height())
 	assert avatar.settings.value("pos") == corner - QPoint(avatar.width(), avatar.height())
 
+
+def test_she_stays_under_the_cursor_when_a_bubble_appears_while_she_is_dragged(app: QApplication, tmp_path: Path) -> None:
+	avatar = Avatar()
+	avatar.settings = QSettings(str(tmp_path / "overlay.ini"), QSettings.Format.IniFormat)
+	avatar.settings.setValue("pos", QPoint(10, 10))
+	avatar.show()
+	avatar.move(300, 200)
+	avatar.start_drag()
+	assert avatar.home() == QPoint(300, 200)
+
+	avatar.stop_drag()
+	assert avatar.home() == QPoint(10, 10)
+
