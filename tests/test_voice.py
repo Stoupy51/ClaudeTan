@@ -1,11 +1,13 @@
 """ A spoken request kept open across pauses until its closing words or a long silence. """
 # Imports
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 import claudetan.config
 from claudetan import i18n
-from claudetan.config import DEFAULTS, Config
+from claudetan.config import DEFAULTS, Config, save_volume
 from claudetan.i18n import tr
 from claudetan.voice import listener as listener_module
 from claudetan.voice.audio import RATE, Speech
@@ -125,4 +127,12 @@ def test_the_sentence_given_to_whisper_as_context_does_not_wake_her_when_it_writ
 	voice = listener(sent, monkeypatch)
 	voice.hear(SPELLING, "en", ended=True)
 	assert voice.awake_until == 0.0
+
+
+def test_the_volume_is_set_in_the_config_whether_or_not_the_file_has_the_key(tmp_path: Path) -> None:
+	config = tmp_path / "config.toml"
+	config.write_text('city = ""\n', encoding="utf-8")
+	save_volume(0.5, config)
+	save_volume(0.25, config)
+	assert config.read_text(encoding="utf-8") == 'city = ""\n\nvolume = 0.25\n'
 

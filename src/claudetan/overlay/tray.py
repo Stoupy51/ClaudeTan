@@ -5,9 +5,9 @@ import sys
 import winreg
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCursor, QIcon
-from PySide6.QtWidgets import QMenu, QSystemTrayIcon
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QSlider, QSystemTrayIcon, QWidget, QWidgetAction
 
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG
 from claudetan.overlay.avatar import face
@@ -25,14 +25,28 @@ class Tray(QSystemTrayIcon):
 	action_requested = Signal(str)
 	""" The name of an action picked in the menu. """
 	quit_requested = Signal()
+	volume_changed = Signal(float)
+	""" The volume of her voice the slider was moved to, from 0 to 1. """
 
-	def __init__(self) -> None:
+	def __init__(self, volume: float) -> None:
 		super().__init__(QIcon(face(64)))
 		self.setToolTip("Claude-tan")
 		self.menu = QMenu()
 		self.menu.addAction("Open the session", self.open_session.emit)
 		self.menu.addAction("Session context", lambda: self.action_requested.emit("context"))
 		self.menu.addAction("Plan usage", lambda: self.action_requested.emit("plan_usage"))
+		self.menu.addSeparator()
+		slider = QSlider(Qt.Orientation.Horizontal)
+		slider.setRange(0, 100)
+		slider.setValue(round(volume * 100))
+		slider.valueChanged.connect(self.on_slider)
+		panel = QWidget()
+		layout = QHBoxLayout(panel)
+		layout.addWidget(QLabel("Volume"))
+		layout.addWidget(slider)
+		volume_action = QWidgetAction(self.menu)
+		volume_action.setDefaultWidget(panel)
+		self.menu.addAction(volume_action)
 		self.menu.addSeparator()
 		self.menu.addAction("Open the config", lambda: os.startfile(USER_CONFIG))
 		self.menu.addAction("View the log", lambda: os.startfile(LOG_FILE))
@@ -45,6 +59,9 @@ class Tray(QSystemTrayIcon):
 		self.menu.addAction("Quit", self.quit_requested.emit)
 		self.setContextMenu(self.menu)
 		self.activated.connect(self.on_activated)
+
+	def on_slider(self, value: int) -> None:
+		self.volume_changed.emit(value / 100)
 
 	def on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
 		""" Opens the menu on a left click too, Windows only showing it on a right click. """

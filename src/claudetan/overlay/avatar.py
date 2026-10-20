@@ -22,12 +22,14 @@ from PySide6.QtCore import (
 	QSettings,
 	Qt,
 	QTimer,
+	QUrl,
 	Signal,
 )
 from PySide6.QtGui import (
 	QBrush,
 	QColor,
 	QConicalGradient,
+	QDesktopServices,
 	QGuiApplication,
 	QHideEvent,
 	QMouseEvent,
@@ -338,9 +340,13 @@ class Avatar(QWidget):
 	def mouseReleaseEvent(self, event: QMouseEvent) -> None:
 		if self.long_press.isActive():
 			self.long_press.stop()
-			button = next((name for name, box in self.bubble.buttons.items() if box.contains(event.position() / self.text_zoom)), None)
+			point = event.position() / self.text_zoom
+			button = next((name for name, box in self.bubble.buttons.items() if box.contains(point)), None)
 			signals = {"close": self.closed, "hide": self.hidden}
-			(signals[button] if button and self.bubble.text else self.clicked).emit()
+			if self.bubble.text and (link := self.bubble.link_at(point)):
+				QDesktopServices.openUrl(QUrl(link))
+			else:
+				(signals[button] if button and self.bubble.text else self.clicked).emit()
 		elif self.dragging:
 			self.dragging = False
 			self.unsetCursor()

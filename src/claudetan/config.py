@@ -65,6 +65,8 @@ class Config:
 	""" Whether she says her replies aloud, in Japanese. """
 	voice_style: int
 	""" The AivisSpeech voice she says them in, by its style id. """
+	volume: float
+	""" How loud her voice is, from 0 to 1. """
 
 	@classmethod
 	def load(cls) -> Self:
@@ -95,5 +97,14 @@ class Config:
 			typing_speed=values["typing_speed"],
 			voice=values["voice"],
 			voice_style=values["voice_style"],
+			volume=values["volume"],
 		)
+
+
+def save_volume(volume: float, path: Path = USER_CONFIG) -> None:
+	""" Writes the `volume` key of the user's config, adding it when the file predates it. """
+	text, replaced = re.subn(r"^volume\s*=.*$", f"volume = {volume:.2f}", path.read_text(encoding="utf-8"), flags=re.MULTILINE)
+	if not replaced:
+		text = f"{text.rstrip()}\n\nvolume = {volume:.2f}\n"
+	path.write_text(text, encoding="utf-8")
 

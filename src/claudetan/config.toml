@@ -55,6 +55,9 @@ voice = true
 # Another voice of AivisHub goes into %APPDATA%\AivisSpeech-Engine\Models, and http://127.0.0.1:10101/speakers lists the style ids while she speaks.
 voice_style = 1431611904
 
+# How loud her voice is, from 0.0 (silent) to 1.0. The slider of her tray menu sets it.
+volume = 1.0
+
 # The city she gives the weather of when you do not name one
 city = ""
 

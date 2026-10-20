@@ -1,10 +1,11 @@
 """ Claude-tan's speech bubble: warm paper with a shimmering rim, her name tag, and the text typed with its last letters fading in. """
 # Imports
 import html
+import itertools
 import math
 import re
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QUrl
 from PySide6.QtGui import (
 	QBrush,
 	QColor,
@@ -54,6 +55,13 @@ SCROLL_SPEED: float = 14.0
 FADE_CHARS: float = 6.0
 """ How many letters behind the typing head are still fading in. """
 INK: QColor = QColor(61, 57, 41)
+LINK: QColor = QColor(37, 99, 235)
+URI: re.Pattern[str] = re.compile(
+	r"https?://[^\s<>\"')\]]*[^\s<>\"')\].,;:!?]|\b[A-Za-z]:[\\/][^\s<>\"'|*?]*[^\s<>\"'|*?)\].,;:!?]",
+)
+""" A web address or a Windows path, without the punctuation that ends the sentence around it. """
+INK_RGB: str = f"{INK.red()}, {INK.green()}, {INK.blue()}"
+LINK_RGB: str = f"{LINK.red()}, {LINK.green()}, {LINK.blue()}"
 GOLD: QColor = QColor(242, 184, 112)
 ROSE: QColor = QColor(236, 138, 150)
 BUTTON_RADIUS: float = 10.0
@@ -92,6 +100,10 @@ class Bubble:
 
 		self.read_since: float | None = None
 		""" When the wheel last left the text at its end, None while the end is not in sight. """
+		self.links: list[tuple[int, int, str]] = []
+		""" The span of `text` each link covers, with its URL. """
+		self.text_area = QRectF()
+		""" Where the text was last drawn, in the coordinates the bubble is painted in. """
 		self.buttons: dict[str, QRectF] = {}
 		""" Where its "close" and "hide" buttons were last drawn, in the coordinates the bubble is painted in. """
 
@@ -115,6 +127,7 @@ class Bubble:
 			self.shown_at = now
 			self.dragged = self.read_since = None
 		self.text = shown
+		self.links = [] if self.report else links(shown)
 
 	def type(self, seconds: float) -> None:
 		speed = max(self.typing_speed, len(self.text) / TYPING_S)
@@ -152,7 +165,8 @@ class Bubble:
 		paint_button(painter, centers["close"], hide=False)
 		if self.revealed >= len(self.text) + FADE_CHARS:
 			paint_next_mark(painter, box, now)
-		self.paint_text(painter, box.adjusted(PADDING, PADDING, -PADDING, -PADDING), scrolled)
+		self.text_area = box.adjusted(PADDING, PADDING, -PADDING, -PADDING)
+		self.paint_text(painter, self.text_area, scrolled)
 		painter.restore()
 
 	def paint_text(self, painter: QPainter, area: QRectF, scrolled: float) -> None:
@@ -197,15 +211,9 @@ class Bubble:
 
 		solid = max(0, math.floor(self.revealed - FADE_CHARS))
 		head = min(len(self.text), math.ceil(self.revealed))
-		ink = f"{INK.red()}, {INK.green()}, {INK.blue()}"
-		fading = "".join(
-			f'<span style="color: rgba({ink}, {round(255 * min(1.0, (self.revealed - i) / FADE_CHARS))})">'
-			f"{markup(self.text[i])}</span>"
-			for i in range(solid, head)
-		)
+		fading = "".join(self.segment(i, i + 1, round(255 * min(1.0, (self.revealed - i) / FADE_CHARS))) for i in range(solid, head))
 		self.document.setHtml(
-			f'<p style="line-height: 118%; color: {INK.name()}">{markup(self.text[:solid])}{fading}'
-			f'<span style="color: rgba(0, 0, 0, 0)">{markup(self.text[head:])}</span></p>',
+			f'<p style="line-height: 118%">{self.segment(0, solid, 255)}{fading}{self.segment(head, len(self.text), 0)}</p>',
 		)
 		if self.fitted != self.text:
 			self.fitted = self.text
@@ -213,8 +221,39 @@ class Bubble:
 			self.text_width = min(MAX_TEXT_WIDTH, math.ceil(self.document.idealWidth()))
 			self.document.setTextWidth(self.text_width)
 
+	def segment(self, start: int, end: int, alpha: int) -> str:
+		""" The markup of `text[start:end]` at `alpha` out of 255, its links being anchors in the color of links. """
+		cuts = sorted({start, end, *(cut for first, last, _ in self.links for cut in (first, last) if start < cut < end)})
+		pieces: list[str] = []
+		for first, last in itertools.pairwise(cuts):
+			url = next((url for begin, stop, url in self.links if begin <= first < stop), None)
+			text = markup(self.text[first:last])
+			if url:
+				pieces.append(f'<a href="{html.escape(url)}" style="color: rgba({LINK_RGB}, {alpha})">{text}</a>')
+			else:
+				pieces.append(f'<span style="color: rgba({INK_RGB}, {alpha})">{text}</span>')
+		return "".join(pieces)
+
+	def link_at(self, point: QPointF) -> str:
+		""" The URL of the link under `point`, given in the coordinates the bubble is painted in, or an empty string. """
+		if not self.text_area.contains(point):
+			return ""
+		return self.document.documentLayout().anchorAt(point - self.text_area.topLeft() + QPointF(0, self.scrolled))
+
 
 # Functions
+def links(text: str) -> list[tuple[int, int, str]]:
+	""" The web addresses and Windows paths of the text, each as its span and the URL to open.
+
+	>>> links("See https://claude.ai/code#top, or D:/x/a.py.")
+	[(4, 30, 'https://claude.ai/code#top'), (35, 44, 'file:///D:/x/a.py')]
+	"""
+	return [
+		(found.start(), found.end(), found[0] if found[0].startswith("http") else QUrl.fromLocalFile(found[0]).toString())
+		for found in URI.finditer(text)
+	]
+
+
 def on_whole_pixels(painter: QPainter, point: QPointF) -> QPointF:
 	""" The painter's `point`, moved to the nearest whole pixel of the screen, where Qt draws text sharp. """
 	to_screen = painter.deviceTransform()
@@ -229,7 +268,7 @@ def plain(text: str) -> str:
 	>>> plain("**Done**: edited `app.py`.\\n\\n- one\\n- two")
 	'Done: edited app.py.\\none\\ntwo'
 	"""
-	lines = re.sub(r"[*`#]|^\s*[-+] ", "", text, flags=re.MULTILINE).splitlines()
+	lines = re.sub(r"[*`]|^\s*#+ ?|^\s*[-+] ", "", text, flags=re.MULTILINE).splitlines()
 	return "\n".join(" ".join(line.split()) for line in lines if line.strip())
 
 

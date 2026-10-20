@@ -11,7 +11,7 @@ import tomllib
 from collections import deque
 from collections.abc import Mapping
 from concurrent.futures import Future
-from dataclasses import fields
+from dataclasses import fields, replace
 from functools import partial
 from logging.handlers import RotatingFileHandler
 
@@ -21,7 +21,7 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
 from claudetan import actions
-from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
+from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config, save_volume
 from claudetan.console import enable_colors
 from claudetan.i18n import tr
 from claudetan.launcher import CHANGED, READY, RESTART, SET_ASIDE
@@ -438,6 +438,12 @@ def main() -> None:
 	stp.error(f"ClaudeTan stopped while starting, see {stp.CYAN}{LOG_FILE}")
 
 
+def set_volume(voice: Voice, listener: Listener, volume: float) -> None:
+	""" Applies a volume picked in the tray to her voice, and to the config the listener holds so that saving it announces nothing. """
+	voice.volume = volume
+	listener.config = replace(listener.config, volume=volume)
+
+
 def reload_config(watcher: QFileSystemWatcher, listener: Listener, assistant: Assistant) -> None:
 	""" Applies the saved config: the listener reads its settings on each sentence, and `Assistant.on_config` applies the others. """
 	# Editors save by replacing the file, which drops it from the watch
@@ -514,7 +520,7 @@ def run() -> None:
 	config = Config.load()
 	avatar, pill = Avatar(config.avatar_zoom, config.text_zoom), Pill(config.avatar_zoom)
 	assistant = Assistant(avatar, pill, config)
-	tray = Tray()
+	tray = Tray(config.volume)
 	tray.show()
 	hooks = HookServer()
 	tools = ActionServer()
@@ -541,7 +547,7 @@ def run() -> None:
 	reloader.broken.connect(assistant.on_set_aside)
 	reloader.restart.connect(partial(restart, app))
 	assistant.restart_app.connect(lambda: QTimer.singleShot(RESTART_DELAY_MS, partial(restart, app, FULL_RESTART)))
-	voice = Voice(config.voice_style if config.voice else None)
+	voice = Voice(config.voice_style if config.voice else None, config.volume)
 	assistant.speak.connect(voice.say)
 	assistant.hush.connect(voice.hush)
 	avatar.read.connect(assistant.on_read)
@@ -549,6 +555,8 @@ def run() -> None:
 	voice.started.connect(assistant.on_speaking)
 	app.aboutToQuit.connect(voice.close)
 	listener = Listener(config)
+	tray.volume_changed.connect(partial(set_volume, voice, listener))
+	tray.menu.aboutToHide.connect(lambda: save_volume(listener.config.volume))
 	listener.woke.connect(assistant.on_wake)
 	listener.dictated.connect(assistant.on_dictation)
 	listener.cancelled.connect(assistant.on_cancel)

@@ -21,6 +21,7 @@ import wave
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import numpy as np
 import py7zr
 import sounddevice as sd
 import soundfile as sf
@@ -76,9 +77,11 @@ class Voice(QObject):
 	started = Signal(object)
 	""" The `Vowels` of the line her voice starts saying. """
 
-	def __init__(self, style: int | None) -> None:
+	def __init__(self, style: int | None, volume: float) -> None:
 		""" Readies the engine with the voice of `style` and the translator, or leaves them to her first line when None. """
 		super().__init__()
+		self.volume = volume
+		""" From 0 to 1, read at each piece of sound so that a line being said follows the slider. """
 		self.lines: queue.Queue[tuple[str, int]] = queue.Queue()
 		self.translated_lines: queue.Queue[tuple[str, int, int]] = queue.Queue()
 		""" Lines in Japanese with their style and the `hushes` they came after, waiting for the line being said. """
@@ -170,7 +173,7 @@ class Voice(QObject):
 					if self.hushes != hushes:
 						synthesizer.shutdown(cancel_futures=True)
 						return
-					stream.write(sound[start:start + chunk])
+					stream.write(sound[start:start + chunk] * np.float32(self.volume))
 
 
 # Functions

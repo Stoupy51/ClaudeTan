@@ -4,6 +4,7 @@ from itertools import pairwise
 
 import numpy as np
 from numpy.typing import NDArray
+from PySide6.QtCore import QPointF
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
@@ -56,4 +57,17 @@ def test_a_short_text_shows_at_once_and_a_long_one_within_the_typing_time(app: Q
 
 	long.type(TYPING_S / 2)
 	assert long.revealed >= len(long.text)
+
+
+def test_a_link_in_the_text_is_found_under_the_point_it_was_drawn_at(app: QApplication) -> None:
+	bubble = Bubble()
+	bubble.say("Open https://claude.ai/code now", now=0.0)
+	bubble.revealed = 1e9
+	image = QImage(420, 200, QImage.Format.Format_ARGB32)
+	painter = QPainter(image)
+	bubble.paint(painter, now=1.0, bottom=150)
+	painter.end()
+	row = bubble.text_area.top() + 8
+	assert bubble.link_at(QPointF(bubble.text_area.left() + 100, row)) == "https://claude.ai/code"
+	assert bubble.link_at(QPointF(bubble.text_area.left() + 2, row)) == ""
 
