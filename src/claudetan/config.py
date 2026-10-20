@@ -79,7 +79,7 @@ class Config:
 			language=None if values["language"] == "auto" else values["language"],
 			wake=re.compile(values["wake"], re.IGNORECASE),
 			pause_s=values["pause_s"],
-			done=re.compile(rf"\W*\b(?:{values['done']})\W*$", re.IGNORECASE),
+			done=re.compile(rf"\W*(?:\b(?:{values['done']})|[,.!?;:]\s*(?:{values['done_alone']}))\W*$", re.IGNORECASE),
 			done_alone=re.compile(rf"\W*(?:{values['done_alone']})\W*", re.IGNORECASE),
 			done_hints=(values["done_alone"].split("|")[0], values["done_alone"].split("|")[-1]),
 			cancel_alone=re.compile(rf"\W*(?:{values['cancel_alone']})\W*", re.IGNORECASE),

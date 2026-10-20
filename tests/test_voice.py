@@ -51,6 +51,13 @@ def test_a_word_after_the_punctuation_of_a_single_utterance_ends_the_request(mon
 	assert sent == ["qu'est-ce qu'il y a sur mon écran ?"]
 
 
+def test_a_short_word_after_a_comma_ends_the_request(monkeypatch: pytest.MonkeyPatch) -> None:
+	sent: list[str] = []
+	voice = listener(sent, monkeypatch)
+	voice.hear("Hé Claude, mets une tête spéciale aux zombies. Merci, terminé.", "fr", ended=True)
+	assert sent == ["mets une tête spéciale aux zombies. Merci"]
+
+
 def test_a_bare_yes_or_no_answers_a_permission_request_only_while_she_asks(monkeypatch: pytest.MonkeyPatch) -> None:
 	sent: list[str] = []
 	voice = listener(sent, monkeypatch)
