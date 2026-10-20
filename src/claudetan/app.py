@@ -530,6 +530,7 @@ def run() -> None:
 	assistant.announced.connect(assistant.on_announce)
 	tray.action_requested.connect(assistant.announce)
 	instance.newConnection.connect(quit_app)
+	pill.dropped.connect(avatar.stand_at)
 	for clicked in (avatar.clicked, pill.clicked, tray.open_session):
 		clicked.connect(session.open)
 	hooks.posted.connect(session.on_hook)

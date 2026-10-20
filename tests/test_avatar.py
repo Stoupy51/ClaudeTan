@@ -6,7 +6,7 @@ from PySide6.QtCore import QEvent, QPoint, QPointF, QSettings, Qt
 from PySide6.QtGui import QGuiApplication, QImage, QMouseEvent, QPainter
 from PySide6.QtWidgets import QApplication
 
-from claudetan.overlay.avatar import Avatar
+from claudetan.overlay.avatar import Avatar, Pill
 
 
 # Functions
@@ -59,4 +59,32 @@ def test_the_buttons_of_her_bubble_close_or_hide_her_and_a_click_elsewhere_opens
 	click(avatar.bubble.buttons["hide"].center() * avatar.text_zoom)
 	click(QPointF(avatar.width() - 5, avatar.height() - 5))
 	assert events == ["closed", "hidden", "clicked"]
+
+
+def test_a_pill_dragged_after_a_long_press_moves_her_place_and_a_short_press_only_clicks(app: QApplication, tmp_path: Path) -> None:
+	avatar = Avatar()
+	avatar.settings = QSettings(str(tmp_path / "overlay.ini"), QSettings.Format.IniFormat)
+	pill = Pill()
+	pill.dropped.connect(avatar.stand_at)
+	clicks: list[str] = []
+	pill.clicked.connect(lambda: clicks.append("clicked"))
+	pill.move(100, 100)
+	left, none, no_keys = Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+
+	def mouse(kind: QEvent.Type, point: QPoint, button: Qt.MouseButton) -> QMouseEvent:
+		return QMouseEvent(kind, QPointF(point), QPointF(point), left, button, no_keys)
+
+	pill.mousePressEvent(mouse(QEvent.Type.MouseButtonPress, QPoint(110, 110), left))
+	pill.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease, QPoint(110, 110), none))
+	assert clicks == ["clicked"]
+	assert avatar.settings.value("pos") is None
+
+	pill.mousePressEvent(mouse(QEvent.Type.MouseButtonPress, QPoint(110, 110), left))
+	pill.long_press.stop()
+	pill.start_drag()
+	pill.mouseMoveEvent(mouse(QEvent.Type.MouseMove, QPoint(310, 210), left))
+	pill.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease, QPoint(310, 210), none))
+	assert clicks == ["clicked"]
+	corner = QPoint(300, 200) + QPoint(pill.width(), pill.height())
+	assert avatar.settings.value("pos") == corner - QPoint(avatar.width(), avatar.height())
 

@@ -1,6 +1,6 @@
 """ Claude-tan on screen: the sprite overlay with her speech bubble, the pill she shrinks to during long tasks, and her chimes.
 
-A click on her or on the pill opens the Remote Control session, a long press on her lets you drag her somewhere else.
+A click on her or on the pill opens the Remote Control session, a long press on either lets you drag her somewhere else.
 """
 # Imports
 import math
@@ -201,6 +201,10 @@ class Avatar(QWidget):
 		if self.isVisible():
 			self.slide_to(self.home() + QPoint(0, 40), 0.0)
 
+	def stand_at(self, corner: QPoint) -> None:
+		""" Remembers her bottom-right corner as `corner`, where the pill was dropped. """
+		self.settings.setValue("pos", corner - QPoint(self.width(), self.height()))
+
 	def home(self) -> QPoint:
 		""" Where she stands: where she was last dropped while that screen is plugged in, else the main screen's bottom-right corner.
 
@@ -361,6 +365,8 @@ class Avatar(QWidget):
 class Pill(QWidget):
 	""" Her face in a disc ringed by a spinning arc, shown in her place while a long task runs. """
 	clicked = Signal()
+	dropped = Signal(QPoint)
+	""" Where the bottom-right corner of the pill is after a long press dragged it somewhere else. """
 
 	def __init__(self, zoom: float = 1.0) -> None:
 		""" The pill, laid out at its default size and drawn `zoom` times larger. """
@@ -368,6 +374,13 @@ class Pill(QWidget):
 		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 		self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 		self.set_zoom(zoom)
+		self.press_origin = QPoint()
+		self.press_offset = QPoint()
+		self.dragging = False
+		self.long_press = QTimer(self)
+		self.long_press.setSingleShot(True)
+		self.long_press.setInterval(LONG_PRESS_MS)
+		self.long_press.timeout.connect(self.start_drag)
 		self.angle = 0
 		self.spin = QTimer(self)
 		self.spin.setInterval(30)
@@ -414,8 +427,32 @@ class Pill(QWidget):
 		painter.drawArc(ring, self.angle * 16, 110 * 16)
 
 	@override
+	def mousePressEvent(self, event: QMouseEvent) -> None:
+		self.press_origin = event.globalPosition().toPoint()
+		self.press_offset = self.press_origin - self.pos()
+		self.long_press.start()
+
+	@override
+	def mouseMoveEvent(self, event: QMouseEvent) -> None:
+		cursor = event.globalPosition().toPoint()
+		if self.dragging:
+			self.move(cursor - self.press_offset)
+		elif self.long_press.isActive() and (cursor - self.press_origin).manhattanLength() > CLICK_SLOP:
+			self.long_press.stop()
+
+	@override
 	def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-		self.clicked.emit()
+		if self.long_press.isActive():
+			self.long_press.stop()
+			self.clicked.emit()
+		elif self.dragging:
+			self.dragging = False
+			self.unsetCursor()
+			self.dropped.emit(self.pos() + QPoint(self.width(), self.height()))
+
+	def start_drag(self) -> None:
+		self.dragging = True
+		self.setCursor(Qt.CursorShape.ClosedHandCursor)
 
 
 # Functions
