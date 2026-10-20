@@ -11,7 +11,7 @@ import tomllib
 from collections import deque
 from collections.abc import Mapping
 from concurrent.futures import Future
-from dataclasses import fields, replace
+from dataclasses import fields
 from functools import partial
 from logging.handlers import RotatingFileHandler
 
@@ -21,14 +21,12 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
 from claudetan import actions
-from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config, save_volume
+from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
 from claudetan.i18n import tr
 from claudetan.launcher import CHANGED, READY, RESTART, SET_ASIDE
 from claudetan.mcp import ActionServer
-from claudetan.overlay.avatar import Avatar, Pill, chime
-from claudetan.overlay.bubble import plain
-from claudetan.overlay.tray import Tray
+from claudetan.overlay import avatar as avatar_module, bubble as bubble_module
 from claudetan.reload import Reloader
 from claudetan.report import Report
 from claudetan.services import claude
@@ -38,6 +36,7 @@ from claudetan.session import HookServer, JsonDict, Session
 from claudetan.voice.audio import GPU, microphone
 from claudetan.voice.listener import FOLLOW_UP_S, Listener
 from claudetan.voice.speech import Voice, Vowels
+from claudetan.windows import Windows
 
 # Constants
 LOG: logging.Logger = logging.getLogger("claudetan")
@@ -97,7 +96,7 @@ class Assistant(QObject):
 	hush = Signal()
 	""" She is called while her voice may still be saying something. """
 
-	def __init__(self, avatar: Avatar, pill: Pill, config: Config) -> None:
+	def __init__(self, avatar: avatar_module.Avatar, pill: avatar_module.Pill, config: Config) -> None:
 		super().__init__()
 		self.config = config
 		self.avatar = avatar
@@ -131,7 +130,7 @@ class Assistant(QObject):
 
 	def on_wake(self) -> None:
 		self.hush.emit()
-		chime(*WAKE_NOTES)
+		avatar_module.chime(*WAKE_NOTES)
 		self.appear("hello", bubble=tr("Yes?", "Oui ?"))
 		self.dismiss.start(round(FOLLOW_UP_S * 1000))
 
@@ -214,7 +213,7 @@ class Assistant(QObject):
 		self.dismiss.start(reading_ms(str(text)))
 
 	def on_alarm(self, label: str) -> None:
-		chime(*DONE_NOTES)
+		avatar_module.chime(*DONE_NOTES)
 		done = tr(f"Your timer is done: {label}.", f"Ton minuteur est terminé : {label}.")
 		self.appear("present", bubble=done if label else tr("Your timer is done.", "Ton minuteur est terminé."))
 		self.dismiss.start(HEARD_MS)
@@ -341,7 +340,7 @@ class Assistant(QObject):
 		LOG.info("Reply: %s", reply)
 		self.end_turn()
 		if not self.agents:
-			chime(*DONE_NOTES)
+			avatar_module.chime(*DONE_NOTES)
 		self.appear("present" if self.worked else "happy", bubble=reply)
 		self.dismiss.start(reading_ms(reply))
 		self.say_aloud(reply)
@@ -415,7 +414,7 @@ class Assistant(QObject):
 # Functions
 def reading_ms(text: str) -> int:
 	""" How long a text stays up: 4 s, plus 50 ms per character, which the bubble scrolls through at that pace, 60 s at most. """
-	return min(4000 + 50 * len(plain(text)), 60_000)
+	return min(4000 + 50 * len(bubble_module.plain(text)), 60_000)
 
 
 def main() -> None:
@@ -436,12 +435,6 @@ def main() -> None:
 			return
 		print(line, end="", flush=True)
 	stp.error(f"ClaudeTan stopped while starting, see {stp.CYAN}{LOG_FILE}")
-
-
-def set_volume(voice: Voice, listener: Listener, volume: float) -> None:
-	""" Applies a volume picked in the tray to her voice, and to the config the listener holds so that saving it announces nothing. """
-	voice.volume = volume
-	listener.config = replace(listener.config, volume=volume)
 
 
 def reload_config(watcher: QFileSystemWatcher, listener: Listener, assistant: Assistant) -> None:
@@ -481,9 +474,9 @@ def restart(app: QApplication, change: str) -> None:
 	app.exit(RESTART)
 
 
-def shut_down(app: QApplication, tray: Tray, assistant: Assistant, session: Session) -> None:
+def shut_down(app: QApplication, windows: Windows, assistant: Assistant, session: Session) -> None:
 	""" Quits, after compacting a large session so that the next start does not reread it all once the prompt cache has expired. """
-	tray.hide()
+	windows.tray.hide()
 	if assistant.busy or not session.compact():
 		app.quit()
 		return
@@ -518,21 +511,15 @@ def run() -> None:
 	instance = QLocalServer()
 	instance.listen(INSTANCE_NAME)
 	config = Config.load()
-	avatar, pill = Avatar(config.avatar_zoom, config.text_zoom), Pill(config.avatar_zoom)
-	assistant = Assistant(avatar, pill, config)
-	tray = Tray(config.volume)
-	tray.show()
+	windows = Windows(config)
+	assistant = Assistant(windows.avatar, windows.pill, config)
 	hooks = HookServer()
 	tools = ActionServer()
 	session = Session(hooks.url, tools.url, config)
-	quit_app = partial(shut_down, app, tray, assistant, session)
-	tray.quit_requested.connect(quit_app)
+	quit_app = partial(shut_down, app, windows, assistant, session)
+	windows.quit_requested.connect(quit_app)
 	assistant.announced.connect(assistant.on_announce)
-	tray.action_requested.connect(assistant.announce)
 	instance.newConnection.connect(quit_app)
-	pill.dropped.connect(avatar.stand_at)
-	for clicked in (avatar.clicked, pill.clicked, tray.open_session):
-		clicked.connect(session.open)
 	hooks.posted.connect(session.on_hook)
 	hooks.posted.connect(assistant.on_hook)
 	hooks.asked.connect(assistant.on_permission_asked)
@@ -551,19 +538,14 @@ def run() -> None:
 	voice = Voice(config.voice_style if config.voice else None, config.volume)
 	assistant.speak.connect(voice.say)
 	assistant.hush.connect(voice.hush)
-	avatar.read.connect(assistant.on_read)
-	voice.started.connect(avatar.speak)
 	voice.started.connect(assistant.on_speaking)
 	app.aboutToQuit.connect(voice.close)
 	listener = Listener(config)
-	tray.volume_changed.connect(partial(set_volume, voice, listener))
-	tray.menu.aboutToHide.connect(lambda: save_volume(listener.config.volume))
+	windows.connect_to(assistant, session, listener, voice)
+	reloader.reloaded.connect(windows.on_reloaded)
 	listener.woke.connect(assistant.on_wake)
 	listener.dictated.connect(assistant.on_dictation)
 	listener.cancelled.connect(assistant.on_cancel)
-	avatar.closed.connect(listener.cancel)
-	avatar.closed.connect(assistant.leave)
-	avatar.hidden.connect(assistant.leave)
 	listener.answered.connect(assistant.on_verdict)
 	assistant.listening_for_answer.connect(lambda: setattr(listener, "asking", True))
 	assistant.answer_settled.connect(lambda: setattr(listener, "asking", False))

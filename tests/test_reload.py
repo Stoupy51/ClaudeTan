@@ -20,6 +20,11 @@ def test_actions_and_services_reload_alone_and_the_rest_restarts_the_app() -> No
 	assert reload_order({"claudetan.i18n"}) is None
 	assert reload_order({"claudetan.voice.listener"}) is None
 
+	overlay = reload_order({"claudetan.overlay.avatar"})
+	assert overlay is not None and overlay.index("claudetan.overlay.avatar") < overlay.index("claudetan.overlay.tray")
+	assert "claudetan.app" not in overlay
+	assert reload_order({"claudetan.windows"}) is None
+
 
 def test_an_edited_action_reloads_in_place_and_an_edited_session_restarts_the_app() -> None:
 	reloader = Reloader()

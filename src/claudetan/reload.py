@@ -26,7 +26,7 @@ PACKAGE: Path = Path(__file__).parent
 EDIT_TOOLS: frozenset[str] = frozenset({"Edit", "Write", "MultiEdit"})
 LIVE: tuple[str, ...] = (
 	"claudetan.app", "claudetan.config", "claudetan.session", "claudetan.mcp", "claudetan.reload", "claudetan.launcher",
-	"claudetan.overlay", "claudetan.voice", "claudetan.services.alarms",
+	"claudetan.windows", "claudetan.voice", "claudetan.services.alarms",
 )
 """ Modules, with their submodules, that the running app holds objects of: the windows, the session, the microphone, the timers. """
 
@@ -38,6 +38,8 @@ class Reloader(QObject):
 	""" The change needs the app started again: the line telling the launcher what it is, should the app then fail to start. """
 	tools_changed = Signal()
 	""" The reloaded actions changed the session's tools, which it reads only when it starts. """
+	reloaded = Signal(list)
+	""" The modules just reloaded, for the windows to be built again from them. """
 	broken = Signal(str)
 	""" The change failed to load, and was put aside in git: the error. """
 
@@ -81,6 +83,7 @@ class Reloader(QObject):
 			reload(order)
 			self.broken.emit(f"{type(error).__name__}: {error}")
 		self.since = git(ROOT, "rev-parse", "HEAD")
+		self.reloaded.emit(order)
 		if [tool(action) for action in actions.ACTIONS] != tools:
 			self.tools_changed.emit()
 
