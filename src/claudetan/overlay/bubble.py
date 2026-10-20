@@ -5,7 +5,7 @@ import itertools
 import math
 import re
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QUrl
+from PySide6.QtCore import QPointF, QRectF, QSize, QSizeF, Qt, QUrl
 from PySide6.QtGui import (
 	QBrush,
 	QColor,
@@ -44,6 +44,8 @@ RIGHT_EDGE: float = WIDTH - 12.0
 SUBPIXEL_SCALE: float = 1.0001
 """ Qt draws text and unscaled pixmaps at whole pixels, so a slow scroll jumps. Any scale makes it interpolate the pixmap instead. """
 POP_S: float = 0.35
+RESIZE_RATE: float = 14.0
+""" How fast the bubble reaches the size of a new text, as the share of the remaining gap closed per second (exponential). """
 TYPING_S: float = 1.0
 """ The longest a text takes to appear: a long one types faster to fit. """
 TYPING_SPEED: float = 80.0
@@ -78,6 +80,12 @@ class Bubble:
 		self.text = ""
 		self.report: Report | None = None
 		self.shown_at = -1.0
+		""" When the bubble popped out of its tail, which a new text shown while it is up does not repeat. """
+		self.started_at = -1.0
+		""" When the current text started, from which it scrolls. """
+		self.size = QSizeF()
+		self.sized_at = -1.0
+		""" The size the box is drawn at, easing toward the one the text needs, and when it was last moved. """
 		self.revealed = 0.0
 		""" How many letters are typed so far, running `FADE_CHARS` past the end while the last ones fade in. """
 		self.typing_speed = TYPING_SPEED
@@ -118,13 +126,17 @@ class Bubble:
 		"""
 		self.report = text if isinstance(text, Report) else None
 		shown = plain(str(text))
+		if not shown:
+			self.shown_at = -1.0
+		elif not self.text:
+			self.shown_at = now
 		if self.report:
 			self.revealed = len(shown) + FADE_CHARS
-			self.shown_at = now
+			self.started_at = now
 			self.dragged = self.read_since = None
 		elif not (self.text and shown.startswith(self.text)):
 			self.revealed = 0.0
-			self.shown_at = now
+			self.started_at = now
 			self.dragged = self.read_since = None
 		self.text = shown
 		self.links = [] if self.report else links(shown)
@@ -134,15 +146,15 @@ class Bubble:
 		self.revealed = min(len(self.text) + FADE_CHARS, self.revealed + speed * seconds)
 
 	def paint(self, painter: QPainter, now: float, bottom: float) -> None:
-		""" The bubble with its bottom edge at `bottom`, growing upward and popping out of its tail when its text changes. """
+		""" The bubble with its bottom edge at `bottom`, growing upward, popping out once and then easing to each new text size. """
 		self.lay_out()
 		height = self.document.size().height()
 		visible = min(height, REPORT_HEIGHT if self.report else TEXT_HEIGHT)
 		self.max_scroll = height - visible
-		automatic = SCROLL_SPEED * max(0.0, now - self.shown_at - SCROLL_DELAY_S)
+		automatic = SCROLL_SPEED * max(0.0, now - self.started_at - SCROLL_DELAY_S)
 		scrolled = self.scrolled = min(self.max_scroll, automatic if self.dragged is None else self.dragged)
-		width = self.text_width + 2 * PADDING
-		box = QRectF(RIGHT_EDGE - width, max(18.0, bottom - visible - 2 * PADDING), width, visible + 2 * PADDING)
+		size = self.eased_size(QSizeF(self.text_width + 2 * PADDING, visible + 2 * PADDING), now)
+		box = QRectF(RIGHT_EDGE - size.width(), max(18.0, bottom - size.height()), size.width(), size.height())
 		shape = outline(box)
 		tip = QPointF(box.right() + 18, box.bottom() - 14)
 		close = QPointF(box.right() - 6, box.top() + 2)
@@ -168,6 +180,16 @@ class Bubble:
 		self.text_area = box.adjusted(PADDING, PADDING, -PADDING, -PADDING)
 		self.paint_text(painter, self.text_area, scrolled)
 		painter.restore()
+
+	def eased_size(self, target: QSizeF, now: float) -> QSizeF:
+		""" `self.size` moved toward `target`, set to it when the bubble has just popped out. """
+		if now - self.shown_at < POP_S:
+			self.size = target
+		else:
+			share = 1 - math.exp(-RESIZE_RATE * (now - self.sized_at))
+			self.size += (target - self.size) * share
+		self.sized_at = now
+		return self.size
 
 	def paint_text(self, painter: QPainter, area: QRectF, scrolled: float) -> None:
 		""" The text clipped to `area`, `scrolled` pixels up. """

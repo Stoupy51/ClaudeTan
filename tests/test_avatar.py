@@ -61,11 +61,9 @@ def test_the_buttons_of_her_bubble_close_or_hide_her_and_a_click_elsewhere_opens
 	assert events == ["closed", "hidden", "clicked"]
 
 
-def test_a_pill_dragged_after_a_long_press_moves_her_place_and_a_short_press_only_clicks(app: QApplication, tmp_path: Path) -> None:
-	avatar = Avatar()
-	avatar.settings = QSettings(str(tmp_path / "overlay.ini"), QSettings.Format.IniFormat)
+def test_a_pill_dragged_after_a_long_press_keeps_its_own_place_and_a_short_press_clicks(app: QApplication, tmp_path: Path) -> None:
 	pill = Pill()
-	pill.dropped.connect(avatar.stand_at)
+	pill.settings = QSettings(str(tmp_path / "overlay.ini"), QSettings.Format.IniFormat)
 	clicks: list[str] = []
 	pill.clicked.connect(lambda: clicks.append("clicked"))
 	pill.move(100, 100)
@@ -77,7 +75,7 @@ def test_a_pill_dragged_after_a_long_press_moves_her_place_and_a_short_press_onl
 	pill.mousePressEvent(mouse(QEvent.Type.MouseButtonPress, QPoint(110, 110), left))
 	pill.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease, QPoint(110, 110), none))
 	assert clicks == ["clicked"]
-	assert avatar.settings.value("pos") is None
+	assert pill.settings.value("pill_pos") is None
 
 	pill.mousePressEvent(mouse(QEvent.Type.MouseButtonPress, QPoint(110, 110), left))
 	pill.long_press.stop()
@@ -86,7 +84,10 @@ def test_a_pill_dragged_after_a_long_press_moves_her_place_and_a_short_press_onl
 	pill.mouseReleaseEvent(mouse(QEvent.Type.MouseButtonRelease, QPoint(310, 210), none))
 	assert clicks == ["clicked"]
 	corner = QPoint(300, 200) + QPoint(pill.width(), pill.height())
-	assert avatar.settings.value("pos") == corner - QPoint(avatar.width(), avatar.height())
+	assert pill.settings.value("pill_pos") == corner
+
+	pill.show_at(QPoint(50, 50))
+	assert pill.pos() == QPoint(300, 200)
 
 
 def test_she_stays_under_the_cursor_when_a_bubble_appears_while_she_is_dragged(app: QApplication, tmp_path: Path) -> None:
@@ -100,4 +101,24 @@ def test_she_stays_under_the_cursor_when_a_bubble_appears_while_she_is_dragged(a
 
 	avatar.stop_drag()
 	assert avatar.home() == QPoint(10, 10)
+
+def test_a_new_text_resizes_the_bubble_smoothly_instead_of_popping_it_out_again(app: QApplication) -> None:
+	avatar = Avatar()
+	image = QImage(500, 500, QImage.Format.Format_ARGB32)
+	bubble = avatar.bubble
+
+	def paint(now: float) -> None:
+		painter = QPainter(image)
+		bubble.paint(painter, now=now, bottom=250)
+		painter.end()
+
+	avatar.set_expression("present", bubble="Hi.")
+	paint(bubble.shown_at + 1)
+	small = bubble.size.width()
+
+	shown_at = bubble.shown_at
+	avatar.set_expression("present", bubble="A much longer sentence that needs a wider bubble than the first.")
+	assert bubble.shown_at == shown_at
+	paint(shown_at + 1.05)
+	assert small < bubble.size.width() < bubble.text_width + 2 * 16
 

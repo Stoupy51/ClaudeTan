@@ -58,7 +58,6 @@ class Windows(QObject):
 		self.tray.open_session.connect(self.session.open)
 		self.tray.volume_changed.connect(partial(set_volume, self.voice, self.listener))
 		self.tray.menu.aboutToHide.connect(lambda: save_volume(self.listener.config.volume))
-		self.pill.dropped.connect(self.avatar.stand_at)
 		self.avatar.clicked.connect(self.session.open)
 		self.pill.clicked.connect(self.session.open)
 		self.avatar.read.connect(self.assistant.on_read)

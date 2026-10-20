@@ -201,10 +201,6 @@ class Avatar(QWidget):
 		if self.isVisible():
 			self.slide_to(self.home() + QPoint(0, 40), 0.0)
 
-	def stand_at(self, corner: QPoint) -> None:
-		""" Remembers her bottom-right corner as `corner`, where the pill was dropped. """
-		self.settings.setValue("pos", corner - QPoint(self.width(), self.height()))
-
 	def home(self) -> QPoint:
 		""" Where she stands: where she was last dropped while that screen is plugged in, else the main screen's bottom-right corner.
 
@@ -372,8 +368,6 @@ class Avatar(QWidget):
 class Pill(QWidget):
 	""" Her face in a disc ringed by a spinning arc, shown in her place while a long task runs. """
 	clicked = Signal()
-	dropped = Signal(QPoint)
-	""" Where the bottom-right corner of the pill is after a long press dragged it somewhere else. """
 
 	def __init__(self, zoom: float = 1.0) -> None:
 		""" The pill, laid out at its default size and drawn `zoom` times larger. """
@@ -381,6 +375,7 @@ class Pill(QWidget):
 		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 		self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 		self.set_zoom(zoom)
+		self.settings = QSettings("ClaudeTan", "overlay")
 		self.press_origin = QPoint()
 		self.press_offset = QPoint()
 		self.dragging = False
@@ -399,7 +394,10 @@ class Pill(QWidget):
 		self.face = face(round(PILL_SIZE * zoom))
 
 	def show_at(self, corner: QPoint) -> None:
-		""" Shows the pill with its bottom-right corner on `corner`. """
+		""" Shows the pill with its bottom-right corner where it was dropped while that screen is plugged in, else on `corner`. """
+		saved = self.settings.value("pill_pos")
+		if isinstance(saved, QPoint) and QGuiApplication.screenAt(saved - QPoint(1, 1)):
+			corner = saved
 		self.move(corner - QPoint(self.width(), self.height()))
 		self.show()
 		self.spin.start()
@@ -455,7 +453,7 @@ class Pill(QWidget):
 			self.clicked.emit()
 		elif self.dragging:
 			self.stop_drag()
-			self.dropped.emit(self.pos() + QPoint(self.width(), self.height()))
+			self.settings.setValue("pill_pos", self.pos() + QPoint(self.width(), self.height()))
 
 	def start_drag(self) -> None:
 		self.dragging = True
