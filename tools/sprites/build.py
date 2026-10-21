@@ -122,10 +122,11 @@ def stamp_sparks(rgba: MatLike) -> MatLike:
 	centers: list[tuple[float, float]] = []
 	for x, y in (LEFT, RIGHT):
 		x0, y0 = round(x) - 14, round(y) - 16
-		count, labels, stats, centroids = cv2.connectedComponentsWithStats(white[y0:y0 + 28, x0:x0 + 28])
-		largest = max(range(1, count), key=lambda label: stats[label, cv2.CC_STAT_AREA])
-		cross[y0:y0 + 28, x0:x0 + 28][labels == largest] = 1
-		centers.append((x0 + centroids[largest][0], y0 + centroids[largest][1]))
+		count, labels, _, centroids = cv2.connectedComponentsWithStats(white[y0:y0 + 28, x0:x0 + 28])
+		# The glints on the rim of the iris can outgrow a thin cross, which sits by the pupil
+		nearest = min(range(1, count), key=lambda label: np.hypot(x0 + centroids[label][0] - x, y0 + centroids[label][1] - y))
+		cross[y0:y0 + 28, x0:x0 + 28][labels == nearest] = 1
+		centers.append((x0 + centroids[nearest][0], y0 + centroids[nearest][1]))
 	rgb = (rgba[..., :3] * 255).round().astype(np.uint8)
 
 	stamped = rgba.copy()
