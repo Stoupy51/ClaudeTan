@@ -5,12 +5,13 @@ import sys
 import winreg
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QRect, QSize, Signal
 from PySide6.QtGui import QCursor, QIcon
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QSlider, QSystemTrayIcon, QWidget, QWidgetAction
+from PySide6.QtWidgets import QSystemTrayIcon
 
 from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG
 from claudetan.overlay.avatar import face
+from claudetan.overlay.menu import Entry, Menu, Slider, Switch
 
 # Constants
 RUN_KEY: str = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -31,42 +32,28 @@ class Tray(QSystemTrayIcon):
 	def __init__(self, volume: float) -> None:
 		super().__init__(QIcon(face(64)))
 		self.setToolTip("Claude-tan")
-		self.menu = QMenu()
-		self.menu.addAction("Open the session", self.open_session.emit)
-		self.menu.addAction("Session context", lambda: self.action_requested.emit("context"))
-		self.menu.addAction("Plan usage", lambda: self.action_requested.emit("plan_usage"))
-		self.menu.addSeparator()
-		slider = QSlider(Qt.Orientation.Horizontal)
-		slider.setRange(0, 100)
-		slider.setValue(round(volume * 100))
-		slider.valueChanged.connect(self.on_slider)
-		panel = QWidget()
-		layout = QHBoxLayout(panel)
-		layout.addWidget(QLabel("Volume"))
-		layout.addWidget(slider)
-		volume_action = QWidgetAction(self.menu)
-		volume_action.setDefaultWidget(panel)
-		self.menu.addAction(volume_action)
-		self.menu.addSeparator()
-		self.menu.addAction("Open the config", lambda: os.startfile(USER_CONFIG))
-		self.menu.addAction("View the log", lambda: os.startfile(LOG_FILE))
-		self.menu.addAction("Open the folder", lambda: os.startfile(APP_DATA))
-		startup = self.menu.addAction("Start with Windows")
-		startup.setCheckable(True)
-		startup.setChecked(starts_with_windows())
-		startup.toggled.connect(start_with_windows)
-		self.menu.addSeparator()
-		self.menu.addAction("Quit", self.quit_requested.emit)
-		self.setContextMenu(self.menu)
+		self.menu = Menu([
+			[
+				Entry("Open the session", "\ue8a7", self.open_session.emit),
+				Entry("Session context", "\ue9d2", lambda: self.action_requested.emit("context")),
+				Entry("Plan usage", "\uec4a", lambda: self.action_requested.emit("plan_usage")),
+			],
+			[Slider("Volume", "\ue767", volume, self.volume_changed.emit)],
+			[
+				Entry("Open the config", "\ue713", lambda: os.startfile(USER_CONFIG)),
+				Entry("View the log", "\ue8a5", lambda: os.startfile(LOG_FILE)),
+				Entry("Open the folder", "\ue838", lambda: os.startfile(APP_DATA)),
+				Switch("Start with Windows", "\ue770", starts_with_windows(), start_with_windows),
+			],
+			[Entry("Quit", "\ue7e8", self.quit_requested.emit)],
+		])
 		self.activated.connect(self.on_activated)
 
-	def on_slider(self, value: int) -> None:
-		self.volume_changed.emit(value / 100)
-
 	def on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
-		""" Opens the menu on a left click too, Windows only showing it on a right click. """
-		if reason == QSystemTrayIcon.ActivationReason.Trigger:
-			self.menu.popup(QCursor.pos())
+		""" Opens the menu by the icon on a left or a right click, or by the cursor where the system tells no place for the icon. """
+		if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.Context):
+			icon = self.geometry()
+			self.menu.toggle_by(icon if icon.isValid() else QRect(QCursor.pos(), QSize(1, 1)))
 
 
 # Functions

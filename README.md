@@ -35,7 +35,7 @@ pick *Yes, I trust this folder*, then type `/exit`. This dialog is Claude Code's
 Optional, once:
 
 - Windows hides new tray icons behind the `^` arrow: drag Claude-tan's next to the clock to keep it in sight.
-- Tick *Start with Windows* in her tray menu to start her at logon.
+- Turn on *Start with Windows* in her tray menu to start her at logon.
 
 ## ▶️ Usage
 
@@ -71,7 +71,7 @@ You may pause while you speak: she sends your request after 15 s of silence, or 
 - When she asks your permission, say *"yes"* or *"no"* as a sentence of its own, within 60 s. Otherwise answer in Claude Code or on claude.ai as usual.
 - A click on a link or a path in her bubble opens it. A click on her opens Claude Code's Remote Control on claude.ai, a long press lets you drag her, or the pill.
 - Dropped on a second screen, she comes back there, and shows up on the main screen while it is unplugged.
-- Her tray icon, with a left or a right click, opens the session, the config or the log of what she heard and did, sets the volume of her voice with a slider, toggles the start with Windows, and quits.
+- Her tray icon, with a left or a right click, or her pill with a right click, opens the session, the config or the log of what she heard and did, sets the volume of her voice with a slider, toggles the start with Windows, and quits.
 
 Ask her to change her own code, such as *"make yourself an action that ..."*: the session edits this folder.
 Once it has nothing running, the app reloads `actions.py` and `services/` in place, and restarts on the same conversation for any other module.

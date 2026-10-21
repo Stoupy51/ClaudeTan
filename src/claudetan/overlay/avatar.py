@@ -1,6 +1,7 @@
 """ Claude-tan on screen: the sprite overlay with her speech bubble, the pill she shrinks to during long tasks, and her chimes.
 
-A click on her or on the pill opens the Remote Control session, a long press on either lets you drag her somewhere else.
+A click on her or on the pill opens the Remote Control session, a long press on either lets you drag her somewhere else,
+and a right click on the pill opens the menu of her tray icon.
 """
 # Imports
 import math
@@ -368,6 +369,8 @@ class Avatar(QWidget):
 class Pill(QWidget):
 	""" Her face in a disc ringed by a spinning arc, shown in her place while a long task runs. """
 	clicked = Signal()
+	menu_requested = Signal()
+	""" A right click, which opens the menu of her tray icon by the pill. """
 
 	def __init__(self, zoom: float = 1.0) -> None:
 		""" The pill, laid out at its default size and drawn `zoom` times larger. """
@@ -434,6 +437,9 @@ class Pill(QWidget):
 
 	@override
 	def mousePressEvent(self, event: QMouseEvent) -> None:
+		if event.button() == Qt.MouseButton.RightButton:
+			self.menu_requested.emit()
+			return
 		self.press_origin = event.globalPosition().toPoint()
 		self.press_offset = self.press_origin - self.pos()
 		self.long_press.start()
