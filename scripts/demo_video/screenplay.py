@@ -39,6 +39,8 @@ class Words:
 	""" Said in one breath with the word that sends it. """
 	reply: tuple[str, ...]
 	""" The answer to `question`, streamed in pieces. """
+	spoken_reply: str
+	""" `reply` in the spoken Japanese her translator gives, the line her voice says. """
 	cleanup: str
 	cleanup_tool: str
 	yes: str
@@ -46,6 +48,8 @@ class Words:
 	dark_mode: str
 	handed_off: str
 	dark_mode_done: str
+	tests: str
+	tests_done: str
 
 
 @dataclass(frozen=True)
@@ -68,7 +72,22 @@ class Leave:
 
 @dataclass(frozen=True)
 class Read:
-	""" The video holds still while the viewer reads the bubble she shows, for `reading_s` of it. """
+	""" The video holds still while the viewer reads the bubble she shows, for `reading_s` of it, and while her voice speaks. """
+	longer_s: float = 0.0
+	""" Held on top, for a line the viewer also listens to. """
+
+
+@dataclass(frozen=True)
+class Drag:
+	""" The mouse long-presses her, or her pill while it is up, and drags it `by` desktop pixels in `seconds`. """
+	by: tuple[float, float]
+	seconds: float
+
+
+@dataclass(frozen=True)
+class Tune:
+	""" The mouse opens her tray menu, slides the volume to `volume`, and clicks away from the menu, which takes 3 s. """
+	volume: float
 
 
 @dataclass(frozen=True)
@@ -83,7 +102,7 @@ class Outro:
 	pass
 
 
-type Cue = Speak | Hook | Leave | Read | Title | Outro
+type Cue = Speak | Hook | Leave | Read | Drag | Tune | Title | Outro
 
 
 @dataclass
@@ -143,6 +162,7 @@ def screenplay(words: Words) -> Timeline:
 	permission_by_voice(play, words)
 	background_work(play, words)
 	any_language(play, words)
+	make_her_yours(play, words)
 	play.cue(Leave(), then=0.4)
 	play.cue(Outro(), then=2.2)
 	return play
@@ -154,7 +174,7 @@ def ask_out_loud(play: Timeline, words: Words) -> None:
 	play.hook("PreToolUse", then=0.0, tool_name="mcp__claudetan__screenshot", tool_input={"screen": 1})
 	play.cue(Read())
 	play.stream(words.reply, message_id="reply", every=0.2)
-	play.cue(Read())
+	play.cue(Read(longer_s=0.5))
 
 
 def permission_by_voice(play: Timeline, words: Words) -> None:
@@ -185,6 +205,22 @@ def any_language(play: Timeline, words: Words) -> None:
 	play.cue(Title(4, words.chapters[3]), then=0.7)
 	ask(play, f"Hey Claude, {JAPANESE_REQUEST} Done.", "ja")
 	play.stream(JAPANESE_REPLY, message_id="japanese", every=0.25)
+	play.cue(Read())
+	play.cue(Leave(), then=0.6)
+
+
+def make_her_yours(play: Timeline, words: Words) -> None:
+	""" She is dragged aside while she starts a background task, then her pill, and her voice is turned down from the tray. """
+	play.cue(Title(5, words.chapters[4]), then=0.7)
+	play.say(words.tests, words.language, then=0.1)
+	play.hook("UserPromptSubmit", then=0.2)
+	play.cue(Drag(by=(-700.0, -280.0), seconds=1.6), then=1.8)
+	play.hook("SubagentStart", then=0.6, agent_id="tests", agent_type="worker")
+	play.cue(Drag(by=(340.0, 268.0), seconds=1.3), then=1.5)
+	play.cue(Tune(volume=0.35), then=3.1)
+	play.hook("SubagentStop", then=0.1, agent_id="tests", agent_type="worker", last_assistant_message=words.tests_done)
+	play.hook("UserPromptSubmit", then=0.3, prompt="<task-notification>")
+	play.hook("Stop", then=0.0, last_assistant_message=words.tests_done)
 	play.cue(Read())
 
 

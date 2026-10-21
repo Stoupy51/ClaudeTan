@@ -61,6 +61,8 @@ EDITOR_FRAME: QRectF = QRectF(64, 44, 1150, 800)
 TERMINAL_FRAME: QRectF = QRectF(420, 590, 780, 330)
 TERMINAL_ICON: QPointF = QPointF(WIDTH / 2 + 48, HEIGHT - TASKBAR / 2)
 """ Where the terminal's window goes when it is minimized, its button in the taskbar. """
+TRAY_ICON: QRectF = QRectF(WIDTH - 162, HEIGHT - TASKBAR / 2 - 11, 22, 22)
+""" Her face by the clock, which opens her menu. """
 FILES: tuple[str, ...] = (
 	"actions.py", "app.py", "config.py", "i18n.py", "mcp.py", "report.py", "session.py", "overlay", "services", "voice",
 )
@@ -250,14 +252,13 @@ def taskbar(painter: QPainter) -> None:
 			painter.drawRoundedRect(QRectF(center.x() - 4, bar.bottom() - 5, 8, 3), 1.5, 1.5)
 
 	painter.setPen(QPen(QColor(220, 220, 230), 1.4))
-	tray = WIDTH - 180
-	middle = bar.center().y()
-	painter.drawPolyline([QPointF(tray - 5, middle + 3), QPointF(tray, middle - 2), QPointF(tray + 5, middle + 3)])
+	arrow, middle = TRAY_ICON.left() - 18, bar.center().y()
+	painter.drawPolyline([QPointF(arrow - 5, middle + 3), QPointF(arrow, middle - 2), QPointF(arrow + 5, middle + 3)])
 	disc = QPainterPath()
-	disc.addEllipse(QRectF(tray + 18, bar.center().y() - 11, 22, 22))
+	disc.addEllipse(TRAY_ICON)
 	painter.save()
 	painter.setClipPath(disc)
-	painter.drawPixmap(QRectF(tray + 18, bar.center().y() - 11, 22, 22), face(64), QRectF(0, 0, 64, 64))
+	painter.drawPixmap(TRAY_ICON, face(64), QRectF(0, 0, 64, 64))
 	painter.restore()
 	painter.setFont(font(13))
 	painter.setPen(WHITE)
@@ -434,6 +435,29 @@ def shadow(painter: QPainter, card: QRectF, radius: float) -> None:
 	for spread in range(1, 12):
 		painter.setBrush(QColor(0, 0, 0, 9))
 		painter.drawRoundedRect(card.adjusted(-spread, -spread + 4, spread, spread + 8), radius + spread, radius + spread)
+
+
+def pointer(painter: QPainter, tip: QPointF, held: float | None) -> None:
+	""" The mouse pointer, with a ring around its tip while its button is down that closes as a long press lets her be dragged.
+
+	Args:
+		held: Share of the long press done, from 0 to 1, or None while the button is up.
+	"""
+	if held is not None:
+		ring = QRectF(tip.x() - 15, tip.y() - 15, 30, 30)
+		painter.setPen(Qt.PenStyle.NoPen)
+		painter.setBrush(QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 70))
+		painter.drawEllipse(ring)
+		painter.setPen(QPen(ACCENT, 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+		painter.setBrush(Qt.BrushStyle.NoBrush)
+		painter.drawArc(ring, 90 * 16, round(-360 * 16 * held))
+	arrow = QPainterPath(tip)
+	for x, y in ((0, 25), (6, 19.5), (10, 28.5), (14, 26.8), (10, 18), (18, 18)):
+		arrow.lineTo(tip + QPointF(x, y))
+	arrow.closeSubpath()
+	painter.setPen(QPen(QColor(10, 10, 14), 1.6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+	painter.setBrush(WHITE)
+	painter.drawPath(arrow)
 
 
 def ease(progress: float) -> float:

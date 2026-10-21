@@ -3,6 +3,7 @@
 Nothing runs for real: no microphone, no Claude session, no network call.
 The screenplay feeds the real listener what Whisper would hear and the real `Assistant` the hook events Claude Code would post,
 and a clock steps the overlay frame by frame, so the same script always gives the same video.
+Her voice plays the clips of `voice/`, which only a line never said before needs AivisSpeech running to synthesize.
 
 Run with `uv run scripts/demo_video/main.py`, which needs ffmpeg on the PATH and writes `dist/demo.mp4`,
 and `dist/demo_small.mp4` under the 10 MB GitHub takes for the README.
@@ -18,30 +19,51 @@ import wave
 from concurrent.futures import Future
 from contextlib import ExitStack
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 from typing import ClassVar, override
 from unittest.mock import patch
 
 import numpy as np
-from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, QTimer
-from PySide6.QtGui import QColor, QImage, QLinearGradient, QPainter, QRegion, QTransform
+from mouse import Gesture, Move
+from PySide6.QtCore import QAbstractAnimation, QEvent, QPoint, QPointF, QRect, QRectF, Qt, QTimer
+from PySide6.QtGui import QColor, QImage, QLinearGradient, QMouseEvent, QPainter, QRegion, QTransform
 from PySide6.QtWidgets import QApplication, QWidget
 from scenery import (
 	HEIGHT,
 	TASKBAR,
 	TERMINAL_FRAME,
 	TERMINAL_ICON,
+	TRAY_ICON,
 	WIDTH,
 	caption,
 	chapter_card,
 	desktop,
 	ease,
 	level,
+	pointer,
 	title_card,
 	wallpaper,
 )
-from screenplay import WHISPER_S, Cue, Hook, Leave, Outro, Read, Speak, Title, Words, reading_s, screenplay, speaking_s
+from screenplay import (
+	JAPANESE_REPLY,
+	WHISPER_S,
+	Cue,
+	Drag,
+	Hook,
+	Leave,
+	Outro,
+	Read,
+	Speak,
+	Title,
+	Tune,
+	Words,
+	reading_s,
+	screenplay,
+	speaking_s,
+)
+from spoken import Clip, clips
 from stouputils.typing import JsonDict
 from words import ENGLISH
 
@@ -51,7 +73,9 @@ import claudetan.voice.listener
 from claudetan import i18n
 from claudetan.app import Assistant
 from claudetan.config import DEFAULTS, ROOT, Config
-from claudetan.overlay.avatar import CHIME_RATE, Avatar, Pill, bell
+from claudetan.overlay import avatar as avatar_module, tray as tray_module
+from claudetan.overlay.avatar import CHIME_RATE, LONG_PRESS_MS, PILL_SIZE, SPRITE_HEIGHT, SPRITE_TOP, Avatar, Pill, bell
+from claudetan.overlay.menu import HOVER_MS, SHOW_MS, Slider, slider_track
 from claudetan.voice.listener import Listener
 
 # Constants
@@ -60,6 +84,8 @@ ZOOM: float = 2.2
 """ How many times larger than on a screen the overlay is drawn, as much as the camera zooms in on her. """
 PILL_ZOOM: float = 2.6
 HER_SHOT: float = 2.2
+DRAG_SHOT: float = 1.5
+""" The camera backs off while she or her pill is dragged, to show the desktop it crosses. """
 LINGER_S: float = 1.0
 """ How long the camera stays on her once she leaves, in case she comes right back. """
 SPRING: float = 6.0
@@ -81,6 +107,14 @@ CHORDS: tuple[tuple[float, ...], ...] = (
 )
 """ The soft pad under the video, in Hz: Cmaj7, Am7, Fmaj7 and G6, in the key of her chimes. """
 CHORD_S: float = 4.8
+VOICE_DELAY_S: float = 0.5
+""" How long after her reply her voice starts, the time the translator and the engine take to say its first sentence. """
+VOICE_LEVEL: float = 0.3
+""" Her voice's loudness in the mix, its clips peaking at full scale and `write_wav` doubling the mix. """
+DUCKED: float = 0.35
+""" The pad's loudness under her voice. """
+DUCK_S: float = 0.25
+""" How long the pad takes to duck under her voice and to come back. """
 
 
 # Classes
@@ -107,6 +141,19 @@ class ClockTimer(QTimer):
 			if deadline <= Clock.seconds and ClockTimer.deadlines.get(timer) == deadline:
 				del ClockTimer.deadlines[timer]
 				timer.timeout.emit()
+
+
+@dataclass(frozen=True)
+class Grab:
+	""" A press on her or on her pill, which drags it once held for `LONG_PRESS_MS`, as the overlay does. """
+	pill: bool
+	pointer: QPointF
+	origin: QPointF
+	""" Her top-left corner, or the pill's bottom-right one, when pressed. """
+	since: float
+
+	def dragging(self, now: float) -> bool:
+		return now - self.since >= LONG_PRESS_MS / 1000
 
 
 @dataclass(frozen=True)
@@ -156,6 +203,21 @@ class Studio:
 		self.outro_at: float | None = None
 		self.slide = (0.0, 0.0, 0.0)
 		""" Her opacity at the start of her last slide, the one it goes to, and when it started. """
+		self.ducks: list[tuple[float, float]] = []
+		""" When her voice starts and stops saying each line, which the pad ducks under. """
+		self.voice_end = 0.0
+		self.gesture = Gesture(0.0, QPointF(1250, 560), ())
+		self.point, self.held = self.gesture.origin, False
+		self.grab: Grab | None = None
+		self.pointer_since = 0.0
+		""" When the pointer last came into sight. """
+		self.pill_corner: QPointF | None = None
+		""" Where the pill was dropped, its bottom-right corner, None for her own corner, which it shows at until dragged. """
+		self.menu_since: float | None = None
+		""" When the menu last started opening or closing, None while it is closed. """
+		self.menu_direction = QAbstractAnimation.Direction.Forward
+		self.glide_since = 0.0
+		self.tuning_until = -1.0
 		Clock.seconds = 0.0
 		ClockTimer.deadlines.clear()
 		random.seed(7)
@@ -164,12 +226,16 @@ class Studio:
 
 		stack.enter_context(patch.object(claudetan.config, "USER_CONFIG", DEFAULTS))
 		stack.enter_context(patch.object(claudetan.app, "QTimer", ClockTimer))
-		stack.enter_context(patch.object(claudetan.app, "chime", self.chime))
+		stack.enter_context(patch.object(avatar_module, "chime", self.chime))
 		stack.enter_context(patch.object(claudetan.voice.listener, "time", SimpleNamespace(monotonic=lambda: Clock.seconds)))
 		stack.enter_context(patch.object(Avatar, "now", video_time))
 		stack.enter_context(patch.object(i18n, "heard", "en"))
+		stack.enter_context(patch.object(tray_module, "starts_with_windows", lambda: True))
 
 		config = Config.load()
+		self.volume = config.volume
+		self.voiced = {"".join(words.reply): words.spoken_reply, "".join(JAPANESE_REPLY): "".join(JAPANESE_REPLY)}
+		""" The lines her voice says in the video, in Japanese, the others staying silent. """
 		self.avatar = Avatar(ZOOM, ZOOM)
 		self.pill = Pill(PILL_ZOOM)
 		for widget in (self.avatar, self.pill):
@@ -177,6 +243,8 @@ class Studio:
 		self.avatar.blink.stop()
 		self.assistant = Assistant(self.avatar, self.pill, config)
 		self.assistant.send.connect(self.sent.append)
+		self.assistant.speak.connect(self.say)
+		self.tray = tray_module.Tray(config.volume)
 		self.listener = Listener(config)
 		# Not `woke`: each request is said in one breath with the wake phrase, so its own bubble would replace her "Yes?" at once
 		self.listener.dictated.connect(self.assistant.on_dictation)
@@ -217,11 +285,11 @@ class Studio:
 				"-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
 				"-movflags", "+faststart", "-shortest", str(output),
 			], check=True)
-		# 720p at 30 frames per second and at most 1.2 Mb/s: under 10 MB for a minute
+		# 1080p at 30 frames per second, capped at 3.5 Mb/s on its busiest moments: under the 10 MB of GitHub
 		small = output.with_stem(f"{output.stem}_small")
 		subprocess.run([
-			"ffmpeg", "-y", "-loglevel", "error", "-i", str(output), "-vf", "scale=1280:-2,fps=30",
-			"-c:v", "libx264", "-preset", "slow", "-crf", "27", "-maxrate", "1200k", "-bufsize", "2400k",
+			"ffmpeg", "-y", "-loglevel", "error", "-i", str(output), "-vf", "fps=30",
+			"-c:v", "libx264", "-preset", "slow", "-crf", "23", "-maxrate", "3500k", "-bufsize", "7000k",
 			"-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(small),
 		], check=True)
 		print(f"{output}: {frames / FPS:.1f} s at {FPS} fps, {WIDTH}x{HEIGHT}, and {small}: {small.stat().st_size / 1e6:.1f} MB")
@@ -244,6 +312,8 @@ class Studio:
 		self.blink()
 		self.avatar.tick()
 		self.follow_slide()
+		self.follow_pointer(now)
+		self.follow_menu(now)
 		self.pill.angle = round(-8 * now / 0.03) % 360
 		self.camera.follow(self.shot(), 1 / FPS)
 
@@ -257,9 +327,13 @@ class Studio:
 			case Leave():
 				self.assistant.leave()
 			case Read():
-				hold = reading_s(self.avatar.bubble.text)
+				hold = max(reading_s(self.avatar.bubble.text), self.voice_end - Clock.seconds) + cue.longer_s
 				self.cues = [(at + hold, later) for at, later in self.cues]
 				self.end += hold
+			case Drag():
+				self.drag(cue)
+			case Tune():
+				self.tune(cue)
 			case Title():
 				self.titled = (cue, Clock.seconds)
 			case Outro():
@@ -277,6 +351,136 @@ class Studio:
 		timer = ClockTimer()
 		timer.timeout.connect(callback)
 		timer.start(round(seconds * 1000))
+
+	def say(self, text: str, style: int) -> None:
+		""" Has her voice say a line of `voiced` as `Voice` does, each sentence moving her mouth as it starts. """
+		if (japanese := self.voiced.get(text)) is None:
+			return
+		start = at = Clock.seconds + VOICE_DELAY_S
+		for clip in clips(japanese, style):
+			self.later(at - Clock.seconds, partial(self.speak, clip))
+			self.sounds.append((at, clip.sound * np.float32(VOICE_LEVEL * self.volume)))
+			at += len(clip.sound) / CHIME_RATE
+		self.ducks.append((start, at))
+		self.voice_end = at
+
+	def speak(self, clip: Clip) -> None:
+		self.avatar.speak(clip.vowels)
+		self.assistant.on_speaking(clip.vowels)
+
+	def drag(self, cue: Drag) -> None:
+		""" Has the pointer long-press her chest, or the middle of her pill while it is up, and drag it. """
+		her = self.her_rect()
+		grip = self.pill_rect().center() if self.pill.isVisible() else QPointF(her.center().x(), her.top() + 0.72 * her.height())
+		hold = LONG_PRESS_MS / 1000 + 0.1
+		drop = grip + QPointF(*cue.by)
+		self.point_at(
+			Move(grip, 0.45, held=False), Move(grip, hold, held=True),
+			Move(drop, cue.seconds - 0.65 - hold, held=True), Move(drop, 0.2, held=False),
+		)
+
+	def tune(self, cue: Tune) -> None:
+		""" Has the pointer click her tray icon, drag the volume slider of the menu, and click away from it. """
+		menu = self.tray.menu
+		corner = menu.place(TRAY_ICON.toRect(), QRect(0, 0, WIDTH, round(HEIGHT - TASKBAR))).toPointF()
+		slider, row = next((row, rect) for row, rect in menu.rows if isinstance(row, Slider))
+		track = slider_track(row).translated(corner)
+		knob = QPointF(track.left() + track.width() * slider.value, track.center().y())
+		turned = QPointF(track.left() + track.width() * cue.volume, knob.y())
+		away = corner + QPointF(menu.box.left() - 160, menu.box.center().y())
+		icon = TRAY_ICON.center()
+		self.point_at(
+			Move(icon, 0.5, held=False), Move(icon, 0.1, held=True), Move(icon, 0.3, held=False),
+			Move(knob, 0.5, held=False), Move(knob, 0.1, held=True), Move(turned, 0.65, held=True), Move(turned, 0.2, held=False),
+			Move(away, 0.4, held=False), Move(away, 0.1, held=True), Move(away, 0.15, held=False),
+		)
+		self.tuning_until = self.gesture.end() + SHOW_MS / 1000
+
+	def point_at(self, *moves: Move) -> None:
+		if Clock.seconds > self.gesture.end() + 1.0:
+			self.pointer_since = Clock.seconds
+		self.gesture = Gesture(Clock.seconds, self.point, moves)
+
+	def follow_pointer(self, now: float) -> None:
+		""" Moves the pointer along its gesture, the menu and the drag of her or her pill following it as they do the mouse. """
+		point, held = self.gesture.at(now)
+		if self.menu_since is not None:
+			self.send(QEvent.Type.MouseMove, point)
+
+		if held and not self.held:
+			self.press(point, now)
+		elif self.held and not held:
+			self.release(point)
+		self.point, self.held = point, held
+
+		if self.grab and self.grab.dragging(now):
+			moved = self.grab.origin + point - self.grab.pointer
+			if self.grab.pill:
+				self.pill_corner = moved
+			else:
+				self.spot = moved
+
+	def press(self, point: QPointF, now: float) -> None:
+		if self.menu_since is not None:
+			self.send(QEvent.Type.MouseButtonPress, point)
+		elif self.pill.isVisible() and self.pill_rect().contains(point):
+			self.grab = Grab(pill=True, pointer=point, origin=self.pill_at(), since=now)
+		elif self.avatar.isVisible() and self.her_rect().contains(point):
+			self.grab = Grab(pill=False, pointer=point, origin=self.spot, since=now)
+
+	def release(self, point: QPointF) -> None:
+		""" Drops what the pointer dragged, or opens the menu on a click on her tray icon, as `Tray.on_activated` does. """
+		self.grab = None
+		if self.menu_since is not None:
+			self.send(QEvent.Type.MouseButtonRelease, point)
+		elif TRAY_ICON.contains(point):
+			menu = self.tray.menu
+			menu.move(menu.place(TRAY_ICON.toRect(), QRect(0, 0, WIDTH, round(HEIGHT - TASKBAR))))
+			menu.appear.setDirection(QAbstractAnimation.Direction.Forward)
+			self.menu_since, self.menu_direction = Clock.seconds, QAbstractAnimation.Direction.Forward
+
+	def send(self, kind: QEvent.Type, point: QPointF) -> None:
+		""" Hands the menu the mouse event its popup gets with the pointer at `point` on the desktop. """
+		menu = self.tray.menu
+		button = Qt.MouseButton.NoButton if kind == QEvent.Type.MouseMove else Qt.MouseButton.LeftButton
+		event = QMouseEvent(kind, point - menu.pos().toPointF(), point, button, button, Qt.KeyboardModifier.NoModifier)
+		hovered = menu.hovered
+		match kind:
+			case QEvent.Type.MouseButtonPress:
+				menu.mousePressEvent(event)
+			case QEvent.Type.MouseButtonRelease:
+				menu.mouseReleaseEvent(event)
+			case _:
+				menu.mouseMoveEvent(event)
+		if menu.hovered != hovered:
+			self.glide_since = Clock.seconds
+
+	def follow_menu(self, now: float) -> None:
+		""" Plays the menu's animations on the video's clock, no event loop running them. """
+		if self.menu_since is None:
+			return
+		menu = self.tray.menu
+		if menu.appear.direction() != self.menu_direction:
+			self.menu_since, self.menu_direction = now, menu.appear.direction()
+
+		elapsed = round(1000 * (now - self.menu_since))
+		closing = self.menu_direction == QAbstractAnimation.Direction.Backward
+		menu.appear.setCurrentTime(max(0, SHOW_MS - elapsed) if closing else min(SHOW_MS, elapsed))
+		if menu.glide.state() == QAbstractAnimation.State.Running:
+			menu.glide.setCurrentTime(min(HOVER_MS, round(1000 * (now - self.glide_since))))
+		if closing and elapsed >= SHOW_MS:
+			self.menu_since = None
+
+	def her_rect(self) -> QRectF:
+		""" Her sprite on the desktop, which the overlay's own coordinates match at `ZOOM`. """
+		return QRectF(self.spot.x() + self.avatar.sprite_left, self.spot.y() + SPRITE_TOP, self.avatar.sprite_width, SPRITE_HEIGHT)
+
+	def pill_at(self) -> QPointF:
+		return self.spot + self.size if self.pill_corner is None else self.pill_corner
+
+	def pill_rect(self) -> QRectF:
+		corner = self.pill_at()
+		return QRectF(corner.x() - PILL_SIZE, corner.y() - PILL_SIZE, PILL_SIZE, PILL_SIZE)
 
 	def blink(self) -> None:
 		""" Closes her eyes on the precomputed blinks, which a random timer would make different in every video. """
@@ -299,15 +503,23 @@ class Studio:
 		return start + (end - start) * ease((Clock.seconds - at) / SLIDE_S)
 
 	def shot(self) -> Shot:
-		""" Wide on the desktop, close on her or her pill while either is up. """
-		wide = Shot(QPointF(WIDTH / 2, HEIGHT / 2), 1.0)
-		if Clock.seconds < INTRO_S - 0.5 or self.outro_at is not None:
-			return wide
-		if self.pill.isVisible() or self.slide[1] == 1.0 or Clock.seconds - self.slide[2] < LINGER_S:
-			# The desktop's corner she stands in, down to the top of the taskbar, or to its bottom for the pill sitting on it
-			bottom = HEIGHT if self.pill.isVisible() else HEIGHT - TASKBAR
-			return Shot(QPointF(WIDTH, bottom) - QPointF(WIDTH, HEIGHT) / HER_SHOT / 2, HER_SHOT)
-		return wide
+		""" Wide on the desktop, close on her, her pill or her tray menu while one is up, backed off while one is dragged.
+
+		The view stays inside the desktop, so that a shot on a corner of it frames that corner.
+		"""
+		now = Clock.seconds
+		if now < INTRO_S - 0.5 or self.outro_at is not None:
+			return Shot(QPointF(WIDTH / 2, HEIGHT / 2), 1.0)
+		if self.grab and self.grab.dragging(now):
+			return Shot(self.pill_rect().center() if self.grab.pill else self.her_rect().center(), DRAG_SHOT)
+		if now < self.tuning_until:
+			return Shot(QPointF(WIDTH, HEIGHT), HER_SHOT)
+		if self.pill.isVisible():
+			return Shot(self.pill_rect().center(), HER_SHOT)
+		if self.slide[1] == 1.0 or now - self.slide[2] < LINGER_S:
+			# The view's bottom-right corner on hers, which leaves room for her bubble on her left
+			return Shot(self.spot + self.size - QPointF(WIDTH, HEIGHT) / HER_SHOT / 2, HER_SHOT)
+		return Shot(QPointF(WIDTH / 2, HEIGHT / 2), 1.0)
 
 	def draw(self) -> QImage:
 		frame = QImage(WIDTH, HEIGHT, QImage.Format.Format_RGB32)
@@ -335,13 +547,20 @@ class Studio:
 		shade.setColorAt(0, QColor(8, 6, 14, round(160 * depth)))
 		shade.setColorAt(1, QColor(8, 6, 14, 0))
 		painter.fillRect(QRectF(0, 0, WIDTH, HEIGHT), shade)
+
 		if self.pill.isVisible():
-			corner = self.spot + self.size
-			painter.setTransform(QTransform().translate(corner.x() - 64, corner.y() - 64).scale(1 / PILL_ZOOM, 1 / PILL_ZOOM) * camera)
+			corner = self.pill_rect().topLeft()
+			painter.setTransform(QTransform().translate(corner.x(), corner.y()).scale(1 / PILL_ZOOM, 1 / PILL_ZOOM) * camera)
 			self.pill.render(painter, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
 		painter.resetTransform()
+
 		if self.avatar.isVisible():
 			self.draw_her(painter, camera, hints)
+		if self.menu_since is not None:
+			painter.setTransform(QTransform().translate(self.tray.menu.x(), self.tray.menu.y()) * camera)
+			self.tray.menu.render(painter, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
+		self.draw_pointer(painter, camera)
+		painter.resetTransform()
 		self.draw_titles(painter)
 		painter.end()
 		return frame
@@ -359,6 +578,18 @@ class Studio:
 		overlay.end()
 		painter.setOpacity(opacity)
 		painter.drawImage(0, 0, layer)
+		painter.setOpacity(1)
+
+	def draw_pointer(self, painter: QPainter, camera: QTransform) -> None:
+		""" The pointer while it moves, with the ring of a long press on her or her pill, or a full one for a click. """
+		now = Clock.seconds
+		shown = min(1.0, (now - self.pointer_since) / 0.2, (self.gesture.end() + 1.0 - now) / 0.3)
+		if shown <= 0:
+			return
+		held = min(1.0, (now - self.grab.since) * 1000 / LONG_PRESS_MS) if self.grab else 1.0 if self.held else None
+		painter.setTransform(camera)
+		painter.setOpacity(shown)
+		pointer(painter, self.point, held)
 		painter.setOpacity(1)
 
 	def draw_titles(self, painter: QPainter) -> None:
@@ -399,8 +630,14 @@ class Studio:
 		self.sounds.append((Clock.seconds, bell(*notes)))
 
 	def soundtrack(self, seconds: float) -> np.ndarray[tuple[int, int], np.dtype[np.float32]]:
-		""" The pad with her chimes over it, in stereo. """
+		""" The pad, ducked under her voice, with her chimes and her voice over it, in stereo. """
 		mix = music(seconds)
+		now = np.arange(len(mix)) / CHIME_RATE
+		gain = np.ones(len(mix), np.float32)
+		for start, end in self.ducks:
+			under = np.clip(np.minimum(now - start + DUCK_S, end + DUCK_S - now) / DUCK_S, 0, 1)
+			gain = np.minimum(gain, 1 - (1 - DUCKED) * under).astype(np.float32)
+		mix *= gain[:, None]
 		for at, sound in self.sounds:
 			start = round(at * CHIME_RATE)
 			end = min(len(mix), start + len(sound))
