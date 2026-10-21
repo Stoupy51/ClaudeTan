@@ -558,7 +558,8 @@ def run() -> None:
 	threading.Thread(target=listener.run, args=(microphone(),), daemon=True).start()
 	if set_aside := os.environ.get(SET_ASIDE):
 		assistant.on_set_aside(set_aside)
-	report_ready(session, listener)
+	# Its waits for the session and Whisper would otherwise freeze her windows and tray icon until they are done
+	threading.Thread(target=report_ready, args=(session, listener), daemon=True).start()
 	sys.exit(app.exec())
 
 
