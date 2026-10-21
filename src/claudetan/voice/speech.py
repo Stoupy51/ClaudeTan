@@ -62,6 +62,7 @@ LONGEST_LINE: int = 600
 """ Letters of a long reply sent to the translator, which keeps two sentences of it anyway. """
 KANA: re.Pattern[str] = re.compile(r"[぀-ヿ]")
 """ Hiragana or katakana, in a line already in Japanese. """
+LATIN: re.Pattern[str] = re.compile(r"[A-Za-zÀ-ÿ]")
 CODE: re.Pattern[str] = re.compile(r"```.*?```", re.DOTALL)
 SENTENCE: re.Pattern[str] = re.compile(r"[^。\uff01\uff1f!?\s][^。\uff01\uff1f!?]*[。\uff01\uff1f!?]*")
 """ A sentence of a Japanese line, ended by 。 or a full-width or plain ! or ?, synthesized on its own to be said sooner. """
@@ -121,7 +122,7 @@ class Voice(QObject):
 			if not self.lines.empty():
 				continue
 			hushes = self.hushes
-			japanese = text if KANA.search(text) else self.translate(CODE.sub("", text)[:LONGEST_LINE])
+			japanese = text if is_japanese(text) else self.translate(CODE.sub("", text)[:LONGEST_LINE])
 			# The engine spells out Latin letters, so a line Haiku left untranslated is not said
 			if not KANA.search(japanese):
 				LOG.warning("Not said, left untranslated: %s", japanese)
@@ -204,6 +205,16 @@ def synthesize(japanese: str, style: int) -> tuple[Vowels, bytes]:
 	wav = post(f"/synthesis?speaker={style}", json.dumps(query).encode())
 	with wave.open(io.BytesIO(wav)) as sound:
 		return vowels(query, sound.getnframes() / sound.getframerate()), wav
+
+
+def is_japanese(text: str) -> bool:
+	""" Whether most of the letters are Japanese, so a reply quoting a Japanese sentence is still translated.
+
+	>>> is_japanese("はじめまして、クロードたんです!"), is_japanese("Elle dit ビルドフォルダを消して dans la démo, et plus encore.")
+	(True, False)
+	"""
+	kana = len(KANA.findall(text))
+	return kana > 0 and kana >= len(LATIN.findall(text))
 
 
 def post(path: str, body: bytes = b"") -> bytes:
