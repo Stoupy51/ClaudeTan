@@ -51,6 +51,7 @@ from screenplay import (
 	WHISPER_S,
 	Cue,
 	Drag,
+	Frame,
 	Hook,
 	Leave,
 	Outro,
@@ -80,12 +81,12 @@ from claudetan.voice.listener import Listener
 
 # Constants
 FPS: int = 60
+SMALL_BYTES: int = 9_500_000
+""" Size budget of `demo_small.mp4`, which GitHub takes up to 10 MB. """
 ZOOM: float = 2.2
 """ How many times larger than on a screen the overlay is drawn, as much as the camera zooms in on her. """
 PILL_ZOOM: float = 2.6
 HER_SHOT: float = 2.2
-DRAG_SHOT: float = 1.5
-""" The camera backs off while she or her pill is dragged, to show the desktop it crosses. """
 LINGER_S: float = 1.0
 """ How long the camera stays on her once she leaves, in case she comes right back. """
 SPRING: float = 6.0
@@ -160,6 +161,8 @@ class Grab:
 class Shot:
 	center: QPointF
 	zoom: float
+	spring: float = SPRING
+	""" How stiffly the camera is pulled to the shot, in radians per second. """
 
 
 class Camera:
@@ -171,7 +174,7 @@ class Camera:
 
 	def follow(self, shot: Shot, seconds: float) -> None:
 		target = np.array([shot.center.x(), shot.center.y(), math.log(shot.zoom)])
-		self.velocity += (SPRING**2 * (target - self.position) - 2 * SPRING * self.velocity) * seconds
+		self.velocity += (shot.spring**2 * (target - self.position) - 2 * shot.spring * self.velocity) * seconds
 		self.position += self.velocity * seconds
 
 	def zoom(self) -> float:
@@ -217,7 +220,6 @@ class Studio:
 		""" When the menu last started opening or closing, None while it is closed. """
 		self.menu_direction = QAbstractAnimation.Direction.Forward
 		self.glide_since = 0.0
-		self.tuning_until = -1.0
 		Clock.seconds = 0.0
 		ClockTimer.deadlines.clear()
 		random.seed(7)
@@ -234,8 +236,13 @@ class Studio:
 
 		config = Config.load()
 		self.volume = config.volume
-		self.voiced = {"".join(words.reply): words.spoken_reply, "".join(JAPANESE_REPLY): "".join(JAPANESE_REPLY)}
-		""" The lines her voice says in the video, in Japanese, the others staying silent. """
+		self.voiced = {
+			"".join(words.reply): words.spoken_reply, words.cleaned: words.spoken_cleaned, words.handed_off: words.spoken_handed_off,
+			words.dark_mode_done: words.spoken_dark_mode_done, words.tests_done: words.spoken_tests_done,
+			"".join(JAPANESE_REPLY): "".join(JAPANESE_REPLY),
+		}
+		""" Her replies in the Japanese her voice says them in. Her permission request stays silent, to keep the video short. """
+		self.frame: Frame | None = None
 		self.avatar = Avatar(ZOOM, ZOOM)
 		self.pill = Pill(PILL_ZOOM)
 		for widget in (self.avatar, self.pill):
@@ -245,6 +252,7 @@ class Studio:
 		self.assistant.send.connect(self.sent.append)
 		self.assistant.speak.connect(self.say)
 		self.tray = tray_module.Tray(config.volume)
+		self.tray.volume_changed.connect(partial(setattr, self, "volume"))
 		self.listener = Listener(config)
 		# Not `woke`: each request is said in one breath with the wake phrase, so its own bubble would replace her "Yes?" at once
 		self.listener.dictated.connect(self.assistant.on_dictation)
@@ -285,11 +293,12 @@ class Studio:
 				"-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
 				"-movflags", "+faststart", "-shortest", str(output),
 			], check=True)
-		# 1080p at 30 frames per second, capped at 3.5 Mb/s on its busiest moments: under the 10 MB of GitHub
+		# Same 1080p and frame rate, with the video bitrate capped so that the whole file fits the 9.5 MB under GitHub's 10
 		small = output.with_stem(f"{output.stem}_small")
+		video_kbps = int(SMALL_BYTES * 8 / 1000 / (frames / FPS)) - 96
 		subprocess.run([
-			"ffmpeg", "-y", "-loglevel", "error", "-i", str(output), "-vf", "fps=30",
-			"-c:v", "libx264", "-preset", "slow", "-crf", "23", "-maxrate", "3500k", "-bufsize", "7000k",
+			"ffmpeg", "-y", "-loglevel", "error", "-i", str(output),
+			"-c:v", "libx264", "-preset", "slow", "-crf", "23", "-maxrate", f"{video_kbps}k", "-bufsize", f"{2 * video_kbps}k",
 			"-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(small),
 		], check=True)
 		print(f"{output}: {frames / FPS:.1f} s at {FPS} fps, {WIDTH}x{HEIGHT}, and {small}: {small.stat().st_size / 1e6:.1f} MB")
@@ -334,6 +343,8 @@ class Studio:
 				self.drag(cue)
 			case Tune():
 				self.tune(cue)
+			case Frame():
+				self.frame = cue
 			case Title():
 				self.titled = (cue, Clock.seconds)
 			case Outro():
@@ -394,7 +405,6 @@ class Studio:
 			Move(knob, 0.5, held=False), Move(knob, 0.1, held=True), Move(turned, 0.65, held=True), Move(turned, 0.2, held=False),
 			Move(away, 0.4, held=False), Move(away, 0.1, held=True), Move(away, 0.15, held=False),
 		)
-		self.tuning_until = self.gesture.end() + SHOW_MS / 1000
 
 	def point_at(self, *moves: Move) -> None:
 		if Clock.seconds > self.gesture.end() + 1.0:
@@ -503,17 +513,15 @@ class Studio:
 		return start + (end - start) * ease((Clock.seconds - at) / SLIDE_S)
 
 	def shot(self) -> Shot:
-		""" Wide on the desktop, close on her, her pill or her tray menu while one is up, backed off while one is dragged.
+		""" Wide on the desktop, close on her or her pill while either is up, or the view a `Frame` holds.
 
 		The view stays inside the desktop, so that a shot on a corner of it frames that corner.
 		"""
 		now = Clock.seconds
 		if now < INTRO_S - 0.5 or self.outro_at is not None:
 			return Shot(QPointF(WIDTH / 2, HEIGHT / 2), 1.0)
-		if self.grab and self.grab.dragging(now):
-			return Shot(self.pill_rect().center() if self.grab.pill else self.her_rect().center(), DRAG_SHOT)
-		if now < self.tuning_until:
-			return Shot(QPointF(WIDTH, HEIGHT), HER_SHOT)
+		if self.frame:
+			return Shot(QPointF(*self.frame.center), self.frame.zoom, self.frame.spring)
 		if self.pill.isVisible():
 			return Shot(self.pill_rect().center(), HER_SHOT)
 		if self.slide[1] == 1.0 or now - self.slide[2] < LINGER_S:

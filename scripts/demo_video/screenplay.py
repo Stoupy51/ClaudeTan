@@ -40,7 +40,7 @@ class Words:
 	reply: tuple[str, ...]
 	""" The answer to `question`, streamed in pieces. """
 	spoken_reply: str
-	""" `reply` in the spoken Japanese her translator gives, the line her voice says. """
+	""" `reply` in the spoken Japanese her translator gives, the line her voice says, as each `spoken_` field is for its line. """
 	cleanup: str
 	cleanup_tool: str
 	yes: str
@@ -50,6 +50,10 @@ class Words:
 	dark_mode_done: str
 	tests: str
 	tests_done: str
+	spoken_cleaned: str
+	spoken_handed_off: str
+	spoken_dark_mode_done: str
+	spoken_tests_done: str
 
 
 @dataclass(frozen=True)
@@ -91,6 +95,15 @@ class Tune:
 
 
 @dataclass(frozen=True)
+class Frame:
+	""" The camera eases slowly to this view of the desktop and holds it, whatever moves in it, until the next one. """
+	center: tuple[float, float]
+	zoom: float
+	spring: float = 2.2
+	""" Softer than the camera's usual pull, so that it settles in about 2 s. """
+
+
+@dataclass(frozen=True)
 class Title:
 	""" The chapter card, numbered from 1. """
 	number: int
@@ -102,7 +115,7 @@ class Outro:
 	pass
 
 
-type Cue = Speak | Hook | Leave | Read | Drag | Tune | Title | Outro
+type Cue = Speak | Hook | Leave | Read | Drag | Tune | Frame | Title | Outro
 
 
 @dataclass
@@ -210,14 +223,21 @@ def any_language(play: Timeline, words: Words) -> None:
 
 
 def make_her_yours(play: Timeline, words: Words) -> None:
-	""" She is dragged aside while she starts a background task, then her pill, and her voice is turned down from the tray. """
+	""" She is dragged aside while she starts a background task, then her pill, and her voice is turned down from the tray.
+
+	The camera holds wide views here, which take in her whole path, the pill and the menu, so that their moves read calmly.
+	"""
+	wide = Frame(center=(1152.0, 648.0), zoom=1.25)
+	play.cue(wide)
 	play.cue(Title(5, words.chapters[4]), then=0.7)
 	play.say(words.tests, words.language, then=0.1)
 	play.hook("UserPromptSubmit", then=0.2)
 	play.cue(Drag(by=(-700.0, -280.0), seconds=1.6), then=1.8)
+	play.cue(Frame(center=(1380.0, 776.0), zoom=1.6))
 	play.hook("SubagentStart", then=0.6, agent_id="tests", agent_type="worker")
 	play.cue(Drag(by=(340.0, 268.0), seconds=1.3), then=1.5)
 	play.cue(Tune(volume=0.35), then=3.1)
+	play.cue(wide, then=0.8)
 	play.hook("SubagentStop", then=0.1, agent_id="tests", agent_type="worker", last_assistant_message=words.tests_done)
 	play.hook("UserPromptSubmit", then=0.3, prompt="<task-notification>")
 	play.hook("Stop", then=0.0, last_assistant_message=words.tests_done)

@@ -27,5 +27,9 @@ ENGLISH: Words = Words(
 	dark_mode_done="Dark mode is in, and the tests pass.",
 	tests="Hey Claude, run the tests in the background, over.",
 	tests_done="All 128 tests pass.",
+	spoken_cleaned="ビルドフォルダを消して、212メガ空けたよ!",
+	spoken_handed_off="エージェントに任せたよ。終わったら教えるね!",
+	spoken_dark_mode_done="ダークモードを入れたよ。テストも全部通った!",
+	spoken_tests_done="テスト128個、全部通ったよ!",
 )
 
