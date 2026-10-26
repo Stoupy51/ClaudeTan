@@ -265,8 +265,9 @@ class Assistant(QObject):
 			case "PreCompact" if event["trigger"] != "auto":
 				self.busy = True
 			case "PostCompact" if event["trigger"] != "auto":
-				self.busy = False
+				self.end_turn()
 				self.flush()
+				self.leave()
 			case _:
 				pass
 
