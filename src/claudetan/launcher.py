@@ -4,6 +4,7 @@ It imports nothing of the app, which the hidden session may have broken.
 """
 # Imports
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -18,6 +19,8 @@ RESTART: int = 3
 """ Exit code of an app quitting to be started again on its changed code. """
 CHANGED: str = "changed: "
 """ Start of the line an app quitting with `RESTART` writes, then the JSON `{"files": [...], "since": commit}` of the change. """
+LAUNCHER_LOG: Path = Path(os.environ["APPDATA"]) / "ClaudeTan" / "launcher.log"
+""" What became of each run of the app, beside the app's own log: a crash that kills the app leaves nothing in that one. """
 SET_ASIDE: str = "CLAUDETAN_SET_ASIDE"
 """ Variable giving an app the names of the files whose change broke the app before it, and was put aside. """
 
@@ -25,15 +28,16 @@ SET_ASIDE: str = "CLAUDETAN_SET_ASIDE"
 # Functions
 def main() -> None:
 	""" Runs the app until it quits for good, or fails to start on code that is not a change it can put aside. """
+	logging.basicConfig(filename=LAUNCHER_LOG, level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 	files: list[str] = []
 	since = ""
 	env = dict(os.environ)
 	relay = True
 	while True:
-		code, ready, change = run_app(env, relay=relay)
+		ready, change = run_app(env, relay=relay)
 		relay = relay and not ready
 		env.pop(SET_ASIDE, None)
-		if code == RESTART:
+		if change:
 			files, since = change["files"], change["since"]
 		elif not ready and files:
 			set_aside(files, since)
@@ -43,11 +47,11 @@ def main() -> None:
 			return
 
 
-def run_app(env: dict[str, str], *, relay: bool) -> tuple[int, bool, JsonDict]:
+def run_app(env: dict[str, str], *, relay: bool) -> tuple[bool, JsonDict]:
 	""" Runs the app until it quits, relaying its lines up to `READY` when `relay` is set.
 
 	Returns:
-		Its exit code, whether it got ready, and the change it quit to apply, empty for none.
+		Whether it got ready, and the change it quit to apply, empty for none.
 	"""
 	app = subprocess.Popen(
 		[sys.executable, "-m", "claudetan.app"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -62,7 +66,8 @@ def run_app(env: dict[str, str], *, relay: bool) -> tuple[int, bool, JsonDict]:
 		elif relay and not ready:
 			print(line, end="", flush=True)
 		ready = ready or line == READY
-	return app.wait(), ready, change
+	logging.info("App exited with code %#x, ready=%s, change announced=%s", app.wait() & 0xFFFFFFFF, ready, bool(change))
+	return ready, change
 
 
 def set_aside(files: list[str], since: str) -> None:

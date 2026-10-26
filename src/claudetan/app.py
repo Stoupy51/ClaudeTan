@@ -1,5 +1,6 @@
 """ ClaudeTan: Claude-tan reacting to what she hears and to the hidden Claude Code session, through its hook events. """
 # Imports
+import faulthandler
 import logging
 import os
 import re
@@ -16,12 +17,12 @@ from functools import partial
 from logging.handlers import RotatingFileHandler
 
 import stouputils as stp
-from PySide6.QtCore import QFileSystemWatcher, QObject, QPoint, QTimer, Signal
+from PySide6.QtCore import QFileSystemWatcher, QMessageLogContext, QObject, QPoint, QTimer, QtMsgType, Signal, qInstallMessageHandler
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
 from claudetan import actions
-from claudetan.config import APP_DATA, LOG_FILE, USER_CONFIG, Config
+from claudetan.config import APP_DATA, CRASH_FILE, LOG_FILE, USER_CONFIG, Config
 from claudetan.console import enable_colors
 from claudetan.i18n import tr
 from claudetan.launcher import CHANGED, READY, RESTART, SET_ASIDE
@@ -484,6 +485,11 @@ def shut_down(app: QApplication, windows: Windows, assistant: Assistant, session
 	QTimer.singleShot(COMPACT_TIMEOUT_MS, app.quit)
 
 
+def log_qt_message(kind: QtMsgType, _context: QMessageLogContext, message: str) -> None:
+	if kind not in (QtMsgType.QtDebugMsg, QtMsgType.QtInfoMsg):
+		logging.warning("Qt %s: %s", kind.name, message)
+
+
 def replace_running_app() -> None:
 	""" Has the app already running quit, and waits until it has, so that starting the app again applies new code and settings. """
 	running = QLocalSocket()
@@ -501,6 +507,10 @@ def run() -> None:
 	LOG.setLevel(logging.INFO)
 	# Without a console the default hooks print tracebacks nowhere
 	sys.excepthook = lambda _kind, exception, _trace: logging.critical("Uncaught error", exc_info=exception)
+	qInstallMessageHandler(log_qt_message)
+	# A crash in native code, which no Python hook sees, dumps the stack of every thread here
+	crash_log = CRASH_FILE.open("a", encoding="utf-8")
+	faulthandler.enable(crash_log)
 	threading.excepthook = lambda hook: logging.critical("Uncaught error in %s", hook.thread, exc_info=hook.exc_value)
 	# Qt's event loop never hands control back to Python's KeyboardInterrupt, so let Ctrl+C end the process directly
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -560,7 +570,11 @@ def run() -> None:
 		assistant.on_set_aside(set_aside)
 	# Its waits for the session and Whisper would otherwise freeze her windows and tray icon until they are done
 	threading.Thread(target=report_ready, args=(session, listener), daemon=True).start()
-	sys.exit(app.exec())
+	code = app.exec()
+	LOG.info("Exiting with code %s, threads alive: %s", code, ", ".join(thread.name for thread in threading.enumerate()))
+	logging.shutdown()
+	# Closing the interpreter while her voice or the microphone uses the audio library corrupts the heap
+	os._exit(code)
 
 
 if __name__ == "__main__":

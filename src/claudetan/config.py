@@ -17,6 +17,8 @@ APP_DATA: Path = Path(os.environ["APPDATA"]) / "ClaudeTan"
 DEFAULTS: Path = Path(__file__).with_name("config.toml")
 USER_CONFIG: Path = APP_DATA / "config.toml"
 LOG_FILE: Path = APP_DATA / "claudetan.log"
+CRASH_FILE: Path = APP_DATA / "crash.log"
+""" Where a crash in native code writes the stack of each thread, which `LOG_FILE` cannot catch. """
 SCREENSHOTS: Path = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation)) / "Screenshots"
 """ Where her screenshots go, a folder the session reads without asking. """
 
