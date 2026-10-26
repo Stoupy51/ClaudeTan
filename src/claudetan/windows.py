@@ -65,6 +65,8 @@ class Windows(QObject):
 		self.avatar.closed.connect(self.listener.cancel)
 		self.avatar.closed.connect(self.assistant.leave)
 		self.avatar.hidden.connect(self.assistant.leave)
+		self.avatar.closed.connect(self.voice.hush)
+		self.avatar.hidden.connect(self.voice.hush)
 		self.voice.started.connect(self.avatar.speak)
 
 

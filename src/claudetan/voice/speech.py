@@ -70,6 +70,8 @@ RATE: int = 24000
 """ Samples per second of the sound, played in one stream per line, its sentences following without reopening the device. """
 CHUNK_S: float = 0.05
 """ Sound written at a time, so that `Voice.hush` cuts a line within that much. """
+FADE_S: float = 0.2
+""" How long a hushed line takes to fade out. """
 
 
 # Classes
@@ -122,7 +124,11 @@ class Voice(QObject):
 			if not self.lines.empty():
 				continue
 			hushes = self.hushes
-			japanese = text if is_japanese(text) else self.translate(CODE.sub("", text)[:LONGEST_LINE])
+			try:
+				japanese = text if is_japanese(text) else self.translate(CODE.sub("", text)[:LONGEST_LINE])
+			except Exception:
+				LOG.exception("Could not translate: %s", text)
+				continue
 			# The engine spells out Latin letters, so a line Haiku left untranslated is not said
 			if not KANA.search(japanese):
 				LOG.warning("Not said, left untranslated: %s", japanese)
@@ -134,7 +140,10 @@ class Voice(QObject):
 			japanese, style, hushes = self.translated_lines.get()
 			if self.translated_lines.empty() and hushes == self.hushes:
 				LOG.info("Said: %s", japanese)
-				self.speak(japanese, style, hushes)
+				try:
+					self.speak(japanese, style, hushes)
+				except Exception:
+					LOG.exception("Could not say: %s", japanese)
 
 	def translate(self, text: str) -> str:
 		""" The text in spoken Japanese, by a Haiku conversation kept open: a line does not wait the 4 s `claude` takes to start. """
@@ -172,6 +181,8 @@ class Voice(QObject):
 				self.started.emit(timing)
 				for start in range(0, len(sound), chunk):
 					if self.hushes != hushes:
+						fade = sound[start:start + round(FADE_S * RATE)]
+						stream.write(fade * np.linspace(1, 0, len(fade), dtype=np.float32) * np.float32(self.volume))
 						synthesizer.shutdown(cancel_futures=True)
 						return
 					stream.write(sound[start:start + chunk] * np.float32(self.volume))
