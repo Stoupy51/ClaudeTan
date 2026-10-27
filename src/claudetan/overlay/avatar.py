@@ -21,6 +21,7 @@ from PySide6.QtCore import (
 	QRect,
 	QRectF,
 	QSettings,
+	QSizeF,
 	Qt,
 	QTimer,
 	QUrl,
@@ -33,6 +34,7 @@ from PySide6.QtGui import (
 	QDesktopServices,
 	QGuiApplication,
 	QHideEvent,
+	QLinearGradient,
 	QMouseEvent,
 	QPainter,
 	QPainterPath,
@@ -46,7 +48,7 @@ from PySide6.QtWidgets import QWidget
 
 from claudetan.config import ROOT
 from claudetan.overlay.bubble import WIDTH as BUBBLE_WIDTH, Bubble
-from claudetan.overlay.effects import ACCENT, Spark, burst, glow, mote, overshoot
+from claudetan.overlay.effects import ACCENT, Shard, Spark, burst, flutter, glow, halo, mote, overshoot, shards, silhouette
 from claudetan.report import Report
 from claudetan.voice.speech import Vowels
 
@@ -82,6 +84,15 @@ POP_S: float = 0.45
 BREATH_S: float = 3.8
 """ Period of her breathing, a slight swell of the sprite from its bottom edge. """
 MOTE_EVERY_S: float = 0.7
+VANISHES: dict[str, float] = {"pixels": 1.0, "lights": 2.0, "crt": 0.6}
+""" The ways she leaves, one picked at random each time, and how many seconds each takes. """
+SHARD_SIZE: int = 8
+SHARD_LIFE: float = 0.4
+""" Fraction of `VANISHES["pixels"]` a square takes to fly off and fade once it has left. """
+LIGHTS_UNTIL: float = 0.35
+""" Fraction of `VANISHES["lights"]` she takes to turn into sparks, which then live out the rest of it. """
+CRT_SQUASH: float = 0.55
+""" Fraction of `VANISHES["crt"]` she takes to flatten into a line, which then shrinks to a dot. """
 CHIME_RATE: int = 44100
 
 
@@ -112,6 +123,11 @@ class Avatar(QWidget):
 		""" Frame fading out under `frame` for `CROSSFADE_S` after `changed_at`. """
 		self.changed_at = -1.0
 		self.popped_at = -1.0
+		self.vanishing = ""
+		""" How she is leaving, a key of `VANISHES`, empty while she stays. """
+		self.vanished_at = 0.0
+		self.shards: list[Shard] = []
+		self.silhouette = QPixmap()
 		self.sparks: list[Spark] = []
 		self.next_mote = 0.0
 		self.last_tick = 0.0
@@ -123,11 +139,11 @@ class Avatar(QWidget):
 		self.motion = QPropertyAnimation(self, b"pos")
 		self.fade = QPropertyAnimation(self, b"windowOpacity")
 		self.slide = QParallelAnimationGroup(self)
+		self.fade.setEndValue(1.0)
 		for animation in (self.motion, self.fade):
 			animation.setDuration(260)
 			animation.setEasingCurve(QEasingCurve.Type.OutCubic)
 			self.slide.addAnimation(animation)
-		self.slide.finished.connect(self.hide_if_faded)
 
 		self.long_press = QTimer(self)
 		self.long_press.setSingleShot(True)
@@ -190,17 +206,26 @@ class Avatar(QWidget):
 		self.speech = (self.now(), vowels)
 
 	def pop_in(self) -> None:
+		self.vanishing = ""
 		if not self.isVisible():
 			self.setWindowOpacity(0)
 			self.move(self.home() + QPoint(0, 40))
 			self.popped_at = self.now()
 			self.sparks = burst(self.face_center(), self.popped_at, count=14)
 			self.show()
-		self.slide_to(self.home(), 1.0)
+		self.slide.stop()
+		self.motion.setEndValue(self.home())
+		self.slide.start()
 
 	def pop_out(self) -> None:
-		if self.isVisible():
-			self.slide_to(self.home() + QPoint(0, 40), 0.0)
+		if not self.isVisible() or self.vanishing:
+			return
+		self.slide.stop()
+		self.vanishing = random.choice(list(VANISHES))
+		self.vanished_at = self.now()
+		sprite = self.sprites[self.frame]
+		self.shards = shards(sprite, SHARD_SIZE)
+		self.silhouette = silhouette(sprite)
 
 	def home(self) -> QPoint:
 		""" Where she stands: where she was last dropped while that screen is plugged in, else the main screen's bottom-right corner.
@@ -214,16 +239,6 @@ class Avatar(QWidget):
 			return saved
 		area = QGuiApplication.primaryScreen().availableGeometry()
 		return QPoint(area.right() - self.width(), area.bottom() - self.height())
-
-	def slide_to(self, position: QPoint, opacity: float) -> None:
-		self.slide.stop()
-		self.motion.setEndValue(position)
-		self.fade.setEndValue(opacity)
-		self.slide.start()
-
-	def hide_if_faded(self) -> None:
-		if self.fade.endValue() == 0.0:
-			self.hide()
 
 	def schedule_blink(self) -> None:
 		self.blink.start(random.randint(2500, 6000))
@@ -256,6 +271,7 @@ class Avatar(QWidget):
 	def hideEvent(self, event: QHideEvent) -> None:
 		self.ticker.stop()
 		self.sparks.clear()
+		self.vanishing = ""
 		self.stop_drag()
 
 	def tick(self) -> None:
@@ -272,7 +288,19 @@ class Avatar(QWidget):
 			self.sparks.append(mote(QRectF(left, top, 0.6 * self.sprite_width, 0.6 * SPRITE_HEIGHT), now))
 			self.next_mote = now + MOTE_EVERY_S
 		self.sparks = [spark for spark in self.sparks if spark.alive(now)]
+		if self.vanishing:
+			self.vanish_step(now)
 		self.update()
+
+	def vanish_step(self, now: float) -> None:
+		""" Hides her once she is gone, and while she turns into lights, lets sparks off her. """
+		progress = (now - self.vanished_at) / VANISHES[self.vanishing]
+		if progress >= 1:
+			self.hide()
+		elif self.vanishing == "lights" and progress < LIGHTS_UNTIL:
+			origin = QPointF(self.sprite_left + SHARD_SIZE / 2, SPRITE_TOP + SHARD_SIZE / 2)
+			sources = random.sample(self.shards, 4)
+			self.sparks += [flutter(origin + QPointF(shard.x, shard.y), self.face_center(), now) for shard in sources]
 
 	def move_mouth(self, said: float, vowels: Vowels) -> None:
 		""" Her mouth on the vowel said `said` seconds into the line, closed once the line is over. """
@@ -291,16 +319,20 @@ class Avatar(QWidget):
 		painter.scale(self.zoom, self.zoom)
 		now = self.now()
 		breath = math.sin(2 * math.pi * now / BREATH_S)
-		painter.setOpacity(0.8 + 0.2 * breath)
+		progress = min(1.0, (now - self.vanished_at) / VANISHES[self.vanishing]) if self.vanishing else 0.0
+		painter.setOpacity((0.8 + 0.2 * breath) * (1 - progress))
 		center = self.face_center() + QPointF(0, 0.1 * SPRITE_HEIGHT)
 		painter.drawPixmap(center - QPointF(self.halo.width(), self.halo.height()) / (2 * self.halo.devicePixelRatio()), self.halo)
 		painter.setOpacity(1)
-		self.paint_sprite(painter, now, breath)
+		if self.vanishing:
+			self.paint_vanish(painter, progress)
+		else:
+			self.paint_sprite(painter, now, breath)
 		for spark in self.sparks:
 			spark.paint(painter, now)
 		painter.restore()
 
-		if self.bubble.text:
+		if self.bubble.text and not self.vanishing:
 			painter.scale(self.text_zoom, self.text_zoom)
 			# Growing upward from just above her hands keeps the finger of `thinking` and the wave of `hello` in sight
 			self.bubble.paint(painter, now, bottom=self.zoom * (SPRITE_TOP + FACE_Y * SPRITE_HEIGHT - 26) / self.text_zoom)
@@ -321,6 +353,57 @@ class Avatar(QWidget):
 			painter.setOpacity(fade)
 		painter.drawPixmap(top_left, self.sprites[self.frame])
 		painter.restore()
+
+	def paint_vanish(self, painter: QPainter, progress: float) -> None:
+		sprite = self.sprites[self.frame]
+		origin = QPointF(self.sprite_left, SPRITE_TOP)
+		match self.vanishing:
+			case "pixels":
+				side = SHARD_SIZE
+				half = side / 2
+				ratio = sprite.devicePixelRatio()
+				intact = QPainterPath()
+				for shard in self.shards:
+					flight = (progress - shard.delay) / SHARD_LIFE
+					if flight <= 0:
+						intact.addRect(QRectF(origin + QPointF(shard.x, shard.y), QSizeF(side, side)))
+					elif flight < 1:
+						painter.save()
+						painter.translate(origin + QPointF(shard.x + half + shard.dx * flight, shard.y + half + shard.dy * flight))
+						painter.rotate(shard.spin * flight)
+						painter.scale(1 - 0.5 * flight, 1 - 0.5 * flight)
+						painter.setOpacity(1 - flight)
+						source = QRectF(shard.x * ratio, shard.y * ratio, side * ratio, side * ratio)
+						painter.drawPixmap(QRectF(-half, -half, side, side), sprite, source)
+						painter.restore()
+				painter.setClipPath(intact)
+				painter.drawPixmap(origin, sprite)
+				painter.setClipping(False)
+			case "lights":
+				painter.setOpacity(max(0.0, 1 - progress / LIGHTS_UNTIL))
+				painter.drawPixmap(origin, sprite)
+			case _:
+				squash = min(1.0, progress / CRT_SQUASH)
+				shrink = max(0.0, (progress - CRT_SQUASH) / (1 - CRT_SQUASH))
+				left, right = min(shard.x for shard in self.shards), max(shard.x for shard in self.shards) + SHARD_SIZE
+				center = origin + QPointF((left + right) / 2, SPRITE_HEIGHT / 2)
+				width = (right - left) * (1 + 0.05 * squash)
+				if squash < 1:
+					painter.save()
+					painter.translate(center)
+					painter.scale(1 + 0.05 * squash, (1 - squash) ** 2)
+					painter.translate(-center)
+					painter.drawPixmap(origin, sprite)
+					painter.setOpacity(squash)
+					painter.drawPixmap(origin, self.silhouette)
+					painter.restore()
+				line = QRectF(0, 0, max(6.0, width * (1 - shrink) ** 3), 4)
+				line.moveCenter(center)
+				painter.setOpacity(squash**2 * (1 - shrink**4))
+				painter.drawPixmap(line.adjusted(-30, -18, 30, 18), halo(QColor(255, 255, 255).rgb()), QRectF(0, 0, 64, 64))
+				painter.setPen(Qt.PenStyle.NoPen)
+				painter.setBrush(Qt.GlobalColor.white)
+				painter.drawRoundedRect(line, 2, 2)
 
 	@override
 	def wheelEvent(self, event: QWheelEvent) -> None:
@@ -425,11 +508,14 @@ class Pill(QWidget):
 		painter.setClipPath(disc)
 		painter.drawPixmap(ring.toRect(), self.face)
 		painter.setClipping(False)
-		painter.setPen(QPen(QColor(255, 250, 244), 4))
+		rim = QLinearGradient(ring.topLeft(), ring.bottomRight())
+		rim.setColorAt(0, QColor(255, 220, 180))
+		rim.setColorAt(1, QColor(158, 62, 28))
+		painter.setPen(QPen(QBrush(rim), 4))
 		painter.drawEllipse(ring)
 		# A comet: bright at the head of the arc, fading out along its tail
 		sweep = QConicalGradient(ring.center(), self.angle)
-		sweep.setColorAt(0, QColor(226, 96, 58))
+		sweep.setColorAt(0, QColor(255, 226, 190))
 		sweep.setColorAt(0.12, ACCENT)
 		sweep.setColorAt(0.31, QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 0))
 		painter.setPen(QPen(QBrush(sweep), 4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
