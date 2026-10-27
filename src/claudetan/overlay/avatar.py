@@ -84,14 +84,14 @@ POP_S: float = 0.45
 BREATH_S: float = 3.8
 """ Period of her breathing, a slight swell of the sprite from its bottom edge. """
 MOTE_EVERY_S: float = 0.7
-VANISHES: dict[str, float] = {"pixels": 1.0, "lights": 2.0, "crt": 0.6}
+VANISHES: dict[str, float] = {"pixels": 1.0, "lights": 2.0, "crt": 0.5}
 """ The ways she leaves, one picked at random each time, and how many seconds each takes. """
 SHARD_SIZE: int = 8
 SHARD_LIFE: float = 0.4
 """ Fraction of `VANISHES["pixels"]` a square takes to fly off and fade once it has left. """
 LIGHTS_UNTIL: float = 0.35
 """ Fraction of `VANISHES["lights"]` she takes to turn into sparks, which then live out the rest of it. """
-CRT_SQUASH: float = 0.55
+CRT_SQUASH: float = 0.5
 """ Fraction of `VANISHES["crt"]` she takes to flatten into a line, which then shrinks to a dot. """
 CHIME_RATE: int = 44100
 
@@ -391,7 +391,7 @@ class Avatar(QWidget):
 				if squash < 1:
 					painter.save()
 					painter.translate(center)
-					painter.scale(1 + 0.05 * squash, (1 - squash) ** 2)
+					painter.scale(1 + 0.05 * squash, 1 - squash**3)
 					painter.translate(-center)
 					painter.drawPixmap(origin, sprite)
 					painter.setOpacity(squash)
