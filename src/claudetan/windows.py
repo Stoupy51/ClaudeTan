@@ -1,4 +1,4 @@
-""" Her avatar, pill and tray icon, built again from the code of `claudetan.overlay` once a reload changes it. """
+""" Her avatar, pill and tray icon, built again from the code of `claudetan.overlay` and of this module once a reload changes it. """
 # Imports
 from dataclasses import replace
 from functools import partial
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 # Constants
 OVERLAY: str = "claudetan.overlay"
-""" The package whose reloaded modules make the windows be built again. """
+""" The package whose reloaded modules, or images, make the windows be built again. """
 
 
 # Classes
@@ -35,8 +35,8 @@ class Windows(QObject):
 		self.wire()
 
 	def on_reloaded(self, modules: list[str]) -> None:
-		""" Replaces the windows by new ones of the reloaded classes when one of them was reloaded, while she has left. """
-		if not any(name == OVERLAY or name.startswith(f"{OVERLAY}.") for name in modules):
+		""" Replaces the windows by new ones, wired again, when their classes or this module were reloaded, while she has left. """
+		if not any(name.startswith((OVERLAY, __name__)) for name in modules):
 			return
 		for window in (self.avatar, self.pill, self.tray):
 			window.hide()

@@ -543,8 +543,8 @@ def run() -> None:
 	assistant.idle.connect(session.compact)
 	app.aboutToQuit.connect(session.close)
 	reloader = Reloader()
-	hooks.posted.connect(reloader.on_hook)
-	assistant.free.connect(reloader.apply)
+	# From the event loop, once the slots that made her free have returned, so that their code does not count as running
+	assistant.free.connect(lambda: QTimer.singleShot(0, reloader.apply))
 	reloader.tools_changed.connect(assistant.restart)
 	reloader.broken.connect(assistant.on_set_aside)
 	reloader.restart.connect(partial(restart, app))
@@ -582,5 +582,7 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-	run()
+	# A reload cannot run `__main__` again, so the app runs from `claudetan.app`, a second copy of this module
+	from claudetan import app
+	app.run()
 

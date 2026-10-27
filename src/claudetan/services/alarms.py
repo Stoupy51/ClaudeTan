@@ -15,5 +15,5 @@ class Alarms(QObject):
 
 # Constants
 ALARMS: Alarms = Alarms()
-""" The timers set by voice or by the session, kept here as the app restarts rather than reloads this module. """
+""" The timers set by voice or by the session, which a reload keeps as long as this line does not change. """
 

@@ -60,5 +60,5 @@ class Meeting:
 
 # Constants
 MEETING: Meeting = Meeting()
-""" The one meeting transcription, started and stopped by voice, kept here as the app restarts rather than reloads this module. """
+""" The one meeting transcription, started and stopped by voice, which a reload keeps as long as this line does not change. """
 

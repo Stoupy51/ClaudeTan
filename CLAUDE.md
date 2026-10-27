@@ -7,8 +7,8 @@ A voice assistant with an anime overlay (PySide6), driving a hidden Claude Code 
 
 - `src/claudetan/app.py`: the Qt app and `Assistant`, which turns hook events and heard requests into what Claude-tan shows.
 - `src/claudetan/session.py`: the hidden `claude` process in a pseudo-terminal, and the hook server.
-- `src/claudetan/reload.py`: applies the hidden session's changes to the code once it has nothing running. `actions.py`, `services/` and `overlay/` reload in place, a change reaching a module of `LIVE` restarts the app.
-- `src/claudetan/windows.py`: holds her avatar, pill and tray, and builds them again from the reloaded classes of `overlay/` while she has left.
+- `src/claudetan/reload.py`: applies the hidden session's changes to the code in place once it has nothing running, and restarts the app only when a running loop or a live object comes from changed code.
+- `src/claudetan/windows.py`: holds her avatar, pill and tray, and builds and wires them again after a reload of `overlay/`, of itself or of a sprite, while she has left.
 - `src/claudetan/launcher.py`: runs the app, starts it again after such a change, and puts the change aside in git when the app then fails to start. It imports nothing of the app.
 - `src/claudetan/actions.py`: `ACTIONS`, what she does on the computer. `mcp.py` offers the same list to the session as tools.
 - `src/claudetan/services/`: what the actions call (weather, programs, timers, other applications' windows in `desktop.py`). Put the code of a new action there when it is more than a few lines.
@@ -25,7 +25,7 @@ A voice assistant with an anime overlay (PySide6), driving a hidden Claude Code 
 
 Actions run on the Qt thread: keep them quick, and start a thread for anything long, as `meeting.py` does, or set `threaded=True` on a tool that answers after seconds. An effect on the session itself (typing `/model`, restarting it) goes in `Assistant.run_action`, not in the action.
 
-Keep what must outlive a reload, such as timers, in a module of `LIVE`, as `ALARMS` is. A module of `LIVE` reaches the actions through the module (`actions.route`): taking names from it with `from ... import` would make every change to an action restart the app. The same goes for `overlay/`: a module of `LIVE` imports its modules, as `windows.py` does, never names from them.
+A reload gives the live objects their class's new methods and keeps every module-level value whose line did not change, such as `ALARMS`. It restarts the app, cutting the session's work, when the change reaches a loop still running (`Listener.run`, the threads of `Voice` and `Session`, `app.run`, which wires everything) or what built a live object: its `__init__`, its signals and fields, and the constants and methods `__init__` uses. Put new logic in methods rather than there when you can.
 
 ## Checks
 

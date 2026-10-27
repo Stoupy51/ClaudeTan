@@ -94,7 +94,8 @@ A request that is exactly one of the phrases below is done by the app itself, at
 ### ♻️ Her own code
 
 Ask her to change her own code, such as *"make yourself an action that ..."*: the session edits this folder.
-Once it has nothing running, the app reloads `actions.py` and `services/` in place, and restarts on the same conversation for any other module.
+Once it has nothing running, the app reloads the changed modules in place: her running objects take the new code and keep their state, and a changed sprite rebuilds her windows.
+It restarts on the same conversation only for a change to code still running, such as the microphone's loop, or to what built an object still alive, such as an `__init__` or a signal.
 A change that stops her from loading or starting is put aside in git (stashed, or her commits reverted), and she tells you which.
 She leaves her changes for you to review and commit, unless `commit_changes = true` in the config.
 
