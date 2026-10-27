@@ -197,6 +197,9 @@ class Assistant(QObject):
 				self.restart_app.emit()
 			case "model" if model := actions.chosen_model(arguments):
 				self.switch_model(model)
+			case "compact":
+				self.commands.append("/compact")
+				self.flush()
 			case _:
 				pass
 		return text

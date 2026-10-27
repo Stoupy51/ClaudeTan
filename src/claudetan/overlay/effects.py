@@ -5,8 +5,9 @@ import random
 from dataclasses import dataclass
 from functools import cache
 
+import numpy as np
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap, QRadialGradient
+from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPixmap, QRadialGradient
 
 # Constants
 ACCENT: QColor = QColor(217, 119, 87)
@@ -56,6 +57,21 @@ class Spark:
 		painter.restore()
 
 
+@dataclass(frozen=True)
+class Shard:
+	""" A square of the sprite that flies off when she vanishes, along a flight fixed in advance. """
+	x: float
+	y: float
+	""" Top-left corner on the sprite, in pixels. """
+	delay: float
+	""" Fraction of the vanishing it waits before leaving, shorter the lower it sits. """
+	dx: float
+	dy: float
+	""" Where it has flown to by the time it is gone, in pixels. """
+	spin: float
+	""" Degrees it has turned by then. """
+
+
 # Functions
 def burst(center: QPointF, now: float, count: int) -> list[Spark]:
 	""" Sparks thrown mostly upward from around `center`, as when she pops up or celebrates. """
@@ -79,6 +95,43 @@ def mote(area: QRectF, now: float) -> Spark:
 		vx=random.uniform(-8, 8), vy=random.uniform(-34, -18),
 		birth=now, life=random.uniform(2.2, 3.4), size=random.uniform(1.4, 2.6),
 		color=random.choice(SPARK_COLORS),
+	)
+
+
+def shards(sprite: QPixmap, size: int) -> list[Shard]:
+	""" The squares of `size` pixels of the sprite that are not fully transparent, each with its flight. """
+	image = sprite.toImage().convertToFormat(QImage.Format.Format_ARGB32)
+	alpha = np.frombuffer(image.constBits(), np.uint8).reshape(image.height(), -1, 4)[:, : image.width(), 3]
+	ratio = sprite.devicePixelRatio()
+	step = round(size * ratio)
+	height = sprite.height() / ratio
+	return [
+		Shard(
+			x=left / ratio, y=top / ratio, delay=0.45 * (1 - top / ratio / height) + random.uniform(0, 0.1),
+			dx=random.uniform(-30, 60), dy=random.uniform(-160, -50), spin=random.uniform(-200, 200),
+		)
+		for top in range(0, image.height(), step) for left in range(0, image.width(), step)
+		if alpha[top : top + step, left : left + step].any()
+	]
+
+
+def silhouette(sprite: QPixmap) -> QPixmap:
+	""" The sprite as a white shape. """
+	white = QPixmap(sprite)
+	painter = QPainter(white)
+	painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+	painter.fillRect(white.rect(), Qt.GlobalColor.white)
+	painter.end()
+	return white
+
+
+def flutter(at: QPointF, center: QPointF, now: float) -> Spark:
+	""" A spark leaving the sprite at `at`, drifting around `center` while it rises. """
+	angle = math.atan2(at.y() - center.y(), at.x() - center.x()) + math.pi / 2
+	speed = random.uniform(40, 120)
+	return Spark(
+		x=at.x(), y=at.y(), vx=math.cos(angle) * speed, vy=math.sin(angle) * speed - random.uniform(90, 200),
+		birth=now, life=random.uniform(0.9, 1.4), size=random.uniform(3.5, 7.0), color=random.choice(SPARK_COLORS),
 	)
 
 

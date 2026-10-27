@@ -7,7 +7,7 @@
 
 </div>
 
-https://github.com/user-attachments/assets/2a430813-428c-4b1e-b15d-7ba93184f0af
+https://github.com/user-attachments/assets/e2820f10-1f87-489a-a312-c4bfd2b80bcb
 
 > [!NOTE]
 > Work in progress: the roadmap is in [PLAN.md](PLAN.md), in French.
@@ -80,6 +80,7 @@ A request that is exactly one of the phrases below is done by the app itself, at
 | Agents progress | *"il en est où ?"*, *"agent progress"* | Tells what each background agent of the session works on: running or finished, its age, its tool calls and the last one |
 | Restart the app | *"restart yourself"*, *"relance-toi"* | Quits and starts the whole app again on the same conversation, for the rare change the automatic reload does not apply |
 | Switch model | *"switch to Opus"*, *"passe en Sonnet"* | Types `/model` into the session once its current request is done |
+| Compact the conversation | *"compacte la conversation"* | Types `/compact` into the session once its current request is done |
 | Context of the session | *"show me the context"*, *"le contexte"*, or the tray menu | How full the hidden session's context window is, as `/context` reports it |
 | Plan usage | *"my usage"*, *"mon usage"*, or the tray menu | Share of the 5-hour window and of the week used, as `/usage` reports it |
 | Timer | *"set a timer for 10 minutes"*, *"mets un minuteur de 5 min"* | Rings with a chime and a message once the time is up |

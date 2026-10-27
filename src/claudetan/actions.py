@@ -104,6 +104,12 @@ ACTIONS: list[Action] = [
 		parameters={"model": f"One of {', '.join(MODELS)}."},
 	),
 	Action(
+		name="compact",
+		description="Types /compact into this session once its current request is done, to free its context.",
+		phrases=r"(?:compacte|compact)(?: (?:la conversation|le contexte|la session|toi|the conversation|the session))?",
+		run=lambda _: tr("Compacting the conversation.", "Je compacte la conversation."),
+	),
+	Action(
 		name="context",
 		description="How full the context window of this session is: its model and its tokens.",
 		phrases=r"(?:(?:quel est|montre-moi|donne-moi|affiche|what's|show me) )?(?:le |the )?contexte?(?: de la session| usage)?",

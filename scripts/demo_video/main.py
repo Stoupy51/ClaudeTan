@@ -501,12 +501,10 @@ class Studio:
 		self.avatar.frame = closed if blinking else self.avatar.expression
 
 	def follow_slide(self) -> None:
-		""" Starts her slide when the app pops her in or out, and hides her once she has faded, as `Avatar.hide_if_faded` does. """
-		target = 1.0 if self.avatar.isVisible() and self.avatar.fade.endValue() == 1.0 else 0.0
+		""" Starts her slide when the app pops her in, as `Avatar.pop_in` does, and goes back to hidden once she has vanished. """
+		target = 1.0 if self.avatar.isVisible() else 0.0
 		if target != self.slide[1]:
 			self.slide = (self.opacity(), target, Clock.seconds)
-		if target == 0 and self.opacity() == 0 and self.avatar.isVisible():
-			self.avatar.hide()
 
 	def opacity(self) -> float:
 		start, end, at = self.slide
