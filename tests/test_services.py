@@ -11,10 +11,10 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from stouputils.typing import JsonDict
 
-from claudechan import i18n
-from claudechan.actions import find, route
-from claudechan.services import agents, claude, minecraft, programs, weather
-from claudechan.services.alarms import ALARMS
+from clairechan import i18n
+from clairechan.actions import find, route
+from clairechan.services import agents, claude, minecraft, programs, weather
+from clairechan.services.alarms import ALARMS
 
 
 # Functions

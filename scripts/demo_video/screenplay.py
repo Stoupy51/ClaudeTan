@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from stouputils.typing import JsonDict
 
-from claudechan.overlay.bubble import TYPING_S, TYPING_SPEED
+from clairechan.overlay.bubble import TYPING_S, TYPING_SPEED
 
 # Constants
 WHISPER_S: float = 0.2
@@ -184,7 +184,7 @@ def screenplay(words: Words) -> Timeline:
 def ask_out_loud(play: Timeline, words: Words) -> None:
 	play.cue(Title(1, words.chapters[0]), then=0.7)
 	ask(play, words.question, words.language)
-	play.hook("PreToolUse", then=0.0, tool_name="mcp__claudechan__screenshot", tool_input={"screen": 1})
+	play.hook("PreToolUse", then=0.0, tool_name="mcp__clairechan__screenshot", tool_input={"screen": 1})
 	play.cue(Read())
 	play.stream(words.reply, message_id="reply", every=0.2)
 	play.cue(Read(longer_s=0.5))

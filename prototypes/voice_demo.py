@@ -14,10 +14,10 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from claudechan.config import Config
-from claudechan.voice.audio import FRAME, RATE, Audio, microphone
-from claudechan.voice.listener import Listener
-from claudechan.voice.wake import spot_wake
+from clairechan.config import Config
+from clairechan.voice.audio import FRAME, RATE, Audio, microphone
+from clairechan.voice.listener import Listener
+from clairechan.voice.wake import spot_wake
 
 
 # Functions

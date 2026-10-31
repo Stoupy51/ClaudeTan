@@ -1,5 +1,5 @@
 
-# ClaudeChan : plan
+# ClaireChan : plan
 
 Assistant vocal personnel branché sur l'abonnement Claude (pas l'API). On dit "Hey Claire", une session Claude Code cachée exécute la demande, et Claire apparaît à l'écran pour réagir. Un clic sur elle ouvre le Remote Control, un appui long la déplace.
 
@@ -40,7 +40,7 @@ Un routeur choisit qui répond : des règles exactes pour les phrases connues, p
 
 ### Auto-amélioration
 
-La session cachée travaille dans le repo ClaudeChan. "Crée-toi un outil pour X" devient une nouvelle action que Claude écrit dans le registre, avec sa description et un test, validée par ruff, pyright et stouputils check. Un `CLAUDE.md` explique à la session comment faire. L'app recharge à chaud ce qui a changé et ne se relance, en reprenant la session, que si son cœur a changé. Un lanceur minimal surveille cette relance : si l'app plante juste après un changement, il annule ce changement (`git stash` ou `git revert`), relance l'app et prévient, sans quoi l'assistant cassé ne pourrait plus se réparer lui-même.
+La session cachée travaille dans le repo ClaireChan. "Crée-toi un outil pour X" devient une nouvelle action que Claude écrit dans le registre, avec sa description et un test, validée par ruff, pyright et stouputils check. Un `CLAUDE.md` explique à la session comment faire. L'app recharge à chaud ce qui a changé et ne se relance, en reprenant la session, que si son cœur a changé. Un lanceur minimal surveille cette relance : si l'app plante juste après un changement, il annule ce changement (`git stash` ou `git revert`), relance l'app et prévient, sans quoi l'assistant cassé ne pourrait plus se réparer lui-même.
 
 Le mode se règle dans la config (`commit_changes`) : changements laissés à relire, le défaut, ou commités par la session sur la branche en cours. `~/.claude/CLAUDE.md` interdit de commiter sans demande : l'app donne donc le mode à la session cachée par `--append-system-prompt`, et non dans le CLAUDE.md du repo, que lisent aussi les sessions de développement.
 
@@ -60,7 +60,7 @@ Pour l'immersion, Claire parle japonais, même quand la bulle est dans une autre
 
 Claude Haiku traduit chaque phrase en japonais parlé, en deux phrases courtes et 80 caractères au plus, sans code ni chemins. D'une réponse longue, elle ne dit que l'essentiel, mais Haiku compte mal et dépasse parfois. Une conversation `claude -p` en stream-json reste ouverte (`voicevox.py`) : une phrase prend 1 à 2 s au lieu des 7 à 8 s d'un `claude -p` lancé à chaque fois, dont 4 s de démarrage. Elle est remplacée toutes les 40 phrases, chacune renvoyant les précédentes. Chaque phrase lui arrive entre balises `<line>` : sans elles et sans "never answer" dans le prompt, Haiku répond à la phrase au lieu de la traduire. Il écrit les noms étrangers en katakana, car VOICEVOX épelle les lettres latines, et une traduction sans kana n'est pas dite. C'est un peu de quota à chaque phrase (environ 0,0003 $ au tarif API, prompt en cache), choisi plutôt qu'Ollama et TranslateGemma 4B, qui prendraient 3,3 Go de VRAM à côté de Whisper et des jeux.
 
-La voix vient de VOICEVOX, un moteur local aux voix d'anime piloté par une API HTTP, installé par le setup dans `%LOCALAPPDATA%\ClaudeChan\voicevox` (version CPU, 1,9 Go à télécharger, 2,1 Go installés) et lancé avec l'app, voix chargée et Haiku prêt, ce qui évite 4 à 6 s à la première phrase. Un moteur qui tourne déjà sur le port 50021, comme celui de l'app VOICEVOX, sert tel quel. Il dit une phrase en 1,7 s sur un Ryzen 5 3600, plus 1,7 s la première fois qu'une autre voix que celle du lancement sert. Chaque phrase est synthétisée pendant que la précédente joue : la voix commence environ 3 s après la bulle, quelle que soit la longueur de la réponse. Il donne aussi le début de chaque voyelle, sur lequel la bouche s'ouvre (`a` grande, `o` et `u` en rond, `i` et `e` entrouverte), dans la pose `idle`, la seule avec ces trois bouches. La voix se règle par son numéro de style (`voice_style`, Ankomon par défaut). Ses conditions demandent de citer VOICEVOX et la voix quand on diffuse ce qu'elle dit. AivisSpeech offre la même API avec des voix plus naturelles, mais sans ces durées. Edge n'a que deux voix japonaises (Nanami et Keita), sans style anime.
+La voix vient de VOICEVOX, un moteur local aux voix d'anime piloté par une API HTTP, installé par le setup dans `%LOCALAPPDATA%\ClaireChan\voicevox` (version CPU, 1,9 Go à télécharger, 2,1 Go installés) et lancé avec l'app, voix chargée et Haiku prêt, ce qui évite 4 à 6 s à la première phrase. Un moteur qui tourne déjà sur le port 50021, comme celui de l'app VOICEVOX, sert tel quel. Il dit une phrase en 1,7 s sur un Ryzen 5 3600, plus 1,7 s la première fois qu'une autre voix que celle du lancement sert. Chaque phrase est synthétisée pendant que la précédente joue : la voix commence environ 3 s après la bulle, quelle que soit la longueur de la réponse. Il donne aussi le début de chaque voyelle, sur lequel la bouche s'ouvre (`a` grande, `o` et `u` en rond, `i` et `e` entrouverte), dans la pose `idle`, la seule avec ces trois bouches. La voix se règle par son numéro de style (`voice_style`, Ankomon par défaut). Ses conditions demandent de citer VOICEVOX et la voix quand on diffuse ce qu'elle dit. AivisSpeech offre la même API avec des voix plus naturelles, mais sans ces durées. Edge n'a que deux voix japonaises (Nanami et Keita), sans style anime.
 
 ## Architecture
 
@@ -105,7 +105,7 @@ Ce que montre Claire à chaque étape :
 
 ### 1. MVP
 
-- [x] App `claudechan` : machine à états entre la voix, l'avatar et les hooks HTTP de la session, testée sur des événements simulés.
+- [x] App `clairechan` : machine à états entre la voix, l'avatar et les hooks HTTP de la session, testée sur des événements simulés.
 - [x] Retour immédiat : son au mot d'activation, phrase dans la bulle, suivi des hooks, pastille pour les tâches longues, retour de Claire avec un son à la fin.
 - [x] N'envoyer une commande qu'entre deux tours (de `UserPromptSubmit` à `Stop`), sinon la mettre en file : taper pendant qu'un dialogue est ouvert casse la session.
 - [x] Session cachée lancée par l'app dans le repo : `--session-id` au premier lancement, puis `--resume` avec l'id gardé par l'app, puisque `--continue` reprendrait la dernière conversation du dossier, souvent une session de développement.
@@ -115,11 +115,11 @@ Ce que montre Claire à chaque étape :
 - [x] `/compact` à l'arrêt et après 55 min d'inactivité, seulement au-delà de 100k tokens de contexte (lus dans le `transcript_path` des hooks), car la compaction est elle-même une grosse requête et une session neuve pèse déjà 50k. Le hook `PostCompact` dit quand elle est finie.
 - [x] Clic sur Claire : ouvrir l'URL de session lue dans le terminal caché, au lieu de la liste des sessions de claude.ai/code.
 - [x] Notifications push : `inputNeededNotifEnabled` ("Push when actions required") dans le `--settings` de la session. `agentPushNotifEnabled` ("Push when Claude decides") est déjà actif dans les réglages utilisateur.
-- [x] Config TOML dans `%APPDATA%\ClaudeChan\config.toml`, copiée au premier lancement : langue et regex d'activation. Les modèles y entrent avec la session, la voix avec le TTS.
+- [x] Config TOML dans `%APPDATA%\ClaireChan\config.toml`, copiée au premier lancement : langue et regex d'activation. Les modèles y entrent avec la session, la voix avec le TTS.
 - [x] Claire revient où on l'a déposée. Si cet écran est débranché, elle apparaît sur l'écran principal sans oublier sa place, et y retourne quand il est rebranché.
 - [x] Icône de notification, avec le même menu au clic gauche et au clic droit, et démarrage avec Windows.
 - [x] Sans GPU NVIDIA : `large-v3-turbo` prend 20 s par phrase sur un Ryzen 5 3600, contre 0,6 s sur GPU. L'app passe alors à Whisper `small` (3,7 s) et ne le lance qu'après "Hey Claire", repéré pendant la phrase par le détecteur de mots-clés de sherpa-onnx (modèle anglais de 3,3 M paramètres, 2,5 % d'un cœur, sans entraînement). Les prononciations sont écrites dans ses jetons dans `wake.py`, dont "a cler" et "a clair", seules façons pour ce modèle anglais d'entendre le "Hé Claire" d'une voix française. Sur les voix de synthèse de Windows : 5 réveils sur 6 (David, en anglais, n'en déclenche aucun) et aucune fausse alerte sur 5 phrases, dont "clair" et "clear". Reste à mesurer sur une vraie voix et sur une heure de vidéo pour les fausses alertes.
-- [x] README et `uv run claudechan-setup` : Whisper téléchargé et testé sur le GPU (ou sur le CPU avec le détecteur), puis, au besoin, connexion à Claude Code et dialogue de confiance du dossier, que le script ouvre et où l'utilisateur répond.
+- [x] README et `uv run clairechan-setup` : Whisper téléchargé et testé sur le GPU (ou sur le CPU avec le détecteur), puis, au besoin, connexion à Claude Code et dialogue de confiance du dossier, que le script ouvre et où l'utilisateur répond.
 
 ### 2. Avatar
 
@@ -144,7 +144,7 @@ Ce que montre Claire à chaque étape :
 - [x] ShadowPlay accepte le Alt+F10 simulé par `keybd_event`.
 - [x] Actions `timer`, `weather` (Open-Meteo, `city` de la config) et `launch_program` (raccourcis du menu Démarrer, par la session seulement : "ouvre" ne doit pas avaler "ouvre le site").
 - [x] Actions `context` et `plan_usage` (`services/claude.py`) : `claude -p "/context" --resume ... --fork-session` et `claude -p "/usage"`, sans rien taper dans la session cachée. Aussi dans le menu de l'icône.
-- [x] Serveur MCP local (`mcp.py`, HTTP sur 127.0.0.1) : chaque action de `ACTIONS` est aussi un outil `mcp__claudechan__*` de la session, qui reçoit `--mcp-config` et `--allowedTools`.
+- [x] Serveur MCP local (`mcp.py`, HTTP sur 127.0.0.1) : chaque action de `ACTIONS` est aussi un outil `mcp__clairechan__*` de la session, qui reçoit `--mcp-config` et `--allowedTools`.
 
 ### 5. Voix et contrôle
 
@@ -158,7 +158,7 @@ Ce que montre Claire à chaque étape :
 
 - [x] Donner à la session cachée l'accès aux applications du PC (VS Code, Discord, Firefox, comme le portail de Survisland), par nos propres outils MCP sur l'arbre UI Automation (`desktop.py`, bibliothèque `uiautomation`), sur le modèle de sécurité du computer use de Claude Desktop :
 	- Lire ne touche jamais au focus. Mesuré : 1 800 à 2 600 éléments par fenêtre, 2 400 à 3 700 tokens pour ce qui est visible, +39 Mo pour Discord. Chromium ne construit l'arbre d'une page qu'une fois qu'un programme le demande, en 3 s environ : la première lecture d'une application attend 4 s. `look_window` dessine une fenêtre, même cachée (`PrintWindow`), quand l'arbre ne suffit pas.
-	- `apps` dans la config : "read" ou "act" par programme, terminaux et ClaudeChan jamais. Le hook `PreToolUse` renvoie `ask` à la première action dans une application depuis le démarrage, donc la demande passe par la bulle et le "oui" à la voix. "Arrête tout" coupe.
+	- `apps` dans la config : "read" ou "act" par programme, terminaux et ClaireChan jamais. Le hook `PreToolUse` renvoie `ask` à la première action dans une application depuis le démarrage, donc la demande passe par la bulle et le "oui" à la voix. "Arrête tout" coupe.
 	- Agir sans jamais gêner, même en jeu. Mesuré depuis un processus sans droit au premier plan : un clic dans Firefox (`DoDefaultAction`) et `WM_SETTEXT` dans un champ Win32 laissent le focus, même fenêtre réduite. Remplir un champ dans Firefox, et toute action dans Chromium (Edge, Discord, VS Code), font passer l'application au premier plan, car UI Automation lui en donne le droit.
 	- Ces actions-là attendent 3 s sans clavier ni souris, sans application plein écran (`SHQueryUserNotificationState`), dans une application de `apps` : jamais depuis un jeu, même fenêtré comme Minecraft. Le focus revient ensuite à la fenêtre d'avant. Sinon elles renoncent au bout de 20 s. Jamais de touche ni de clic simulé.
 
@@ -229,7 +229,7 @@ Les quatre acceptent le mode `auto`. Les demandes simples ne consomment rien : l
 - Retirer les variables d'une session imbriquée (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_PID`) avant de lancer `claude`.
 - Remote Control archive la session sur claude.ai quand Claude Code se ferme proprement : l'app le tue (`taskkill /F /T`) pour qu'elle reste dans la liste, et `--resume` la rattache.
 - Claude Code ne redessine que les caractères qui changent : l'app lit son terminal à travers un écran `pyte`, par exemple `/usage` au démarrage.
-- uv 0.12 avec Python 3.14 fait du `pythonw.exe` d'un venv une copie du `python.exe` console : un gui-script ouvre donc une console. `claudechan` est un script console qui relance l'app avec `CREATE_NO_WINDOW` et rend la main.
+- uv 0.12 avec Python 3.14 fait du `pythonw.exe` d'un venv une copie du `python.exe` console : un gui-script ouvre donc une console. `clairechan` est un script console qui relance l'app avec `CREATE_NO_WINDOW` et rend la main.
 - Le dialogue de confiance du dossier propose "No, exit" par défaut. L'app n'y répond pas : la session tourne dans le repo, déjà approuvé, et s'il s'affiche, il faut lancer `claude` une fois dans le repo pour l'accepter. Pour envoyer un prompt : le taper, attendre 0,4 s, puis `\r`.
 - Hooks `type: "http"` déclarés dans un fichier passé par `--settings`. `SessionStart` n'accepte que les hooks `command` et `mcp_tool`.
 - `--append-system-prompt` est enregistré à la première requête de la conversation, puis réutilisé tel quel jusqu'à la prochaine compaction, même si un lancement suivant passe un autre texte (`--system-prompt-snapshot`, actif par défaut). Un changement de mode d'auto-amélioration ne vaut donc qu'après un `/compact`, ou avec `--system-prompt-snapshot off`.

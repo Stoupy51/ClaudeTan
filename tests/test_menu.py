@@ -6,9 +6,9 @@ from PySide6.QtGui import QCursor, QGuiApplication
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from claudechan.overlay import menu as menu_module
-from claudechan.overlay.avatar import Pill
-from claudechan.overlay.menu import SHOW_MS, WATCH_MS, Entry, Menu, Slider, slider_track
+from clairechan.overlay import menu as menu_module
+from clairechan.overlay.avatar import Pill
+from clairechan.overlay.menu import SHOW_MS, WATCH_MS, Entry, Menu, Slider, slider_track
 
 
 # Functions

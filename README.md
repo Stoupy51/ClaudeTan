@@ -1,5 +1,5 @@
 
-# 🎙️ ClaudeChan
+# 🎙️ ClaireChan
 
 <div align="center">
 
@@ -33,9 +33,9 @@ https://github.com/user-attachments/assets/e2820f10-1f87-489a-a312-c4bfd2b80bcb
 ## 🔧 Installation
 
 ```powershell
-git clone https://github.com/Stoupy51/ClaudeChan
-cd ClaudeChan
-uv run claudechan-setup
+git clone https://github.com/Stoupy51/ClaireChan
+cd ClaireChan
+uv run clairechan-setup
 ```
 
 The setup installs the dependencies, downloads Whisper (1.6 GB, or 0.5 GB and the wake phrase spotter without an NVIDIA GPU) and runs it once,
@@ -51,7 +51,7 @@ Optional, once:
 ## ▶️ Usage
 
 ```powershell
-uv run claudechan
+uv run clairechan
 ```
 
 The app starts in the background with a hidden Claude Code session in this folder, prints the session's link and your plan usage once ready, and keeps running until you quit it from her tray icon.
@@ -69,7 +69,7 @@ You may pause while you speak: she sends your request after 15 s of silence, or 
 
 ### 🧰 Actions
 
-A request that is exactly one of the phrases below is done by the app itself, at once and without the session. Any other wording goes to the session, which has the same actions as tools (`mcp__claudechan__*`) and calls them itself.
+A request that is exactly one of the phrases below is done by the app itself, at once and without the session. Any other wording goes to the session, which has the same actions as tools (`mcp__clairechan__*`) and calls them itself.
 
 | Action | Say | Does |
 |---|---|---|
@@ -107,7 +107,7 @@ She then answers about 4 s after you stop speaking instead of 1 s, mishears more
 
 ## ⚙️ Configuration
 
-*Open the config* in the tray menu opens `%APPDATA%\ClaudeChan\config.toml`, which explains each key:
+*Open the config* in the tray menu opens `%APPDATA%\ClaireChan\config.toml`, which explains each key:
 the speech recognition language, the wake phrase, the pause and the phrases that end a spoken request,
 the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), whether she commits the changes to her own code, the applications she may use, her size on screen, her voice, and your additions to the session's system prompt, such as where your folders are.
 A change applies as soon as you save the file, and she tells you what changed. The agent's model, the commits and the system prompt, which Claude Code reads only when it starts, restart the hidden session on the same conversation once she has nothing running.
@@ -116,7 +116,7 @@ A change applies as soon as you save the file, and she tells you what changed. T
 
 ```powershell
 uv run pytest --doctest-modules src tests
-$env:CLAUDECHAN_UI_TESTS = 1; uv run pytest tests/test_desktop.py   # opens a Notepad, which takes the focus
+$env:CLAIRECHAN_UI_TESTS = 1; uv run pytest tests/test_desktop.py   # opens a Notepad, which takes the focus
 uv run ruff check .
 uv run pyright
 uv run prototypes/overlay_demo.py              # plays every expression in a loop
@@ -126,7 +126,7 @@ uv run prototypes/voice_demo.py --spotter      # counts what the wake phrase spo
 ```
 
 The demo video at the top of this file is the `_small` copy of that script's video, uploaded with the [gh-image](https://github.com/drogers0/gh-image) extension:
-`gh image dist/demo_small.mp4 --repo Stoupy51/ClaudeChan` prints the link to paste in place of the old one.
+`gh image dist/demo_small.mp4 --repo Stoupy51/ClaireChan` prints the link to paste in place of the old one.
 
 The sprites in `assets/claude/` come out of `tools/sprites/`, a separate uv project described in [PLAN.md](PLAN.md#sprites).
 
@@ -139,7 +139,7 @@ To let Claude Code work on that part, add this exception to your user settings, 
 "autoMode": {
 	"allow": [
 		"$defaults",
-		"In the ClaudeChan repository, the app starts a hidden Claude Code session with claude --remote-control --permission-mode auto and types the user's voice commands into it: writing, testing and running that launcher, including scripts that start such a session to test it, is allowed."
+		"In the ClaireChan repository, the app starts a hidden Claude Code session with claude --remote-control --permission-mode auto and types the user's voice commands into it: writing, testing and running that launcher, including scripts that start such a session to test it, is allowed."
 	]
 }
 ```

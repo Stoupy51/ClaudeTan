@@ -6,20 +6,20 @@ from ctypes import windll
 import pytest
 from PySide6.QtWidgets import QApplication
 
-import claudechan.config
-from claudechan.actions import VK_MUTE
-from claudechan.app import Assistant
-from claudechan.config import DEFAULTS, Config
-from claudechan.overlay import avatar as avatar_module
-from claudechan.overlay.avatar import Avatar, Pill
-from claudechan.session import JsonDict
+import clairechan.config
+from clairechan.actions import VK_MUTE
+from clairechan.app import Assistant
+from clairechan.config import DEFAULTS, Config
+from clairechan.overlay import avatar as avatar_module
+from clairechan.overlay.avatar import Avatar, Pill
+from clairechan.session import JsonDict
 
 
 # Functions
 @pytest.fixture
 def assistant(app: QApplication, monkeypatch: pytest.MonkeyPatch) -> Assistant:
 	monkeypatch.setattr(avatar_module, "chime", mute)
-	monkeypatch.setattr(claudechan.config, "USER_CONFIG", DEFAULTS)
+	monkeypatch.setattr(clairechan.config, "USER_CONFIG", DEFAULTS)
 	return Assistant(Avatar(), Pill(), Config.load())
 
 

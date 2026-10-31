@@ -5,18 +5,18 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import claudechan.config
-from claudechan import i18n
-from claudechan.config import DEFAULTS, Config, save_volume
-from claudechan.i18n import tr
-from claudechan.voice import listener as listener_module
-from claudechan.voice.audio import RATE, Speech
-from claudechan.voice.listener import SPELLING, Listener
+import clairechan.config
+from clairechan import i18n
+from clairechan.config import DEFAULTS, Config, save_volume
+from clairechan.i18n import tr
+from clairechan.voice import listener as listener_module
+from clairechan.voice.audio import RATE, Speech
+from clairechan.voice.listener import SPELLING, Listener
 
 
 # Functions
 def listener(sent: list[str], monkeypatch: pytest.MonkeyPatch) -> Listener:
-	monkeypatch.setattr(claudechan.config, "USER_CONFIG", DEFAULTS)
+	monkeypatch.setattr(clairechan.config, "USER_CONFIG", DEFAULTS)
 	voice = Listener(Config.load())
 	voice.heard.connect(sent.append)
 	voice.cancelled.connect(lambda: sent.append("<cancelled>"))

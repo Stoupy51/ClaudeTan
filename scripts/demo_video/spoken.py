@@ -9,8 +9,8 @@ import numpy as np
 import soundfile as sf
 from stouputils.typing import JsonDict
 
-from claudechan.overlay.avatar import CHIME_RATE
-from claudechan.voice.speech import API, SENTENCE, Vowels, engine_answers, synthesize
+from clairechan.overlay.avatar import CHIME_RATE
+from clairechan.voice.speech import API, SENTENCE, Vowels, engine_answers, synthesize
 
 # Constants
 CLIPS: Path = Path(__file__).with_name("voice")

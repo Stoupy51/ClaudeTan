@@ -13,7 +13,7 @@ from typing import ClassVar
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
-from claudechan.overlay.avatar import Avatar
+from clairechan.overlay.avatar import Avatar
 
 
 # Classes

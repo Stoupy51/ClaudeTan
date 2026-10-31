@@ -3,7 +3,7 @@ requires = ["uv_build>=0.12.0,<0.13.0"]
 build-backend = "uv_build"
 
 [project]
-name = "claudechan"
+name = "clairechan"
 version = "1.1.0"
 description = "Voice-driven Claude Code assistant with an anime avatar overlay"
 keywords = ["claude", "claude-code", "voice-assistant", "avatar", "overlay", "whisper", "pyside6"]
@@ -34,12 +34,12 @@ authors = [
 ]
 
 [project.scripts]
-claudechan = "claudechan.app:main"
-claudechan-setup = "claudechan.setup:main"
+clairechan = "clairechan.app:main"
+clairechan-setup = "clairechan.setup:main"
 
 [project.urls]
-Issues = "https://github.com/Stoupy51/ClaudeChan/issues"
-Repository = "https://github.com/Stoupy51/ClaudeChan"
+Issues = "https://github.com/Stoupy51/ClaireChan/issues"
+Repository = "https://github.com/Stoupy51/ClaireChan"
 
 [dependency-groups]
 dev = [

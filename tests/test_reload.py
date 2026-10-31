@@ -14,9 +14,9 @@ from types import ModuleType
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from claudechan import config, reload
-from claudechan.launcher import git, set_aside
-from claudechan.reload import PACKAGE, Reloader, reload_order
+from clairechan import config, reload
+from clairechan.launcher import git, set_aside
+from clairechan.reload import PACKAGE, Reloader, reload_order
 
 # Constants
 COUNTER: str = """
@@ -61,8 +61,8 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication
 
 application = QApplication([])
-from claudechan import app, config, reload
-from claudechan.overlay.avatar import Avatar, Pill
+from clairechan import app, config, reload
+from clairechan.overlay.avatar import Avatar, Pill
 
 
 class Listener(QObject):
@@ -178,14 +178,14 @@ def test_a_change_that_fails_to_load_is_put_aside_and_the_old_code_kept(hot: Mod
 
 
 def test_modules_reload_after_those_they_take_names_from() -> None:
-	importlib.import_module("claudechan.app")
-	order = reload_order({"claudechan.overlay.avatar"})
-	assert order.index("claudechan.overlay.avatar") < order.index("claudechan.overlay.tray")
-	assert "claudechan.app" not in order
+	importlib.import_module("clairechan.app")
+	order = reload_order({"clairechan.overlay.avatar"})
+	assert order.index("clairechan.overlay.avatar") < order.index("clairechan.overlay.tray")
+	assert "clairechan.app" not in order
 
 
 def test_the_app_reloads_its_own_modules_in_place_from_a_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-	package = tmp_path / "src" / "claudechan"
+	package = tmp_path / "src" / "clairechan"
 	shutil.copytree(PACKAGE, package, ignore=shutil.ignore_patterns("__pycache__"))
 	shutil.copytree(reload.ASSETS, tmp_path / "assets")
 	commit(tmp_path, monkeypatch)

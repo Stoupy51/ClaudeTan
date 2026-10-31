@@ -10,7 +10,7 @@ ROOT: str = get_root_path(__file__, go_up=1)
 CURRENT_VERSION: str = cd.get_version_from_pyproject(f"{ROOT}/pyproject.toml")
 CREDENTIALS_PATH: str = "~/stouputils/credentials.yml"
 GITHUB_CONFIG: dict[str, Any] = {
-	"project_name": "ClaudeChan",
+	"project_name": "ClaireChan",
 	"version": CURRENT_VERSION,
 	"build_folder": f"{ROOT}/dist",
 	"endswith": [

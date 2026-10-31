@@ -1,5 +1,5 @@
 [project]
-name = "claudechan-sprites"
+name = "clairechan-sprites"
 version = "0.0.0"
 description = "Builds the Claire sprites from the source video and image edits"
 requires-python = "==3.13.*"

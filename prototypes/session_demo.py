@@ -18,7 +18,7 @@ from typing import Any, override
 from winpty import PtyProcess
 
 # Constants
-SESSION_NAME: str = "ClaudeChan"
+SESSION_NAME: str = "ClaireChan"
 HOOK_EVENTS: tuple[str, ...] = (
 	"UserPromptSubmit", "PreToolUse", "PostToolUse", "Notification", "PermissionRequest", "MessageDisplay", "Stop", "StopFailure",
 )
@@ -53,7 +53,7 @@ class Session:
 		threading.Thread(target=server.serve_forever, daemon=True).start()
 		url = f"http://127.0.0.1:{server.server_port}"
 		hooks = {name: [{"hooks": [{"type": "http", "url": f"{url}/{name}", "timeout": 5}]}] for name in HOOK_EVENTS}
-		settings = Path(tempfile.gettempdir()) / "claudechan_hooks.json"
+		settings = Path(tempfile.gettempdir()) / "clairechan_hooks.json"
 		settings.write_text(json.dumps({"hooks": hooks}), encoding="utf-8")
 
 		env = {k: v for k, v in os.environ.items() if k not in NESTED_SESSION_VARS}

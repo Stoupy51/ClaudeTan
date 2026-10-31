@@ -6,9 +6,9 @@ from concurrent.futures import Future, ThreadPoolExecutor
 
 from PySide6.QtWidgets import QApplication
 
-from claudechan.actions import ACTIONS, Action
-from claudechan.mcp import ActionServer
-from claudechan.session import JsonDict
+from clairechan.actions import ACTIONS, Action
+from clairechan.mcp import ActionServer
+from clairechan.session import JsonDict
 
 
 # Functions

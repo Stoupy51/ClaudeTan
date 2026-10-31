@@ -6,7 +6,7 @@ from PySide6.QtCore import QEvent, QPoint, QPointF, QSettings, Qt
 from PySide6.QtGui import QGuiApplication, QImage, QMouseEvent, QPainter
 from PySide6.QtWidgets import QApplication
 
-from claudechan.overlay.avatar import Avatar, Pill
+from clairechan.overlay.avatar import Avatar, Pill
 
 
 # Functions

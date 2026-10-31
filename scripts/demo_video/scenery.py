@@ -20,9 +20,9 @@ from PySide6.QtGui import (
 	QRadialGradient,
 )
 
-from claudechan.config import ROOT
-from claudechan.overlay.avatar import ASSETS, face
-from claudechan.overlay.effects import ACCENT
+from clairechan.config import ROOT
+from clairechan.overlay.avatar import ASSETS, face
+from clairechan.overlay.effects import ACCENT
 
 # Constants
 WIDTH: int = 1920
@@ -46,17 +46,17 @@ TOKENS: re.Pattern[str] = re.compile(
 SHOWN_CODE: str = "ACTIONS: list[Action] = ["
 """ The editor scrolls to this line of `actions.py`, a few lines above it. """
 TERMINAL: tuple[tuple[str, QColor], ...] = (
-	("PS D:\\dev\\ClaudeChan> uv run claudechan", CODE),
-	("[PROGRESS 14:31:12] Starting ClaudeChan, which takes about 15 s...", QColor(214, 112, 214)),
+	("PS D:\\dev\\ClaireChan> uv run clairechan", CODE),
+	("[PROGRESS 14:31:12] Starting ClaireChan, which takes about 15 s...", QColor(214, 112, 214)),
 	("[INFO  14:31:26] Claude Code session resumed: https://claude.ai/code/session_01HcV8", QColor(35, 209, 139)),
 	("[INFO  14:31:29] Plan usage: Claude plan", QColor(35, 209, 139)),
 	("5-hour window: 22% used, resets 6:30pm", QColor(35, 209, 139)),
 	("Week: 27% used, resets Oct 19, 12am", QColor(35, 209, 139)),
 	("[INFO  14:31:29] Whisper runs on the GPU", QColor(35, 209, 139)),
 	('[INFO  14:31:29] Say "Hey Claire, ..." to ask her something', QColor(35, 209, 139)),
-	("PS D:\\dev\\ClaudeChan> ", CODE),
+	("PS D:\\dev\\ClaireChan> ", CODE),
 )
-""" What `uv run claudechan` prints, each line in its color. """
+""" What `uv run clairechan` prints, each line in its color. """
 EDITOR_FRAME: QRectF = QRectF(64, 44, 1150, 800)
 TERMINAL_FRAME: QRectF = QRectF(420, 590, 780, 330)
 TERMINAL_ICON: QPointF = QPointF(WIDTH / 2 + 48, HEIGHT - TASKBAR / 2)
@@ -108,7 +108,7 @@ def wallpaper(scale: float) -> QImage:
 
 
 def desktop() -> Desktop:
-	""" An editor on the code of the actions, the terminal ClaudeChan started from, and the taskbar. """
+	""" An editor on the code of the actions, the terminal ClaireChan started from, and the taskbar. """
 	pictures: list[QPicture] = []
 	for draw in (editor, terminal, taskbar):
 		picture = QPicture()
@@ -152,7 +152,7 @@ def window(painter: QPainter, frame: QRectF, title: str, body: QColor) -> QRectF
 
 
 def editor(painter: QPainter) -> None:
-	area = window(painter, EDITOR_FRAME, "actions.py - ClaudeChan - Visual Studio Code", QColor(30, 31, 38))
+	area = window(painter, EDITOR_FRAME, "actions.py - ClaireChan - Visual Studio Code", QColor(30, 31, 38))
 	status = QRectF(area.left(), area.bottom() - 24, area.width(), 24)
 	painter.fillRect(QRectF(area.left(), area.top(), 48, area.height() - 24), QColor(36, 37, 46))
 	for row in range(4):
@@ -165,9 +165,9 @@ def editor(painter: QPainter) -> None:
 	painter.setFont(font(12, QFont.Weight.DemiBold))
 	painter.setPen(QColor(170, 170, 185))
 	painter.drawText(QPointF(sidebar.left() + 18, sidebar.top() + 26), "EXPLORER")
-	painter.drawText(QPointF(sidebar.left() + 18, sidebar.top() + 56), "CLAUDECHAN")
+	painter.drawText(QPointF(sidebar.left() + 18, sidebar.top() + 56), "CLAIRECHAN")
 	painter.setFont(font(14))
-	for row, name in enumerate(("src/claudechan", *FILES, "tests", "README.md", "PLAN.md")):
+	for row, name in enumerate(("src/clairechan", *FILES, "tests", "README.md", "PLAN.md")):
 		y = sidebar.top() + 70 + 26 * row
 		nested = 0 < row <= len(FILES)
 		if name == "actions.py":
@@ -189,7 +189,7 @@ def editor(painter: QPainter) -> None:
 		painter.drawText(tab, Qt.AlignmentFlag.AlignCenter, name)
 	painter.setFont(font(13))
 	painter.setPen(QColor(150, 150, 165))
-	painter.drawText(QPointF(tabs.left() + 16, tabs.bottom() + 20), "src  >  claudechan  >  actions.py")
+	painter.drawText(QPointF(tabs.left() + 16, tabs.bottom() + 20), "src  >  clairechan  >  actions.py")
 	code(painter, QRectF(tabs.left(), tabs.bottom() + 30, tabs.width(), status.top() - tabs.bottom() - 30))
 
 	painter.fillRect(status, QColor(0, 122, 204))
@@ -201,7 +201,7 @@ def editor(painter: QPainter) -> None:
 
 def code(painter: QPainter, area: QRectF) -> None:
 	""" The lines of `actions.py` around `SHOWN_CODE`, numbered and colored as VS Code shows them. """
-	lines = (ROOT / "src" / "claudechan" / "actions.py").read_text(encoding="utf-8").splitlines()
+	lines = (ROOT / "src" / "clairechan" / "actions.py").read_text(encoding="utf-8").splitlines()
 	first = next(i for i, line in enumerate(lines) if line.startswith(SHOWN_CODE)) - 4
 	mono = font(15, family=MONO)
 	advance = QFontMetricsF(mono).horizontalAdvance
