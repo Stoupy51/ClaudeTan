@@ -5,18 +5,18 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import claudetan.config
-from claudetan import i18n
-from claudetan.config import DEFAULTS, Config, save_volume
-from claudetan.i18n import tr
-from claudetan.voice import listener as listener_module
-from claudetan.voice.audio import RATE, Speech
-from claudetan.voice.listener import SPELLING, Listener
+import claudechan.config
+from claudechan import i18n
+from claudechan.config import DEFAULTS, Config, save_volume
+from claudechan.i18n import tr
+from claudechan.voice import listener as listener_module
+from claudechan.voice.audio import RATE, Speech
+from claudechan.voice.listener import SPELLING, Listener
 
 
 # Functions
 def listener(sent: list[str], monkeypatch: pytest.MonkeyPatch) -> Listener:
-	monkeypatch.setattr(claudetan.config, "USER_CONFIG", DEFAULTS)
+	monkeypatch.setattr(claudechan.config, "USER_CONFIG", DEFAULTS)
 	voice = Listener(Config.load())
 	voice.heard.connect(sent.append)
 	voice.cancelled.connect(lambda: sent.append("<cancelled>"))
@@ -47,14 +47,14 @@ def test_a_short_word_ends_a_request_only_as_a_sentence_of_its_own(monkeypatch: 
 def test_a_word_after_the_punctuation_of_a_single_utterance_ends_the_request(monkeypatch: pytest.MonkeyPatch) -> None:
 	sent: list[str] = []
 	voice = listener(sent, monkeypatch)
-	voice.hear("Hé Claude, qu'est-ce qu'il y a sur mon écran ? Terminé.", "fr", ended=True)
+	voice.hear("Hé Claire, qu'est-ce qu'il y a sur mon écran ? Terminé.", "fr", ended=True)
 	assert sent == ["qu'est-ce qu'il y a sur mon écran ?"]
 
 
 def test_a_short_word_after_a_comma_ends_the_request(monkeypatch: pytest.MonkeyPatch) -> None:
 	sent: list[str] = []
 	voice = listener(sent, monkeypatch)
-	voice.hear("Hé Claude, mets une tête spéciale aux zombies. Merci, terminé.", "fr", ended=True)
+	voice.hear("Hé Claire, mets une tête spéciale aux zombies. Merci, terminé.", "fr", ended=True)
 	assert sent == ["mets une tête spéciale aux zombies. Merci"]
 
 
@@ -86,11 +86,11 @@ def test_a_request_is_sent_after_a_pause_or_dropped(monkeypatch: pytest.MonkeyPa
 
 def test_her_lines_follow_the_language_of_what_is_said_to_her_only(monkeypatch: pytest.MonkeyPatch) -> None:
 	voice = listener([], monkeypatch)
-	voice.hear("Hé Claude, quel temps fait-il ?", "fr", ended=True)
+	voice.hear("Hé Claire, quel temps fait-il ?", "fr", ended=True)
 	voice.hear("Thank you.", "en", ended=True)
 	assert tr("Yes?", "Oui ?") == "Oui ?"
 
-	voice.hear("Hey Claude, set a timer for 5 minutes.", "en", ended=True)
+	voice.hear("Hey Claire, set a timer for 5 minutes.", "en", ended=True)
 	assert i18n.heard == "en"
 
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from stouputils.typing import JsonDict
 
-from claudetan.overlay.bubble import TYPING_S, TYPING_SPEED
+from claudechan.overlay.bubble import TYPING_S, TYPING_SPEED
 
 # Constants
 WHISPER_S: float = 0.2
@@ -146,7 +146,7 @@ class Timeline:
 def speaking_s(text: str) -> float:
 	""" How long the user takes to say the text.
 
-	>>> round(speaking_s("Hey Claude."), 2)
+	>>> round(speaking_s("Hey Claire."), 2)
 	0.45
 	"""
 	return 0.2 + 0.0225 * length(text)
@@ -184,7 +184,7 @@ def screenplay(words: Words) -> Timeline:
 def ask_out_loud(play: Timeline, words: Words) -> None:
 	play.cue(Title(1, words.chapters[0]), then=0.7)
 	ask(play, words.question, words.language)
-	play.hook("PreToolUse", then=0.0, tool_name="mcp__claudetan__screenshot", tool_input={"screen": 1})
+	play.hook("PreToolUse", then=0.0, tool_name="mcp__claudechan__screenshot", tool_input={"screen": 1})
 	play.cue(Read())
 	play.stream(words.reply, message_id="reply", every=0.2)
 	play.cue(Read(longer_s=0.5))
@@ -216,7 +216,7 @@ def background_work(play: Timeline, words: Words) -> None:
 
 def any_language(play: Timeline, words: Words) -> None:
 	play.cue(Title(4, words.chapters[3]), then=0.7)
-	ask(play, f"Hey Claude, {JAPANESE_REQUEST} Done.", "ja")
+	ask(play, f"Hey Claire, {JAPANESE_REQUEST} Done.", "ja")
 	play.stream(JAPANESE_REPLY, message_id="japanese", every=0.25)
 	play.cue(Read())
 	play.cue(Leave(), then=0.6)

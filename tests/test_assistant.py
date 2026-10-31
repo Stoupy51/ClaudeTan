@@ -1,4 +1,4 @@
-""" Claude-tan's reactions to the session's hook events, and the queue that keeps commands from being typed during a turn. """
+""" Claire's reactions to the session's hook events, and the queue that keeps commands from being typed during a turn. """
 # Imports
 from concurrent.futures import Future
 from ctypes import windll
@@ -6,20 +6,20 @@ from ctypes import windll
 import pytest
 from PySide6.QtWidgets import QApplication
 
-import claudetan.config
-from claudetan.actions import VK_MUTE
-from claudetan.app import Assistant
-from claudetan.config import DEFAULTS, Config
-from claudetan.overlay import avatar as avatar_module
-from claudetan.overlay.avatar import Avatar, Pill
-from claudetan.session import JsonDict
+import claudechan.config
+from claudechan.actions import VK_MUTE
+from claudechan.app import Assistant
+from claudechan.config import DEFAULTS, Config
+from claudechan.overlay import avatar as avatar_module
+from claudechan.overlay.avatar import Avatar, Pill
+from claudechan.session import JsonDict
 
 
 # Functions
 @pytest.fixture
 def assistant(app: QApplication, monkeypatch: pytest.MonkeyPatch) -> Assistant:
 	monkeypatch.setattr(avatar_module, "chime", mute)
-	monkeypatch.setattr(claudetan.config, "USER_CONFIG", DEFAULTS)
+	monkeypatch.setattr(claudechan.config, "USER_CONFIG", DEFAULTS)
 	return Assistant(Avatar(), Pill(), Config.load())
 
 

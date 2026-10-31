@@ -9,15 +9,15 @@ from pathlib import Path
 import pytest
 import uiautomation as auto
 
-from claudetan import config
-from claudetan.services import desktop
+from claudechan import config
+from claudechan.services import desktop
 
 # Constants
 SW_SHOWNOACTIVATE: int = 4
 
 
 # Functions
-@pytest.mark.skipif(not os.environ.get("CLAUDETAN_UI_TESTS"), reason="Opens a Notepad that takes the focus from the user's window")
+@pytest.mark.skipif(not os.environ.get("CLAUDECHAN_UI_TESTS"), reason="Opens a Notepad that takes the focus from the user's window")
 def test_she_asks_before_her_first_action_in_an_app_and_only_reads_one_left_to_reading(
 	tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -32,9 +32,9 @@ def test_she_asks_before_her_first_action_in_an_app_and_only_reads_one_left_to_r
 		assert f"{window}: " in desktop.list_windows()
 
 		field = edit_number(desktop.read_window(window))
-		assert desktop.permission("mcp__claudetan__fill", {"element": field})
+		assert desktop.permission("mcp__claudechan__fill", {"element": field})
 		desktop.fill(field, "Bonjour")
-		assert desktop.permission("mcp__claudetan__fill", {"element": field}) is None
+		assert desktop.permission("mcp__claudechan__fill", {"element": field}) is None
 		assert '= "Bonjour"' in (listing := desktop.read_window(window))
 
 		user_config.write_text('apps = { "notepad.exe" = "read" }\n', encoding="utf-8")

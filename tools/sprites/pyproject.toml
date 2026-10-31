@@ -1,7 +1,7 @@
 [project]
-name = "claudetan-sprites"
+name = "claudechan-sprites"
 version = "0.0.0"
-description = "Builds the Claude-tan sprites from the source video and image edits"
+description = "Builds the Claire sprites from the source video and image edits"
 requires-python = "==3.13.*"
 dependencies = [
 	"accelerate>=1.15.0",

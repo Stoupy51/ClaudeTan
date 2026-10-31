@@ -1,4 +1,4 @@
-""" Where Claude-tan shows up as screens come and go, and how her mouth follows her voice. """
+""" Where Claire shows up as screens come and go, and how her mouth follows her voice. """
 # Imports
 from pathlib import Path
 
@@ -6,7 +6,7 @@ from PySide6.QtCore import QEvent, QPoint, QPointF, QSettings, Qt
 from PySide6.QtGui import QGuiApplication, QImage, QMouseEvent, QPainter
 from PySide6.QtWidgets import QApplication
 
-from claudetan.overlay.avatar import Avatar, Pill
+from claudechan.overlay.avatar import Avatar, Pill
 
 
 # Functions

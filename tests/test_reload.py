@@ -14,9 +14,9 @@ from types import ModuleType
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from claudetan import config, reload
-from claudetan.launcher import git, set_aside
-from claudetan.reload import PACKAGE, Reloader, reload_order
+from claudechan import config, reload
+from claudechan.launcher import git, set_aside
+from claudechan.reload import PACKAGE, Reloader, reload_order
 
 # Constants
 COUNTER: str = """
@@ -61,8 +61,8 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication
 
 application = QApplication([])
-from claudetan import app, config, reload
-from claudetan.overlay.avatar import Avatar, Pill
+from claudechan import app, config, reload
+from claudechan.overlay.avatar import Avatar, Pill
 
 
 class Listener(QObject):
@@ -118,7 +118,7 @@ def hot(app: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> I
 def commit(repository: Path, monkeypatch: pytest.MonkeyPatch) -> str:
 	""" Commits what the folder holds, as a new git repository, and returns the commit. """
 	config_file = repository.parent / "gitconfig"
-	config_file.write_text("[user]\n\tname = Claude-tan\n\temail = claude-tan@localhost\n", encoding="utf-8")
+	config_file.write_text("[user]\n\tname = Claire\n\temail = claire@localhost\n", encoding="utf-8")
 	monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config_file))
 	git(repository, "init")
 	git(repository, "add", ".")
@@ -178,14 +178,14 @@ def test_a_change_that_fails_to_load_is_put_aside_and_the_old_code_kept(hot: Mod
 
 
 def test_modules_reload_after_those_they_take_names_from() -> None:
-	importlib.import_module("claudetan.app")
-	order = reload_order({"claudetan.overlay.avatar"})
-	assert order.index("claudetan.overlay.avatar") < order.index("claudetan.overlay.tray")
-	assert "claudetan.app" not in order
+	importlib.import_module("claudechan.app")
+	order = reload_order({"claudechan.overlay.avatar"})
+	assert order.index("claudechan.overlay.avatar") < order.index("claudechan.overlay.tray")
+	assert "claudechan.app" not in order
 
 
 def test_the_app_reloads_its_own_modules_in_place_from_a_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-	package = tmp_path / "src" / "claudetan"
+	package = tmp_path / "src" / "claudechan"
 	shutil.copytree(PACKAGE, package, ignore=shutil.ignore_patterns("__pycache__"))
 	shutil.copytree(reload.ASSETS, tmp_path / "assets")
 	commit(tmp_path, monkeypatch)

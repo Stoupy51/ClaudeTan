@@ -252,7 +252,7 @@ wheels = [
 ]
 
 [[package]]
-name = "claudetan"
+name = "claudechan"
 version = "1.1.0"
 source = { editable = "." }
 dependencies = [

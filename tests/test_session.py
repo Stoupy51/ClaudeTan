@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from claudetan.session import HookServer, context_tokens
+from claudechan.session import HookServer, context_tokens
 
 
 # Functions

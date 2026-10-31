@@ -1,9 +1,9 @@
 
-# 🎙️ ClaudeTan
+# 🎙️ ClaudeChan
 
 <div align="center">
 
-*Say "Hey Claude": Claude-tan pops up on your screen while a hidden Claude Code session, running on your Claude subscription, does the work.*
+*Say "Hey Claire": Claire pops up on your screen while a hidden Claude Code session, running on your Claude subscription, does the work.*
 
 </div>
 
@@ -14,7 +14,7 @@ https://github.com/user-attachments/assets/e2820f10-1f87-489a-a312-c4bfd2b80bcb
 
 ## ✨ Features
 
-- 🎙️ **Voice**: say *"Hey Claude, ..."* and Whisper transcribes you on your own GPU, or on the CPU after a wake phrase spotter.
+- 🎙️ **Voice**: say *"Hey Claire, ..."* and Whisper transcribes you on your own GPU, or on the CPU after a wake phrase spotter.
 - ✅ **Permissions by voice**: answer her permission requests with *"yes"* or *"no"*, without touching the keyboard.
 - 🧵 **Background work**: long tasks go to an Opus agent while she waits as a small pill, and she tells you when they are done.
 - 🌐 **Any language**: the session answers in the language you speak, and she says her replies aloud in Japanese, her bubble being their subtitles.
@@ -33,9 +33,9 @@ https://github.com/user-attachments/assets/e2820f10-1f87-489a-a312-c4bfd2b80bcb
 ## 🔧 Installation
 
 ```powershell
-git clone https://github.com/Stoupy51/ClaudeTan
-cd ClaudeTan
-uv run claudetan-setup
+git clone https://github.com/Stoupy51/ClaudeChan
+cd ClaudeChan
+uv run claudechan-setup
 ```
 
 The setup installs the dependencies, downloads Whisper (1.6 GB, or 0.5 GB and the wake phrase spotter without an NVIDIA GPU) and runs it once,
@@ -45,18 +45,18 @@ pick *Yes, I trust this folder*, then type `/exit`. This dialog is Claude Code's
 
 Optional, once:
 
-- Windows hides new tray icons behind the `^` arrow: drag Claude-tan's next to the clock to keep it in sight.
+- Windows hides new tray icons behind the `^` arrow: drag Claire's next to the clock to keep it in sight.
 - Turn on *Start with Windows* in her tray menu to start her at logon.
 
 ## ▶️ Usage
 
 ```powershell
-uv run claudetan
+uv run claudechan
 ```
 
 The app starts in the background with a hidden Claude Code session in this folder, prints the session's link and your plan usage once ready, and keeps running until you quit it from her tray icon.
 The session stays in claude.ai's list after you quit, and the app resumes it on its next start.
-Say *"Hey Claude, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
+Say *"Hey Claire, ..."*: she shows up as soon as she hears it, shows the sentence she understood, then what the session does and its answer.
 Her own lines are in French when you speak French, in English otherwise.
 Her Japanese voice says her replies and her permission requests: Claude Haiku translates each line, which takes a little of your plan's usage, and AivisSpeech says it on the CPU, about 4 s after the bubble shows.
 
@@ -69,7 +69,7 @@ You may pause while you speak: she sends your request after 15 s of silence, or 
 
 ### 🧰 Actions
 
-A request that is exactly one of the phrases below is done by the app itself, at once and without the session. Any other wording goes to the session, which has the same actions as tools (`mcp__claudetan__*`) and calls them itself.
+A request that is exactly one of the phrases below is done by the app itself, at once and without the session. Any other wording goes to the session, which has the same actions as tools (`mcp__claudechan__*`) and calls them itself.
 
 | Action | Say | Does |
 |---|---|---|
@@ -102,12 +102,12 @@ She leaves her changes for you to review and commit, unless `commit_changes = tr
 ### Without an NVIDIA GPU
 
 Whisper's model takes 20 s a sentence on a 6-core CPU, against 0.6 s on a GPU, so the app switches to a lighter setup by itself:
-a small model of [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) listens for *"Hey Claude"* on 2.5 % of one core, and Whisper's `small` model only transcribes what you say after it.
-She then answers about 4 s after you stop speaking instead of 1 s, mishears more words, and wakes on the usual ways to say *"Hey Claude"* in English or French, whatever the `wake` key of the config says.
+a small model of [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) listens for *"Hey Claire"* on 2.5 % of one core, and Whisper's `small` model only transcribes what you say after it.
+She then answers about 4 s after you stop speaking instead of 1 s, mishears more words, and wakes on the usual ways to say *"Hey Claire"* in English or French, whatever the `wake` key of the config says.
 
 ## ⚙️ Configuration
 
-*Open the config* in the tray menu opens `%APPDATA%\ClaudeTan\config.toml`, which explains each key:
+*Open the config* in the tray menu opens `%APPDATA%\ClaudeChan\config.toml`, which explains each key:
 the speech recognition language, the wake phrase, the pause and the phrases that end a spoken request,
 the models of the hidden session (Sonnet) and of the agent it hands complicated requests to (Opus), whether she commits the changes to her own code, the applications she may use, her size on screen, her voice, and your additions to the session's system prompt, such as where your folders are.
 A change applies as soon as you save the file, and she tells you what changed. The agent's model, the commits and the system prompt, which Claude Code reads only when it starts, restart the hidden session on the same conversation once she has nothing running.
@@ -116,7 +116,7 @@ A change applies as soon as you save the file, and she tells you what changed. T
 
 ```powershell
 uv run pytest --doctest-modules src tests
-$env:CLAUDETAN_UI_TESTS = 1; uv run pytest tests/test_desktop.py   # opens a Notepad, which takes the focus
+$env:CLAUDECHAN_UI_TESTS = 1; uv run pytest tests/test_desktop.py   # opens a Notepad, which takes the focus
 uv run ruff check .
 uv run pyright
 uv run prototypes/overlay_demo.py              # plays every expression in a loop
@@ -126,7 +126,7 @@ uv run prototypes/voice_demo.py --spotter      # counts what the wake phrase spo
 ```
 
 The demo video at the top of this file is the `_small` copy of that script's video, uploaded with the [gh-image](https://github.com/drogers0/gh-image) extension:
-`gh image dist/demo_small.mp4 --repo Stoupy51/ClaudeTan` prints the link to paste in place of the old one.
+`gh image dist/demo_small.mp4 --repo Stoupy51/ClaudeChan` prints the link to paste in place of the old one.
 
 The sprites in `assets/claude/` come out of `tools/sprites/`, a separate uv project described in [PLAN.md](PLAN.md#sprites).
 
@@ -139,7 +139,7 @@ To let Claude Code work on that part, add this exception to your user settings, 
 "autoMode": {
 	"allow": [
 		"$defaults",
-		"In the ClaudeTan repository, the app starts a hidden Claude Code session with claude --remote-control --permission-mode auto and types the user's voice commands into it: writing, testing and running that launcher, including scripts that start such a session to test it, is allowed."
+		"In the ClaudeChan repository, the app starts a hidden Claude Code session with claude --remote-control --permission-mode auto and types the user's voice commands into it: writing, testing and running that launcher, including scripts that start such a session to test it, is allowed."
 	]
 }
 ```

@@ -115,7 +115,7 @@ wheels = [
 ]
 
 [[package]]
-name = "claudetan-sprites"
+name = "claudechan-sprites"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [

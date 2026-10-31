@@ -5,7 +5,7 @@ from collections.abc import Iterator
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from claudetan import i18n
+from claudechan import i18n
 
 
 # Functions

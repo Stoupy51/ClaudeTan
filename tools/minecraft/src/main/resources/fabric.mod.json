@@ -1,12 +1,12 @@
 {
 	"schemaVersion": 1,
-	"id": "claudetan_bridge",
+	"id": "claudechan_bridge",
 	"version": "0.1.0",
-	"name": "ClaudeTan Bridge",
-	"description": "Lets ClaudeTan drive this test client over HTTP on localhost: commands, chat, inputs, state and screenshots.",
+	"name": "ClaudeChan Bridge",
+	"description": "Lets ClaudeChan drive this test client over HTTP on localhost: commands, chat, inputs, state and screenshots.",
 	"environment": "client",
 	"entrypoints": {
-		"client": ["dev.stoupy.claudetan.bridge.Bridge"]
+		"client": ["dev.stoupy.claudechan.bridge.Bridge"]
 	},
 	"depends": {
 		"fabricloader": ">=0.19.5",

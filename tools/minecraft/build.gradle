@@ -5,22 +5,22 @@ plugins {
 version = '0.1.0'
 group = 'dev.stoupy'
 base {
-	archivesName = 'claudetan-bridge'
+	archivesName = 'claudechan-bridge'
 }
 
 loom {
 	runs {
 		client {
 			runDir 'run'
-			programArgs '--username', 'ClaudeTan'
+			programArgs '--username', 'ClaudeChan'
 		}
 		// A second player for tests that need two, such as two game modes at once.
 		client2 {
 			inherit client
 			configName = 'Minecraft Client 2'
 			runDir 'run2'
-			programArgs '--username', 'ClaudeTan2'
-			vmArg '-Dclaudetan.bridge.port=47622'
+			programArgs '--username', 'ClaudeChan2'
+			vmArg '-Dclaudechan.bridge.port=47622'
 		}
 	}
 }

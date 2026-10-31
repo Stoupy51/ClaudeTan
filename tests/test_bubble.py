@@ -8,8 +8,8 @@ from PySide6.QtCore import QPointF
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
-from claudetan.overlay.bubble import FADE_CHARS, SCROLL_DELAY_S, SLICE_COLORS, TYPING_S, Bubble
-from claudetan.report import Report, Slice
+from claudechan.overlay.bubble import FADE_CHARS, SCROLL_DELAY_S, SLICE_COLORS, TYPING_S, Bubble
+from claudechan.report import Report, Slice
 
 
 # Functions

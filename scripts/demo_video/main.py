@@ -1,4 +1,4 @@
-""" Renders the demo video of Claude-tan from `screenplay.py`.
+""" Renders the demo video of Claire from `screenplay.py`.
 
 Nothing runs for real: no microphone, no Claude session, no network call.
 The screenplay feeds the real listener what Whisper would hear and the real `Assistant` the hook events Claude Code would post,
@@ -68,16 +68,16 @@ from spoken import Clip, clips
 from stouputils.typing import JsonDict
 from words import ENGLISH
 
-import claudetan.app
-import claudetan.config
-import claudetan.voice.listener
-from claudetan import i18n
-from claudetan.app import Assistant
-from claudetan.config import DEFAULTS, ROOT, Config
-from claudetan.overlay import avatar as avatar_module, tray as tray_module
-from claudetan.overlay.avatar import CHIME_RATE, LONG_PRESS_MS, PILL_SIZE, SPRITE_HEIGHT, SPRITE_TOP, Avatar, Pill, bell
-from claudetan.overlay.menu import HOVER_MS, SHOW_MS, Slider, slider_track
-from claudetan.voice.listener import Listener
+import claudechan.app
+import claudechan.config
+import claudechan.voice.listener
+from claudechan import i18n
+from claudechan.app import Assistant
+from claudechan.config import DEFAULTS, ROOT, Config
+from claudechan.overlay import avatar as avatar_module, tray as tray_module
+from claudechan.overlay.avatar import CHIME_RATE, LONG_PRESS_MS, PILL_SIZE, SPRITE_HEIGHT, SPRITE_TOP, Avatar, Pill, bell
+from claudechan.overlay.menu import HOVER_MS, SHOW_MS, Slider, slider_track
+from claudechan.voice.listener import Listener
 
 # Constants
 FPS: int = 60
@@ -97,7 +97,7 @@ SLIDE_PX: float = 40.0
 BLINK_S: float = 0.13
 INTRO_S: float = 1.8
 MINIMIZE_S: float = 2.2
-""" When the terminal ClaudeTan started from is minimized, right after the intro. """
+""" When the terminal ClaudeChan started from is minimized, right after the intro. """
 CARD_S: float = 3.0
 """ How long a chapter card stays up. """
 CAPTION_S: float = 0.8
@@ -226,10 +226,10 @@ class Studio:
 		blink = random.Random(7)
 		self.blinks = [2.0 + sum(blink.uniform(2.5, 6.0) for _ in range(i)) for i in range(60)]
 
-		stack.enter_context(patch.object(claudetan.config, "USER_CONFIG", DEFAULTS))
-		stack.enter_context(patch.object(claudetan.app, "QTimer", ClockTimer))
+		stack.enter_context(patch.object(claudechan.config, "USER_CONFIG", DEFAULTS))
+		stack.enter_context(patch.object(claudechan.app, "QTimer", ClockTimer))
 		stack.enter_context(patch.object(avatar_module, "chime", self.chime))
-		stack.enter_context(patch.object(claudetan.voice.listener, "time", SimpleNamespace(monotonic=lambda: Clock.seconds)))
+		stack.enter_context(patch.object(claudechan.voice.listener, "time", SimpleNamespace(monotonic=lambda: Clock.seconds)))
 		stack.enter_context(patch.object(Avatar, "now", video_time))
 		stack.enter_context(patch.object(i18n, "heard", "en"))
 		stack.enter_context(patch.object(tray_module, "starts_with_windows", lambda: True))
@@ -615,7 +615,7 @@ class Studio:
 			title_card(painter, "hello", self.words.tagline, (), appeared=now / 0.9)
 		if self.outro_at is not None:
 			painter.setOpacity(min(1.0, (now - self.outro_at) / 0.4))
-			footer = ("uv run claudetan", "github.com/Stoupy51/ClaudeTan")
+			footer = ("uv run claudechan", "github.com/Stoupy51/ClaudeChan")
 			title_card(painter, "happy", self.words.outro, footer, appeared=(now - self.outro_at) / 0.9)
 		black = max(1 - now / 0.5, 1 - (self.end - now) / 0.5, 0.0)
 		painter.setOpacity(1)

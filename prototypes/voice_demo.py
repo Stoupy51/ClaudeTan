@@ -2,7 +2,7 @@
 
 Run with `uv run prototypes/voice_demo.py`, or pass `--wav file.wav` to replay a recording.
 `--spotter` runs only the wake phrase spotter the app uses without an NVIDIA GPU, and counts what it catches:
-say "Hey Claude" a few times to the microphone, or replay an hour of a video without it to count false alarms,
+say "Hey Claire" a few times to the microphone, or replay an hour of a video without it to count false alarms,
 converted with `ffmpeg -i video.mp4 -ac 1 -ar 16000 video.wav`.
 """
 # Imports
@@ -14,10 +14,10 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from claudetan.config import Config
-from claudetan.voice.audio import FRAME, RATE, Audio, microphone
-from claudetan.voice.listener import Listener
-from claudetan.voice.wake import spot_wake
+from claudechan.config import Config
+from claudechan.voice.audio import FRAME, RATE, Audio, microphone
+from claudechan.voice.listener import Listener
+from claudechan.voice.wake import spot_wake
 
 
 # Functions
@@ -61,7 +61,7 @@ def main() -> None:
 	listener = Listener(config)
 	listener.woke.connect(lambda: print(f"{clock[0]:6.2f}s woke", flush=True))
 	listener.heard.connect(heard)
-	print("Listening... say « Hey Claude, ... »", flush=True)
+	print("Listening... say « Hey Claire, ... »", flush=True)
 	listener.run(frames)
 
 
